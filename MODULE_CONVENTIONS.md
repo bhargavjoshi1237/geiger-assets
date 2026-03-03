@@ -21,8 +21,8 @@ and the shared kit (`components/internal/shared`).
 | Data layer (per area) | `lib/supabase/<area>.js` | `list*/get*/create*/update*/softDelete*`, `normalize*/toRow` |
 | Media/storage | `lib/supabase/storage.js` | `products` bucket, `events/<id>/` prefix, public URL persisted |
 | Signed-in user | `lib/supabase/user.js` | `getUser()` → stamps `created_by` / RLS ownership |
-| SQL (when persisted) | `supabase/sqls/*.sql` | `flow_*` tables, idempotent + self-contained DDL |
-| Migration runner | `scripts/run-sqls.js` (`npm run db:push`) | `pg` over `STRING_URI`, runs `supabase/sqls/*` in order |
+| SQL (when persisted) | `supabase/migrations/<version>_<name>.sql` | `assets` schema tables, `-- @up` / `-- @down` sections |
+| Migration runner | `@geiger/orm` (`npm run db:push`) | `geiger-orm.config.mjs` over `STRING_URI`, applies pending migrations in version order |
 | Environment | `.env` | `NEXT_PUBLIC_SUPABASE_URL`/`_ANON_KEY` (runtime), `STRING_URI` (migrations) |
 
 Files use snake_case names; React components are PascalCase; permission keys are
@@ -90,11 +90,12 @@ in `events/all_events.jsx`. (`all_events.jsx` still carries a legacy
   anon client, `fetch` wrapped for activity tracking. Every data-layer call first
   checks `isSupabaseConfigured()` (both `NEXT_PUBLIC_SUPABASE_URL` and
   `_ANON_KEY` present); missing env degrades to "no DB", never crashes.
-- **Migrations (Node):** `scripts/run-sqls.js` opens a `pg` client over
-  `STRING_URI` (direct Postgres, **server-only**, never `NEXT_PUBLIC_`). Run with
-  `npm run db:push`; it executes `supabase/sqls/*.sql` in filename order. `--clean`
-  drops **only this app's own table** — the Supabase project is **shared across
-  the suite**, so never drop all `flow_*` tables.
+- **Migrations (Node):** `@geiger/orm` connects over `STRING_URI` (direct
+  Postgres, **server-only**, never `NEXT_PUBLIC_`), as set in
+  `geiger-orm.config.mjs`. Run with `npm run db:push`; it applies pending
+  `supabase/migrations/*.sql` files in version order (`npm run db:status` lists
+  them). The Supabase project is **shared across the suite**, so a migration only
+  ever touches the `assets` schema.
 
 ### Data-layer module shape (`lib/supabase/<area>.js`)
 
