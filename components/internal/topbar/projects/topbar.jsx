@@ -7,6 +7,8 @@ import { useProject } from "@/context/project-context";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NotificationsDropdown } from "../dialogue/notifications_dropdown";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export function ProjectTopbar() {
   const { project } = useProject();
   return (
@@ -16,11 +18,11 @@ export function ProjectTopbar() {
           <SidebarTrigger className="md:hidden -ml-2 text-white" />
           <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 md:-ml-1.5">
             <img
-              src="/logo1.svg"
+              src={`${basePath}/logo1.svg`}
               alt=""
               className="w-7 h-7 -mr-0.5 hover:bg-[#282828] rounded-md p-1"
               onClick={() => {
-                window.location.href = "/";
+                window.location.href = basePath || "/";
               }}
               onError={(e) => {
                 e.currentTarget.style.display = "none";

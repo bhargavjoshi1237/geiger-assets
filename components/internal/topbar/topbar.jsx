@@ -14,6 +14,8 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NotificationsDropdown } from "./dialogue/notifications_dropdown";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export function Topbar() {
   return (
     <header className="h-14 px-4 flex items-center justify-between border-b border-[#2a2a2a] bg-[#161616] text-white z-20 w-full shrink-0">
@@ -21,7 +23,7 @@ export function Topbar() {
         <SidebarTrigger className="md:hidden -ml-2 text-white" />
         <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 md:-ml-1.5">
           <img
-            src="/logo1.svg"
+            src={`${basePath}/logo1.svg`}
             alt=""
             className="w-5 h-5 -mr-0.5"
             onError={(e) => {
