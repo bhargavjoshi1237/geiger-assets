@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:/Backup/geiger-flow/components\" -type f -name \"*topbar*\" -o -name \"*navbar*\" -o -name \"*header*\" -o -name \"*top*\" 2>/dev/null | head -20)",
+      "Bash(cd \"C:/Backup/geiger-assets\" && npm install lucide-react class-variance-authority clsx tailwind-merge radix-ui next-themes tw-animate-css date-fns 2>&1 | tail -5)",
+      "Bash(cd \"C:/Backup/geiger-assets\" && mkdir -p lib/hooks context components/ui components/internal/topbar/dialogue components/internal/topbar/projects components/internal/sidebar/projects)",
+      "Bash(cd \"C:/Backup/geiger-assets\" && npx next build 2>&1 | tail -30)",
+      "Bash(cd \"C:/Backup/geiger-assets\" && npm install -D shadcn 2>&1 | tail -5)"
+    ]
+  }
+}
