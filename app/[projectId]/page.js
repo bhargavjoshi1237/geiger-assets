@@ -55,6 +55,8 @@ function ProjectLayoutContent({ id }) {
     switch (currentTab) {
       case "Overview":
         return <HomeScreen id={id} />;
+      case "Library":
+        return <LibraryScreen id={id} />;
       default:
         return <HomeScreen id={id} />;
     }
