@@ -19,7 +19,7 @@ and the shared kit (`components/internal/shared`).
 | Permissions catalog | `lib/rbac.js` | `WORKSPACE_PERMISSIONS`, dot-namespaced keys |
 | Supabase client | `lib/supabase/client.js` | `createClient()` (browser, activity-tracked) |
 | Data layer (per area) | `lib/supabase/<area>.js` | `list*/get*/create*/update*/softDelete*`, `normalize*/toRow` |
-| Media/storage | `lib/supabase/storage.js` | `products` bucket, `events/<id>/` prefix, public URL persisted |
+| Media/storage | `lib/storage/client.js` (browser), `lib/s3` (server-only) | S3 objects under `p/<projectId>/a/<assetId>/v/<n>/<filename>` (`assetKey()`), served through signed or proxied URLs |
 | Signed-in user | `lib/supabase/user.js` | `getUser()` → stamps `created_by` / RLS ownership |
 | SQL (when persisted) | `supabase/migrations/<version>_<name>.sql` | `assets` schema tables, `-- @up` / `-- @down` sections |
 | Migration runner | `@geiger/orm` (`npm run db:push`) | `geiger-orm.config.mjs` over `STRING_URI`, applies pending migrations in version order |
