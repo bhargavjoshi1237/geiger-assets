@@ -56,7 +56,7 @@ function ProjectLayoutContent({ id }) {
       case "Overview":
         return <HomeScreen id={id} />;
       case "Library":
-        return <LibraryScreen id={id} />;
+        return <HomeScreen id={id} />;
       default:
         return <HomeScreen id={id} />;
     }

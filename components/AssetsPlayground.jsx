@@ -1,0 +1,71 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { ProjectSidebar } from "@/components/internal/sidebar/projects/project_sidebar";
+import { ProjectTopbar } from "@/components/internal/topbar/projects/topbar";
+import { HomeScreen } from "@/components/internal/screens/projects/home/home_screen";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { ProjectProvider, useProject } from "@/context/project-context";
+import { settingsNav } from "@/components/internal/sidebar/projects/sidebar_data";
+
+const demoProjectId = "assets-project";
+
+function AssetsPlaygroundContent() {
+  const [currentTab, setCurrentTab] = useState("Overview");
+  const { fetchProjectInfo } = useProject();
+
+  useEffect(() => {
+    fetchProjectInfo(demoProjectId);
+  }, [fetchProjectInfo]);
+
+  const renderScreen = () => {
+    const isSettingsTab = settingsNav.some((item) => item.title === currentTab);
+
+    if (isSettingsTab) {
+      return (
+        <div className="flex h-full items-center justify-center text-sm text-[#525252]">
+          Settings: {currentTab}
+        </div>
+      );
+    }
+
+    switch (currentTab) {
+      case "Overview":
+        return <HomeScreen id={demoProjectId} />;
+      default:
+        return (
+          <div className="flex h-full items-center justify-center text-sm text-[#525252]">
+            Screen: {currentTab}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[#161616] font-sans text-[#ededed] selection:bg-[#333333]">
+      <SidebarProvider
+        className="!flex h-full min-w-0 flex-col"
+        style={{ flexDirection: "column" }}
+      >
+        <ProjectTopbar />
+        <div className="relative flex flex-1 overflow-hidden">
+          <ProjectSidebar activeTab={currentTab} onTabChange={setCurrentTab} />
+          <SidebarInset className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden border-none bg-transparent">
+            <div className="pointer-events-none absolute right-0 top-0 h-[300px] w-[500px] rounded-full bg-white/[0.02] blur-[120px]" />
+            <main className="relative z-10 w-full min-w-0 flex-1 overflow-y-auto px-2 py-3 [-ms-overflow-style:none] [scrollbar-width:none] sm:px-3 sm:py-4 md:p-8 [&::-webkit-scrollbar]:hidden">
+              {renderScreen()}
+            </main>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </div>
+  );
+}
+
+export function AssetsPlayground() {
+  return (
+    <ProjectProvider>
+      <AssetsPlaygroundContent />
+    </ProjectProvider>
+  );
+}
