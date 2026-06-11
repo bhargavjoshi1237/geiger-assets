@@ -5,10 +5,10 @@ import ClientAssetsPlayground from "@/components/ClientAssetsPlayground";
 export default function LandingAssetShowcase({ backgroundImage, ctaHref, ctaLabel }) {
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#191919] bg-cover bg-center p-3 sm:rounded-3xl sm:p-6 md:p-8 xl:p-10"
+      className="relative overflow-hidden rounded-2xl border border-border bg-[#191919] bg-cover bg-center p-3 sm:rounded-3xl sm:p-6 md:p-8 xl:p-10"
       style={backgroundImage ? { backgroundImage: `url('${backgroundImage}')` } : undefined}
     >
-      <div className="pointer-events-none absolute inset-0 bg-zinc-950/35" />
+      <div className="pointer-events-none absolute inset-0 bg-background/35" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#ffffff12_1px,transparent_1px),linear-gradient(to_bottom,#ffffff12_1px,transparent_1px)] bg-[size:28px_28px] opacity-40 [mask-image:radial-gradient(ellipse_70%_55%_at_50%_0%,#000_55%,transparent_100%)]" />
       <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[70%] -translate-x-1/2 bg-white/[0.04] blur-[90px]" />
       <div className="flex flex-col gap-6 sm:gap-10">
@@ -18,7 +18,7 @@ export default function LandingAssetShowcase({ backgroundImage, ctaHref, ctaLabe
               Explore the full Geiger Assets project workspace.
             </h3>
 
-            <p className="max-w-sm text-zinc-500">
+            <p className="max-w-sm text-foreground0">
               This playground runs the Assets project interface locally on the
               homepage with the project sidebar, topbar, overview dashboard, and
               asset management controls.
@@ -34,8 +34,8 @@ export default function LandingAssetShowcase({ backgroundImage, ctaHref, ctaLabe
           </div>
         </div>
 
-        <div className="relative z-10 rounded-2xl border border-zinc-700/80 bg-[#191919]/70 p-2 shadow-2xl backdrop-blur-md sm:p-3">
-          <div className="h-[520px] overflow-hidden rounded-xl border border-zinc-800 bg-[#161616] sm:h-[620px] lg:h-[760px]">
+        <div className="relative z-10 rounded-2xl border border-border-strong/80 bg-[#191919]/70 p-2 shadow-2xl backdrop-blur-md sm:p-3">
+          <div className="h-[520px] overflow-hidden rounded-xl border border-border bg-background sm:h-[620px] lg:h-[760px]">
             <ClientAssetsPlayground />
           </div>
         </div>

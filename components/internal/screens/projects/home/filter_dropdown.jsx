@@ -47,19 +47,19 @@ export default function FilterDropdown({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className={`bg-[#202020] border-[#2a2a2a] text-[#ededed] hover:bg-[#1a1a1a] text-xs px-3 rounded-md font-medium ${height}`}
+            className={`bg-surface-card border-border text-foreground hover:bg-surface-subtle text-xs px-3 rounded-md font-medium ${height}`}
           >
             {getFilterLabel(filter)}{" "}
-            <ChevronDown className="w-3.5 h-3.5 ml-2 text-[#737373]" />
+            <ChevronDown className="w-3.5 h-3.5 ml-2 text-text-secondary" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="bg-[#1a1a1a] border-[#2a2a2a] text-[#ededed]">
+        <DropdownMenuContent className="bg-surface-subtle border-border text-foreground">
           <DropdownMenuRadioGroup value={filter} onValueChange={handleValueChange}>
             {options.map((option) => (
               <DropdownMenuRadioItem
                 key={option.value}
                 value={option.value}
-                className="text-xs focus:bg-[#2a2a2a] focus:text-[#ededed] cursor-pointer"
+                className="text-xs focus:bg-surface-hover focus:text-foreground cursor-pointer"
               >
                 {option.label}
               </DropdownMenuRadioItem>

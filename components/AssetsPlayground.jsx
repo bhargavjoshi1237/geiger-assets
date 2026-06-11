@@ -23,7 +23,7 @@ function AssetsPlaygroundContent() {
 
     if (isSettingsTab) {
       return (
-        <div className="flex h-full items-center justify-center text-sm text-[#525252]">
+        <div className="flex h-full items-center justify-center text-sm text-text-tertiary">
           Settings: {currentTab}
         </div>
       );
@@ -34,7 +34,7 @@ function AssetsPlaygroundContent() {
         return <HomeScreen id={demoProjectId} />;
       default:
         return (
-          <div className="flex h-full items-center justify-center text-sm text-[#525252]">
+          <div className="flex h-full items-center justify-center text-sm text-text-tertiary">
             Screen: {currentTab}
           </div>
         );
@@ -42,7 +42,7 @@ function AssetsPlaygroundContent() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-[#161616] font-sans text-[#ededed] selection:bg-[#333333]">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background font-sans text-foreground selection:bg-surface-strong">
       <SidebarProvider
         className="!flex h-full min-w-0 flex-col"
         style={{ flexDirection: "column" }}

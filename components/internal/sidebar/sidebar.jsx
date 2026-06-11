@@ -47,7 +47,7 @@ export function AppSidebar({ activeTab = "Overview", onTabChange = () => {} }) {
         <button
           type="button"
           onClick={toggleSidebar}
-          className="flex items-center gap-3 p-2 w-full rounded-lg hover:bg-sidebar-accent transition-all text-sidebar-foreground hover:text-white group-data-[collapsible=icon]:justify-center"
+
         >
           <PanelLeft className="w-5 h-5 shrink-0" />
         </button>

@@ -124,7 +124,7 @@ const TOP_COLLECTIONS = [
 const STATUS_META = {
   Active: { label: "Active", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   Shared: { label: "Shared", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  Archived: { label: "Archived", className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30" },
+  Archived: { label: "Archived", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
 };
 
 const ACTIVITY_CONFIG = {
@@ -155,7 +155,7 @@ const GROWTH_CONFIG = {
   assets: { label: "Total assets", color: SERIES[0] },
 };
 
-const TOOLTIP_CLASS = "bg-[#1a1a1a] border-[#2a2a2a] text-[#e7e7e7]";
+const TOOLTIP_CLASS = "bg-surface-subtle border-border text-foreground";
 
 // --- Rolling number (odometer) — shared suite overview pattern ---------------
 
@@ -190,14 +190,15 @@ function RollingNumber({ value, className }) {
   }, []);
 
   const chars = String(value).split("");
-  let digitIndex = 0;
+  const digitCountBefore = chars.map((_, i) =>
+    chars.slice(0, i).filter((c) => /\d/.test(c)).length,
+  );
 
   return (
     <span className={cn("inline-flex items-center leading-none tabular-nums", className)}>
       {chars.map((char, i) => {
         if (/\d/.test(char)) {
-          const delay = digitIndex * 70;
-          digitIndex += 1;
+          const delay = digitCountBefore[i] * 70;
           return (
             <RollingDigit key={i} digit={Number(char)} active={active} delay={delay} />
           );
@@ -218,7 +219,7 @@ function Panel({ children, className }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-[#e7e7e7]",
+        "rounded-xl border border-border bg-surface-subtle text-foreground",
         className,
       )}
     >
@@ -231,8 +232,8 @@ function PanelHeader({ title, subtitle, action }) {
   return (
     <div className="flex items-start justify-between gap-3 px-5 pt-4">
       <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-[#ededed]">{title}</h3>
-        {subtitle && <p className="text-xs text-[#737373]">{subtitle}</p>}
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {subtitle && <p className="text-xs text-text-secondary">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -252,10 +253,10 @@ function ActivityCard() {
 
   return (
     <Panel className="overflow-hidden">
-      <div className="flex flex-col items-stretch border-b border-[#2a2a2a] sm:flex-row">
+      <div className="flex flex-col items-stretch border-b border-border sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 px-5 py-4">
-          <h3 className="text-sm font-semibold text-[#ededed]">Asset Activity</h3>
-          <p className="text-xs text-[#737373]">Totals over the last 12 weeks.</p>
+          <h3 className="text-sm font-semibold text-foreground">Asset Activity</h3>
+          <p className="text-xs text-text-secondary">Totals over the last 12 weeks.</p>
         </div>
         <div className="flex">
           {["uploads", "downloads", "views"].map((key) => (
@@ -264,9 +265,9 @@ function ActivityCard() {
               type="button"
               data-active={activeChart === key}
               onClick={() => setActiveChart(key)}
-              className="flex flex-1 flex-col justify-center gap-1 border-t border-[#2a2a2a] px-5 py-4 text-left transition-colors hover:bg-[#1f1f1f] data-[active=true]:bg-[#202020] sm:border-t-0 sm:border-l sm:px-7"
+              className="flex flex-1 flex-col justify-center gap-1 border-t border-border px-5 py-4 text-left transition-colors hover:bg-surface-card data-[active=true]:bg-surface-card sm:border-t-0 sm:border-l sm:px-7"
             >
-              <span className="text-[11px] uppercase tracking-wider text-[#737373]">
+              <span className="text-[11px] uppercase tracking-wider text-text-secondary">
                 {ACTIVITY_CONFIG[key].label}
               </span>
               <RollingNumber
@@ -314,7 +315,7 @@ function ActivityCard() {
               <LabelList
                 position="top"
                 offset={10}
-                className="fill-[#e7e7e7]"
+                className="fill-foreground"
                 fontSize={11}
                 formatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)}
               />
@@ -369,7 +370,7 @@ function StorageCard() {
       <div className="px-3 pb-3 pt-2">
         <ChartContainer
           config={STORAGE_CONFIG}
-          className="[&_.recharts-text]:fill-[#e7e7e7] mx-auto aspect-square max-h-[200px]"
+          className="[&_.recharts-text]:fill-foreground mx-auto aspect-square max-h-[200px]"
         >
           <PieChart>
             <ChartTooltip
@@ -393,7 +394,7 @@ function StorageCard() {
                         <tspan x={viewBox.cx} y={viewBox.cy} className="fill-white text-2xl font-bold">
                           {STORAGE_TOTAL.toFixed(1)}
                         </tspan>
-                        <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-[#a3a3a3] text-xs">
+                        <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs">
                           GB used
                         </tspan>
                       </text>
@@ -411,7 +412,7 @@ function StorageCard() {
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: d.fill }} />
                 {d.type}
               </span>
-              <span className="tabular-nums font-medium text-[#ededed]">{d.value} GB</span>
+              <span className="tabular-nums font-medium text-foreground">{d.value} GB</span>
             </div>
           ))}
         </div>
@@ -472,26 +473,26 @@ function TopCollectionsTable() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-[#ededed]">Top Collections</h3>
-          <p className="text-xs text-[#737373]">Largest and most active collections.</p>
+          <h3 className="text-sm font-semibold text-foreground">Top Collections</h3>
+          <p className="text-xs text-text-secondary">Largest and most active collections.</p>
         </div>
         <Button
           variant="ghost"
-          className="text-xs font-medium text-[#737373] hover:text-[#e7e7e7] hover:bg-[#252525] px-2 py-1 rounded-lg"
+          className="text-xs font-medium text-text-secondary hover:text-foreground hover:bg-surface-active px-2 py-1 rounded-lg"
         >
           View all
         </Button>
       </div>
 
-      <div className="bg-[#202020] border border-[#2a2a2a] rounded-2xl overflow-hidden">
+      <div className="bg-surface-card border border-border rounded-2xl overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-[#1a1a1a] border-[#2a2a2a] hover:bg-[#1a1a1a]">
-              <TableHead className="px-5 text-xs uppercase tracking-wider text-[#737373]">Collection</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[#737373]">Status</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[#737373]">Assets</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[#737373]">Size</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[#737373]">Quota used</TableHead>
+            <TableRow className="bg-surface-subtle border-border hover:bg-surface-subtle">
+              <TableHead className="px-5 text-xs uppercase tracking-wider text-text-secondary">Collection</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Status</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Assets</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Size</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Quota used</TableHead>
               <TableHead className="text-right"></TableHead>
             </TableRow>
           </TableHeader>
@@ -499,11 +500,11 @@ function TopCollectionsTable() {
             {TOP_COLLECTIONS.map((c) => {
               const meta = STATUS_META[c.status] || STATUS_META.Active;
               return (
-                <TableRow key={c.name} className="border-[#2a2a2a] hover:bg-[#242424]">
+                <TableRow key={c.name} className="border-border hover:bg-surface-active">
                   <TableCell className="px-5 py-3.5">
                     <div className="flex flex-col gap-1">
-                      <span className="font-medium text-[#ededed]">{c.name}</span>
-                      <p className="line-clamp-1 text-xs text-[#737373]">{c.description}</p>
+                      <span className="font-medium text-foreground">{c.name}</span>
+                      <p className="line-clamp-1 text-xs text-text-secondary">{c.description}</p>
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -516,17 +517,17 @@ function TopCollectionsTable() {
                       {meta.label}
                     </Badge>
                   </TableCell>
-                  <TableCell className="tabular-nums text-[#a3a3a3]">
+                  <TableCell className="tabular-nums text-muted-foreground">
                     {c.assets.toLocaleString()}
                   </TableCell>
-                  <TableCell className="tabular-nums text-[#a3a3a3]">{c.size}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{c.size}</TableCell>
                   <TableCell>
                     <div className="w-[130px] space-y-1.5">
                       <Progress
                         value={c.usage}
-                        className="h-1.5 bg-[#2a2a2a] [&_[data-slot=progress-indicator]]:bg-[#ededed]"
+                        className="h-1.5 bg-surface-hover [&_[data-slot=progress-indicator]]:bg-[#ededed]"
                       />
-                      <p className="text-xs text-[#737373]">{c.usage}%</p>
+                      <p className="text-xs text-text-secondary">{c.usage}%</p>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -534,7 +535,7 @@ function TopCollectionsTable() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="text-[#a3a3a3] hover:text-white hover:bg-[#252525]"
+                      className="text-muted-foreground hover:text-foreground hover:bg-surface-active"
                     >
                       <ArrowUpRight className="h-4 w-4" />
                     </Button>
@@ -563,18 +564,18 @@ export function HomeScreen({ id }) {
         <div>
           <div className="flex items-center justify-center md:justify-start gap-3 w-full md:w-auto text-center md:text-left">
             {loading ? (
-              <div className="h-7 w-56 rounded-md bg-[#2a2a2a] animate-pulse" />
+              <div className="h-7 w-56 rounded-md bg-surface-hover animate-pulse" />
             ) : (
               <h1 className="text-2xl font-bold text-white tracking-tight">
                 {projectName ? `${projectName} Overview` : "Assets Overview"}
               </h1>
             )}
-            <span className="bg-[#1a1a1a] text-[#737373] text-[9px] px-1.5 py-0.5 rounded border border-[#2a2a2a] font-mono tracking-widest shrink-0">
+            <span className="bg-surface-subtle text-text-secondary text-[9px] px-1.5 py-0.5 rounded border border-border font-mono tracking-widest shrink-0">
               WORKSPACE
             </span>
           </div>
           <div className="w-full mt-2">
-            <p className="text-zinc-500 text-sm text-center md:text-left max-w-xl">
+            <p className="text-foreground0 text-sm text-center md:text-left max-w-xl">
               Track uploads, downloads, storage, and collection activity across
               your asset library.
             </p>
@@ -583,19 +584,19 @@ export function HomeScreen({ id }) {
         <div className="w-full md:w-auto">
           <div className="flex w-full md:w-auto md:gap-0">
             <div className="flex-1 md:flex-none flex flex-col items-center md:pr-8">
-              <span className="text-[#737373] text-[11px] uppercase tracking-wider font-medium">
+              <span className="text-text-secondary text-[11px] uppercase tracking-wider font-medium">
                 Assets
               </span>
               <RollingNumber value="2,847" className="text-white font-bold text-2xl mt-0.5" />
             </div>
-            <div className="flex-1 md:flex-none flex flex-col items-center border-l border-[#2a2a2a] md:px-8">
-              <span className="text-[#737373] text-[11px] uppercase tracking-wider font-medium">
+            <div className="flex-1 md:flex-none flex flex-col items-center border-l border-border md:px-8">
+              <span className="text-text-secondary text-[11px] uppercase tracking-wider font-medium">
                 Storage
               </span>
               <RollingNumber value="4.2 GB" className="text-white font-bold text-2xl mt-0.5" />
             </div>
-            <div className="flex-1 md:flex-none flex flex-col items-center border-l border-[#2a2a2a] md:pl-8">
-              <span className="text-[#737373] text-[11px] uppercase tracking-wider font-medium">
+            <div className="flex-1 md:flex-none flex flex-col items-center border-l border-border md:pl-8">
+              <span className="text-text-secondary text-[11px] uppercase tracking-wider font-medium">
                 Collections
               </span>
               <RollingNumber value="5" className="text-white font-bold text-2xl mt-0.5" />
@@ -604,7 +605,7 @@ export function HomeScreen({ id }) {
         </div>
       </div>
 
-      <div className="pt-4 border-t border-[#242424]">
+      <div className="pt-4 border-t border-surface-active">
         <FilterDropdown value={filterValue} onValueChange={setFilterValue} />
       </div>
 

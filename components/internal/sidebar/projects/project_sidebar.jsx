@@ -106,7 +106,7 @@ export function ProjectSidebar({
                   setActiveMenu("main");
                   onTabChange("Overview");
                 }}
-                className="flex items-center gap-2 text-sidebar-foreground hover:text-white transition-colors text-sm font-medium w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:hidden px-2 py-1 rounded-md hover:bg-sidebar-accent"
+
               >
                 <ChevronLeft className="w-4 h-4" />
                 Settings
@@ -117,7 +117,7 @@ export function ProjectSidebar({
                   setActiveMenu("main");
                   onTabChange("Overview");
                 }}
-                className="hidden group-data-[collapsible=icon]:flex items-center justify-center w-full text-sidebar-foreground hover:text-white rounded-md hover:bg-sidebar-accent p-1"
+
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -145,7 +145,7 @@ export function ProjectSidebar({
         <button
           type="button"
           onClick={toggleSidebar}
-          className="flex items-center gap-3 p-2 w-full rounded-lg hover:bg-sidebar-accent transition-all text-sidebar-foreground hover:text-white group-data-[collapsible=icon]:justify-center"
+
         >
           <PanelLeft className="w-5 h-5 shrink-0" />
         </button>
