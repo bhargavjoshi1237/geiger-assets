@@ -7,6 +7,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarHeader,
   SidebarMenu,
   SidebarRail,
   useSidebar,
@@ -14,6 +15,37 @@ import {
 import { PanelLeft, ChevronLeft } from "lucide-react";
 import { SidebarOption } from "../sidebar_option";
 import { projectNav, settingsNav, mediaTypesNav } from "./sidebar_data";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
+function MobileSidebarHeader() {
+  const { isMobile } = useSidebar();
+
+  if (!isMobile) {
+    return null;
+  }
+
+  return (
+    <SidebarHeader className="border-b border-sidebar-border p-0">
+      <div className="flex h-14 items-center px-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded">
+            <img
+              src={`${basePath}/logo1.svg`}
+              alt=""
+              className="h-5 w-5"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+                event.currentTarget.parentElement.innerHTML =
+                  '<div class="h-2 w-2 rounded-full bg-foreground"></div>';
+              }}
+            />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Assets</span>
+        </div>
+      </div>
+    </SidebarHeader>
+  );
+}
 
 export function ProjectSidebar({
   activeTab = "Overview",
@@ -36,6 +68,7 @@ export function ProjectSidebar({
       collapsible="icon"
       className="bg-sidebar border-r border-sidebar-border text-sidebar-foreground"
     >
+      <MobileSidebarHeader />
       <SidebarContent className="space-y-2 relative flex-1 overflow-hidden bg-sidebar">
         <div
           className={`absolute inset-0 w-full h-full bg-sidebar transition-transform duration-300 ease-in-out ${
