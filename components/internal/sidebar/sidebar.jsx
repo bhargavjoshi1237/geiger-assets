@@ -1,21 +1,23 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import {
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarHeader,
   SidebarMenu,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ChevronDown, Search, MoreVertical, PanelLeft } from "lucide-react";
+import { PanelLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SidebarOption } from "./sidebar_option";
 import { workspaceNav } from "./sidebar_nav";
+
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 function MobileSidebarHeader() {
@@ -30,10 +32,12 @@ function MobileSidebarHeader() {
       <div className="flex h-14 items-center px-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded">
-            <img
+            <Image
               src={`${basePath}/logo1.svg`}
               alt=""
-              className="h-5 w-5"
+              width={20}
+              height={20}
+              className="geiger-logo h-5 w-5"
               onError={(event) => {
                 event.currentTarget.style.display = "none";
                 event.currentTarget.parentElement.innerHTML =
@@ -76,13 +80,15 @@ export function AppSidebar({ activeTab = "Overview", onTabChange = () => {} }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-2 border-t border-sidebar-border mt-auto">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={toggleSidebar}
-
+          className="flex w-full items-center gap-3 rounded-lg p-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center"
+          aria-label="Toggle sidebar"
         >
           <PanelLeft className="w-5 h-5 shrink-0" />
-        </button>
+        </Button>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

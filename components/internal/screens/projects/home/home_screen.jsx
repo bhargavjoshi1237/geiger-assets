@@ -2,25 +2,42 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
+  ArrowDownRight,
+  ArrowUpRight,
+  Activity,
+  ChevronRight,
+  Clock3,
+  Database,
+  Files,
+  Network,
+  ScanSearch,
+  Share2,
+  Tags,
+} from "lucide-react";
+import {
   CartesianGrid,
-  Cell,
   Label,
   LabelList,
   Line,
   LineChart,
   Pie,
   PieChart,
+  PolarGrid,
+  PolarRadiusAxis,
+  RadialBar,
+  RadialBarChart,
   XAxis,
-  YAxis,
 } from "recharts";
-import { ArrowUpRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   Table,
   TableBody,
@@ -29,135 +46,86 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { cn } from "@/lib/utils";
 import { useProject } from "@/context/project-context";
+import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import FilterDropdown from "./filter_dropdown";
 
-// --- Palette (suite dark theme — monochrome series) --------------------------
+const CHART_COLORS = {
+  primary: "#ffffff",
+  background: "#161616",
+};
 
-const SERIES = ["#ffffff", "#a3a3a3", "#525252", "#737373", "#d4d4d4"];
+const SERIES = ["#ffffff", "#d4d4d4", "#a3a3a3", "#737373", "#525252"];
 
-// --- Sample data (placeholder until backend is connected) --------------------
-
-const UPLOADS = [42, 58, 51, 73, 66, 88, 102, 95, 121, 134, 148, 167];
-const DOWNLOADS = [310, 420, 380, 540, 505, 640, 720, 690, 820, 910, 1040, 1180];
-const VIEWS = [1200, 1650, 1480, 2100, 1980, 2480, 2810, 2660, 3120, 3540, 3980, 4420];
-
-const ACTIVITY_DATA = UPLOADS.map((u, i) => ({
-  week: `W${i + 1}`,
-  uploads: u,
-  downloads: DOWNLOADS[i],
-  views: VIEWS[i],
-}));
-
-const ASSET_TYPE_DATA = [
-  { type: "Images", count: 1640, fill: SERIES[0] },
-  { type: "Videos", count: 482, fill: SERIES[4] },
-  { type: "Documents", count: 396, fill: SERIES[1] },
-  { type: "Audio", count: 214, fill: SERIES[3] },
-  { type: "3D / Other", count: 115, fill: SERIES[2] },
+const WORKSPACE_SUMMARY = [
+  { label: "Assets", value: "2,847" },
+  { label: "Collections", value: "18" },
+  { label: "Storage", value: "4.2 GB" },
 ];
 
-const STORAGE_DATA = [
-  { type: "Images", value: 2.1, fill: SERIES[0] },
-  { type: "Videos", value: 1.4, fill: SERIES[4] },
-  { type: "Documents", value: 0.5, fill: SERIES[1] },
-  { type: "Audio", value: 0.1, fill: SERIES[3] },
-  { type: "Other", value: 0.1, fill: SERIES[2] },
+const STATS = [
+  { label: "Uploads", value: "324", delta: "+18.4%", trend: "up", footer: "vs last period" },
+  { label: "Downloads", value: "8,155", delta: "+12.1%", trend: "up", footer: "vs last period" },
+  { label: "Shared Assets", value: "486", delta: "+6.8%", trend: "up", footer: "vs last period" },
+  { label: "Needs Review", value: "37", delta: "-9.7%", trend: "down", footer: "vs last period" },
 ];
 
-const STORAGE_TOTAL = STORAGE_DATA.reduce((a, b) => a + b.value, 0);
-const STORAGE_QUOTA = 10;
+const ACTIVITY_SERIES = {
+  uploads: [42, 58, 51, 73, 66, 88, 102, 95, 121, 134, 148, 167],
+  downloads: [310, 420, 380, 540, 505, 640, 720, 690, 820, 910, 1040, 1180],
+  views: [1200, 1650, 1480, 2100, 1980, 2480, 2810, 2660, 3120, 3540, 3980, 4420],
+};
 
-const GROWTH_DATA = [
-  { week: "W1", assets: 1980 },
-  { week: "W2", assets: 2120 },
-  { week: "W3", assets: 2240 },
-  { week: "W4", assets: 2380 },
-  { week: "W5", assets: 2510 },
-  { week: "W6", assets: 2620 },
-  { week: "W7", assets: 2740 },
-  { week: "W8", assets: 2847 },
+const ACTIVITY_OPTIONS = [
+  { value: "uploads", label: "Uploads" },
+  { value: "downloads", label: "Downloads" },
+  { value: "views", label: "Views" },
 ];
+
+const FILE_TYPES = [
+  { key: "images", label: "Images", value: 1640 },
+  { key: "videos", label: "Videos", value: 482 },
+  { key: "documents", label: "Documents", value: 396 },
+  { key: "audio", label: "Audio", value: 214 },
+  { key: "other", label: "Other", value: 115 },
+];
+
+const SERVER_TRAFFIC = [
+  { location: "us-east-2", requests: 1840000, share: 96, fill: SERIES[0] },
+  { location: "us-west-1", requests: 1460000, share: 91, fill: SERIES[1] },
+  { location: "eu-west-1", requests: 1180000, share: 86, fill: SERIES[2] },
+  { location: "ap-south-1", requests: 940000, share: 79, fill: SERIES[3] },
+];
+
+const CDN_HIT_RATIO = { value: 94, hits: "1.15M", requests: "1.22M" };
+const BANDWIDTH = { value: 68, used: 6.8, capacity: 10 };
 
 const TOP_COLLECTIONS = [
-  {
-    name: "Brand Assets",
-    description: "Logos, palettes, and identity guidelines",
-    status: "Active",
-    assets: 312,
-    size: "1.8 GB",
-    usage: 64,
-  },
-  {
-    name: "Summer Campaign 2026",
-    description: "Hero banners, social cuts, and ad creatives",
-    status: "Shared",
-    assets: 248,
-    size: "2.4 GB",
-    usage: 82,
-  },
-  {
-    name: "Product Mockups",
-    description: "Renders and lifestyle product photography",
-    status: "Active",
-    assets: 196,
-    size: "1.2 GB",
-    usage: 41,
-  },
-  {
-    name: "Q1 Archive",
-    description: "Retired campaign assets kept for reference",
-    status: "Archived",
-    assets: 540,
-    size: "3.1 GB",
-    usage: 0,
-  },
+  { name: "Summer Campaign 2026", description: "Hero banners, social cuts, and paid media exports", status: "Shared", assets: 248, activity: 982, bandwidth: 82 },
+  { name: "Brand Assets", description: "Approved logos, typography, and identity guidelines", status: "Active", assets: 312, activity: 764, bandwidth: 64 },
+  { name: "Product Mockups", description: "Product renders and lifestyle photography", status: "Active", assets: 196, activity: 511, bandwidth: 41 },
+  { name: "Partner Toolkit", description: "Co-marketing templates and distribution-ready files", status: "Shared", assets: 128, activity: 284, bandwidth: 33 },
+  { name: "Q1 Archive", description: "Retired campaign assets retained for reference", status: "Archived", assets: 540, activity: 92, bandwidth: 12 },
 ];
 
-const STATUS_META = {
-  Active: { label: "Active", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  Shared: { label: "Shared", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  Archived: { label: "Archived", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
+const COLLECTION_STATUS = {
+  Active: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+  Shared: "border-sky-500/20 bg-sky-500/10 text-sky-400",
+  Archived: "border-border bg-surface-card text-muted-foreground",
 };
 
-const ACTIVITY_CONFIG = {
-  uploads: { label: "Uploads", color: SERIES[0] },
-  downloads: { label: "Downloads", color: SERIES[1] },
-  views: { label: "Views", color: SERIES[2] },
-};
+const ATTENTION_ITEMS = [
+  { key: "review", label: "Awaiting review", hint: "Across 6 collections", value: "37", icon: ScanSearch, urgency: "urgent" },
+  { key: "rights", label: "Rights expiring", hint: "Within the next 30 days", value: "12", icon: Clock3, urgency: "urgent" },
+  { key: "metadata", label: "Missing metadata", hint: "No owner, tags, or description", value: "86", icon: Tags, urgency: "soon" },
+  { key: "duplicates", label: "Possible duplicates", hint: "Ready to compare and merge", value: "24", icon: Files, urgency: "soon" },
+  { key: "links", label: "Public share links", hint: "8 links expire this week", value: "42", icon: Share2, urgency: "routine" },
+  { key: "storage", label: "Storage available", hint: "Across the current workspace", value: "5.8 GB", icon: Database, urgency: "routine" },
+];
 
-const ASSET_TYPE_CONFIG = {
-  count: { label: "Assets" },
-  Images: { label: "Images" },
-  Videos: { label: "Videos" },
-  Documents: { label: "Documents" },
-  Audio: { label: "Audio" },
-  "3D / Other": { label: "3D / Other" },
-};
-
-const STORAGE_CONFIG = {
-  value: { label: "Storage" },
-  Images: { label: "Images" },
-  Videos: { label: "Videos" },
-  Documents: { label: "Documents" },
-  Audio: { label: "Audio" },
-  Other: { label: "Other" },
-};
-
-const GROWTH_CONFIG = {
-  assets: { label: "Total assets", color: SERIES[0] },
-};
-
-const TOOLTIP_CLASS = "bg-surface-subtle border-border text-foreground";
-
-// --- Rolling number (odometer) — shared suite overview pattern ---------------
+const URGENCY_ORDER = ["urgent", "soon", "routine"];
+const URGENCY_LABELS = { urgent: "Urgent", soon: "Soon", routine: "Routine" };
 
 const ROLL_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -171,9 +139,9 @@ function RollingDigit({ digit, active, delay }) {
           transitionDelay: `${delay}ms`,
         }}
       >
-        {ROLL_DIGITS.map((n) => (
-          <span key={n} className="flex h-[1em] items-center justify-center leading-none">
-            {n}
+        {ROLL_DIGITS.map((number) => (
+          <span key={number} className="flex h-[1em] items-center justify-center leading-none">
+            {number}
           </span>
         ))}
       </span>
@@ -189,360 +157,445 @@ function RollingNumber({ value, className }) {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const chars = String(value).split("");
-  const digitCountBefore = chars.map((_, i) =>
-    chars.slice(0, i).filter((c) => /\d/.test(c)).length,
+  const characters = String(value).split("");
+  const digitCountBefore = characters.map((_, index) =>
+    characters.slice(0, index).filter((character) => /\d/.test(character)).length,
   );
 
   return (
-    <span className={cn("inline-flex items-center leading-none tabular-nums", className)}>
-      {chars.map((char, i) => {
-        if (/\d/.test(char)) {
-          const delay = digitCountBefore[i] * 70;
-          return (
-            <RollingDigit key={i} digit={Number(char)} active={active} delay={delay} />
-          );
-        }
-        return (
-          <span key={i} className="inline-flex h-[1em] items-center leading-none">
-            {char}
-          </span>
-        );
-      })}
+    <span className={cn("inline-flex items-center tabular-nums", className)}>
+      {characters.map((character, index) => {
+          if (/\d/.test(character)) {
+            return (
+              <RollingDigit
+                key={index}
+                digit={Number(character)}
+                active={active}
+                delay={digitCountBefore[index] * 70}
+              />
+            );
+          }
+
+          return <span key={index}>{character}</span>;
+        })}
     </span>
   );
 }
 
-// --- Card primitive ----------------------------------------------------------
-
-function Panel({ children, className }) {
+function WidgetShell({ children, className, contentClassName }) {
   return (
-    <div
+    <Card
       className={cn(
-        "rounded-xl border border-border bg-surface-subtle text-foreground",
+        "h-full gap-0 overflow-hidden rounded-xl border-border bg-surface-subtle py-0 text-foreground shadow-none",
         className,
       )}
     >
-      {children}
-    </div>
+      <CardContent className={cn("h-full p-4", contentClassName)}>{children}</CardContent>
+    </Card>
   );
 }
 
-function PanelHeader({ title, subtitle, action }) {
+function WidgetHeader({ title, subtitle, action }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-5 pt-4">
-      <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        {subtitle && <p className="text-xs text-text-secondary">{subtitle}</p>}
+    <div className="flex w-full items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
       {action}
     </div>
   );
 }
 
-// --- Asset activity hero (multi-series line) ---------------------------------
+function StatsBar() {
+  return (
+    <Card className="gap-0 overflow-hidden rounded-xl border-border bg-surface-subtle py-0 text-foreground shadow-none">
+      <CardContent className="p-0">
+        <div className="grid grid-cols-2 md:grid-cols-4">
+          {STATS.map((stat, index) => {
+            const up = stat.trend === "up";
+            const TrendIcon = up ? ArrowUpRight : ArrowDownRight;
 
-function ActivityCard() {
-  const [activeChart, setActiveChart] = useState("uploads");
+            return (
+              <div
+                key={stat.label}
+                className={cn(
+                  "p-4",
+                  index % 2 !== 0 && "border-l border-border",
+                  index >= 2 && "border-t border-border",
+                  "md:border-l md:border-t-0",
+                  index === 0 && "md:border-l-0",
+                )}
+              >
+                <span className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+                  {stat.label}
+                </span>
+                <div className="mt-1 flex items-end gap-2">
+                  <RollingNumber value={stat.value} className="text-2xl font-bold leading-none text-white" />
+                  <span
+                    className="mb-0.5 inline-flex items-center gap-0.5 text-xs font-medium text-emerald-400"
+                  >
+                    <TrendIcon className="h-3 w-3" />
+                    {stat.delta}
+                  </span>
+                </div>
+                <span className="mt-1 block text-[11px] text-text-tertiary">{stat.footer}</span>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-  const totals = {
-    uploads: UPLOADS.reduce((a, b) => a + b, 0),
-    downloads: DOWNLOADS.reduce((a, b) => a + b, 0),
-    views: VIEWS.reduce((a, b) => a + b, 0),
-  };
+function ActivityTrendWidget() {
+  const [metric, setMetric] = useState("uploads");
+  const selected = ACTIVITY_OPTIONS.find((option) => option.value === metric) || ACTIVITY_OPTIONS[0];
+  const series = ACTIVITY_SERIES[metric];
+  const data = series.map((value, index) => ({ week: `W${index + 1}`, value }));
+  const change = Math.round(((series.at(-1) - series[0]) / series[0]) * 100);
+  const total = series.reduce((sum, value) => sum + value, 0);
 
   return (
-    <Panel className="overflow-hidden">
-      <div className="flex flex-col items-stretch border-b border-border sm:flex-row">
-        <div className="flex flex-1 flex-col justify-center gap-1 px-5 py-4">
-          <h3 className="text-sm font-semibold text-foreground">Asset Activity</h3>
-          <p className="text-xs text-text-secondary">Totals over the last 12 weeks.</p>
-        </div>
-        <div className="flex">
-          {["uploads", "downloads", "views"].map((key) => (
-            <button
-              key={key}
-              type="button"
-              data-active={activeChart === key}
-              onClick={() => setActiveChart(key)}
-              className="flex flex-1 flex-col justify-center gap-1 border-t border-border px-5 py-4 text-left transition-colors hover:bg-surface-card data-[active=true]:bg-surface-card sm:border-t-0 sm:border-l sm:px-7"
-            >
-              <span className="text-[11px] uppercase tracking-wider text-text-secondary">
-                {ACTIVITY_CONFIG[key].label}
-              </span>
-              <RollingNumber
-                value={totals[key].toLocaleString()}
-                className="text-2xl font-bold leading-none text-white sm:text-3xl"
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="px-3 pb-3 pt-4">
-        <ChartContainer config={ACTIVITY_CONFIG} className="aspect-auto h-[260px] w-full">
-          <LineChart data={ACTIVITY_DATA} margin={{ top: 24, right: 16, left: 4, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="#2a2a2a" />
+    <WidgetShell contentClassName="flex flex-col">
+      <WidgetHeader
+        title="Library Activity"
+        subtitle={`${selected.label} across the workspace over 12 weeks.`}
+        action={
+          <FilterDropdown
+            value={metric}
+            onValueChange={setMetric}
+            options={ACTIVITY_OPTIONS}
+            height="h-9"
+          />
+        }
+      />
+      <div className="mt-3 min-h-0 flex-1">
+        <ChartContainer
+          config={{ value: { label: selected.label, color: CHART_COLORS.primary } }}
+          className="h-full w-full"
+        >
+          <LineChart data={data} margin={{ top: 24, right: 16, left: 12, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="#2a2a2a" strokeDasharray="3 3" />
             <XAxis
               dataKey="week"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              padding={{ left: 12, right: 12 }}
-              stroke="#737373"
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              width={36}
-              stroke="#737373"
-              domain={[(min) => Math.max(0, Math.floor(min * 0.85)), (max) => Math.ceil(max * 1.08)]}
-              tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : v)}
+              tick={{ fill: "#737373", fontSize: 11 }}
             />
             <ChartTooltip
-              cursor={{ stroke: "#333333" }}
-              content={<ChartTooltipContent nameKey={activeChart} className={TOOLTIP_CLASS} />}
+              cursor={false}
+              content={<ChartTooltipContent indicator="line" hideLabel />}
             />
             <Line
-              dataKey={activeChart}
-              type="natural"
-              stroke={`var(--color-${activeChart})`}
+              dataKey="value"
+              type="monotone"
+              stroke={CHART_COLORS.primary}
               strokeWidth={2}
-              dot={{ fill: `var(--color-${activeChart})`, r: 3 }}
+              dot={{ fill: CHART_COLORS.primary, r: 3 }}
               activeDot={{ r: 5 }}
-              isAnimationActive={true}
-              animationDuration={800}
+              isAnimationActive
             >
               <LabelList
+                dataKey="value"
                 position="top"
                 offset={10}
-                className="fill-foreground"
+                className="fill-[#ededed]"
                 fontSize={11}
-                formatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)}
+                formatter={(value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value)}
               />
             </Line>
           </LineChart>
         </ChartContainer>
       </div>
-    </Panel>
+    </WidgetShell>
   );
 }
 
-// --- Asset types (bar) -------------------------------------------------------
+function FileMixWidget() {
+  const [selectedType, setSelectedType] = useState(FILE_TYPES[0].key);
+  const total = FILE_TYPES.reduce((sum, item) => sum + item.value, 0);
+  const data = FILE_TYPES.map((item, index) => ({
+    ...item,
+    fill: SERIES[index % SERIES.length],
+  }));
+  const selectedIndex = Math.max(data.findIndex((item) => item.key === selectedType), 0);
+  const selectedItem = data[selectedIndex];
 
-function AssetTypesCard() {
   return (
-    <Panel>
-      <PanelHeader title="Assets by Type" subtitle="Distribution across the library." />
-      <div className="px-3 pb-3 pt-4">
-        <ChartContainer config={ASSET_TYPE_CONFIG} className="aspect-auto h-[240px] w-full">
-          <BarChart data={ASSET_TYPE_DATA} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="#2a2a2a" />
-            <XAxis dataKey="type" tickLine={false} axisLine={false} tickMargin={8} stroke="#737373" interval={0} fontSize={10} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              width={36}
-              stroke="#737373"
-              tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)}
-            />
-            <ChartTooltip
-              cursor={{ fill: "#ffffff10" }}
-              content={<ChartTooltipContent hideLabel className={TOOLTIP_CLASS} />}
-            />
-            <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-              {ASSET_TYPE_DATA.map((entry) => (
-                <Cell key={entry.type} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-      </div>
-    </Panel>
-  );
-}
-
-// --- Storage breakdown (donut) -----------------------------------------------
-
-function StorageCard() {
-  return (
-    <Panel>
-      <PanelHeader title="Storage" subtitle={`${STORAGE_TOTAL.toFixed(1)} GB of ${STORAGE_QUOTA} GB used.`} />
-      <div className="px-3 pb-3 pt-2">
+    <WidgetShell contentClassName="flex flex-col">
+      <WidgetHeader title="File Type Mix" subtitle="How the library is composed." />
+      <div className="relative mt-3 flex min-h-0 flex-1 items-center justify-center">
         <ChartContainer
-          config={STORAGE_CONFIG}
-          className="[&_.recharts-text]:fill-foreground mx-auto aspect-square max-h-[200px]"
+          config={Object.fromEntries(data.map((item) => [item.key, { label: item.label, color: item.fill }]))}
+          className="mx-auto h-[220px] w-[220px]"
         >
           <PieChart>
+            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel nameKey="key" />} />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="key"
+              innerRadius={44}
+              outerRadius={78}
+              activeIndex={selectedIndex}
+              activeShape={{ outerRadius: 88 }}
+              onMouseEnter={(_, index) => setSelectedType(data[index]?.key || selectedType)}
+              stroke={CHART_COLORS.background}
+              strokeWidth={2}
+              isAnimationActive
+            />
+          </PieChart>
+        </ChartContainer>
+        <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+          <span className="text-3xl font-bold leading-none text-white">{selectedItem.value}</span>
+          <span className="mt-1 text-xs font-medium text-muted-foreground">{selectedItem.label}</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3">
+        {data.slice(0, 4).map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setSelectedType(item.key)}
+            className="flex items-center justify-between gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.fill }} />
+              {item.label}
+            </span>
+            <span className="tabular-nums">{Math.round((item.value / total) * 100)}%</span>
+          </button>
+        ))}
+      </div>
+    </WidgetShell>
+  );
+}
+
+function ServerTrafficWidget() {
+  const total = SERVER_TRAFFIC.reduce((sum, item) => sum + item.requests, 0);
+  return (
+    <WidgetShell contentClassName="flex flex-col">
+      <WidgetHeader
+        title="Overall Traffic"
+        subtitle="Requests served by edge location."
+        action={
+          <div className="text-right">
+            <p className="text-2xl font-bold leading-none text-white">
+              {(total / 1000000).toFixed(2)}M
+            </p>
+            <p className="mt-1 text-[11px] text-text-secondary">requests</p>
+          </div>
+        }
+      />
+      <div className="mt-4 min-h-0 flex-1">
+        <ChartContainer
+          config={{ share: { label: "Relative traffic", color: CHART_COLORS.primary } }}
+          className="mx-auto aspect-square h-full max-h-[175px]"
+        >
+          <RadialBarChart
+            data={SERVER_TRAFFIC}
+            innerRadius={24}
+            outerRadius={82}
+            startAngle={90}
+            endAngle={-270}
+          >
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel nameKey="type" className={TOOLTIP_CLASS} />}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  formatter={(value, name, item) => (
+                    <span className="flex w-full items-center justify-between gap-3">
+                      <span className="text-muted-foreground">{item.payload.location}</span>
+                      <span className="font-medium tabular-nums text-foreground">
+                        {item.payload.requests.toLocaleString()} requests
+                      </span>
+                    </span>
+                  )}
+                />
+              }
             />
-            <Pie
-              data={STORAGE_DATA}
-              dataKey="value"
-              nameKey="type"
-              innerRadius={52}
-              outerRadius={80}
-              strokeWidth={2}
-              stroke="#1a1a1a"
-            >
+            <PolarGrid
+              gridType="circle"
+              radialLines={false}
+              stroke="#333333"
+              strokeOpacity={0.65}
+            />
+            <RadialBar
+              dataKey="share"
+              nameKey="location"
+              background={{ fill: "#242424" }}
+              cornerRadius={8}
+              isAnimationActive
+            />
+          </RadialBarChart>
+        </ChartContainer>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-text-secondary">
+        {SERVER_TRAFFIC.map((item) => (
+          <div key={item.location} className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.fill }} />
+              <span className="truncate">{item.location}</span>
+            </span>
+            <span className="font-medium tabular-nums text-foreground">
+              {item.requests >= 1000000
+                ? `${(item.requests / 1000000).toFixed(2)}M`
+                : `${Math.round(item.requests / 1000)}k`}
+            </span>
+          </div>
+        ))}
+      </div>
+    </WidgetShell>
+  );
+}
+
+function GaugeWidget({ title, subtitle, value, caption, footnote, icon: Icon }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const endAngle = 90 - (clamped / 100) * 360;
+
+  return (
+    <WidgetShell contentClassName="flex flex-col">
+      <WidgetHeader
+        title={title}
+        subtitle={subtitle}
+        action={
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-card text-muted-foreground">
+            <Icon className="h-4 w-4" />
+          </div>
+        }
+      />
+      <div className="mt-1 flex min-h-0 flex-1 items-center justify-center">
+        <ChartContainer
+          config={{ value: { label: caption, color: CHART_COLORS.primary } }}
+          className="mx-auto aspect-square h-full max-h-[190px]"
+        >
+          <RadialBarChart
+            data={[{ name: caption, value: clamped, fill: CHART_COLORS.primary }]}
+            startAngle={90}
+            endAngle={endAngle}
+            innerRadius={72}
+            outerRadius={104}
+          >
+            <PolarGrid
+              gridType="circle"
+              radialLines={false}
+              stroke="none"
+              polarRadius={[78, 66]}
+              className="first:fill-[#202020] last:fill-[#1a1a1a]"
+            />
+            <RadialBar dataKey="value" cornerRadius={8} isAnimationActive />
+            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
               <Label
                 content={({ viewBox }) => {
                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                     return (
                       <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-white text-2xl font-bold">
-                          {STORAGE_TOTAL.toFixed(1)}
+                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-white text-3xl font-bold">
+                          {clamped}%
                         </tspan>
-                        <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs">
-                          GB used
+                        <tspan
+                          x={viewBox.cx}
+                          y={(viewBox.cy || 0) + 22}
+                          className="fill-muted-foreground text-xs font-medium"
+                        >
+                          {caption}
                         </tspan>
                       </text>
                     );
                   }
+
+                  return null;
                 }}
               />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 px-2 pb-1 pt-2">
-          {STORAGE_DATA.map((d) => (
-            <div key={d.type} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-2 text-[#c4c4c4]">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: d.fill }} />
-                {d.type}
-              </span>
-              <span className="tabular-nums font-medium text-foreground">{d.value} GB</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-// --- Library growth (area) ---------------------------------------------------
-
-function GrowthCard() {
-  return (
-    <Panel>
-      <PanelHeader title="Library Growth" subtitle="Total assets stored over time." />
-      <div className="px-3 pb-3 pt-4">
-        <ChartContainer config={GROWTH_CONFIG} className="aspect-auto h-[240px] w-full">
-          <AreaChart data={GROWTH_DATA} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-            <defs>
-              <linearGradient id="growth-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-assets)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="var(--color-assets)" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} stroke="#2a2a2a" />
-            <XAxis dataKey="week" tickLine={false} axisLine={false} tickMargin={8} stroke="#737373" />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              width={36}
-              stroke="#737373"
-              domain={[(min) => Math.floor(min * 0.96), (max) => Math.ceil(max * 1.02)]}
-              tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)}
-            />
-            <ChartTooltip
-              cursor={{ stroke: "#333333" }}
-              content={<ChartTooltipContent className={TOOLTIP_CLASS} />}
-            />
-            <Area
-              dataKey="assets"
-              type="monotone"
-              stroke="var(--color-assets)"
-              strokeWidth={2}
-              fill="url(#growth-fill)"
-              isAnimationActive={true}
-              animationDuration={800}
-            />
-          </AreaChart>
+            </PolarRadiusAxis>
+          </RadialBarChart>
         </ChartContainer>
       </div>
-    </Panel>
+      <p className="mt-1 text-center text-xs text-text-secondary">{footnote}</p>
+    </WidgetShell>
   );
 }
-
-// --- Top collections table ---------------------------------------------------
 
 function TopCollectionsTable() {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Top Collections</h3>
-          <p className="text-xs text-text-secondary">Largest and most active collections.</p>
-        </div>
-        <Button
-          variant="ghost"
-          className="text-xs font-medium text-text-secondary hover:text-foreground hover:bg-surface-active px-2 py-1 rounded-lg"
-        >
-          View all
-        </Button>
+    <div className="flex flex-col gap-4">
+      <div>
+        <WidgetHeader title="Top Collections" subtitle="Ranked by recent library activity." />
       </div>
-
       <div className="bg-surface-card border border-border rounded-2xl overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-surface-subtle border-border hover:bg-surface-subtle">
-              <TableHead className="px-5 text-xs uppercase tracking-wider text-text-secondary">Collection</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Status</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Assets</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Size</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-text-secondary">Quota used</TableHead>
-              <TableHead className="text-right"></TableHead>
+            <TableRow className="bg-surface-subtle border-border">
+              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Collection
+              </TableHead>
+              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Status
+              </TableHead>
+              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Assets
+              </TableHead>
+              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Activity
+              </TableHead>
+              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Bandwidth
+              </TableHead>
+              <TableHead className="h-12 px-6 text-right"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {TOP_COLLECTIONS.map((c) => {
-              const meta = STATUS_META[c.status] || STATUS_META.Active;
-              return (
-                <TableRow key={c.name} className="border-border hover:bg-surface-active">
-                  <TableCell className="px-5 py-3.5">
+            {TOP_COLLECTIONS.map((collection) => (
+                <TableRow key={collection.name} className="border-border hover:bg-surface-active">
+                  <TableCell className="px-6 py-4">
                     <div className="flex flex-col gap-1">
-                      <span className="font-medium text-foreground">{c.name}</span>
-                      <p className="line-clamp-1 text-xs text-text-secondary">{c.description}</p>
+                      <span className="text-foreground font-medium">{collection.name}</span>
+                      <p className="text-xs text-text-secondary line-clamp-1">
+                        {collection.description}
+                      </p>
                     </div>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
                     <Badge
                       className={cn(
-                        "min-w-[72px] justify-center whitespace-nowrap border px-2",
-                        meta.className,
+                        "min-w-[86px] justify-center whitespace-nowrap rounded-md border px-2",
+                        COLLECTION_STATUS[collection.status],
                       )}
                     >
-                      {meta.label}
+                      {collection.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
-                    {c.assets.toLocaleString()}
+                  <TableCell className="px-6 py-4 tabular-nums text-muted-foreground">
+                    {collection.assets.toLocaleString()}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">{c.size}</TableCell>
-                  <TableCell>
+                  <TableCell className="px-6 py-4 tabular-nums text-muted-foreground">
+                    {collection.activity.toLocaleString()} requests
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
                     <div className="w-[130px] space-y-1.5">
                       <Progress
-                        value={c.usage}
-                        className="h-1.5 bg-surface-hover [&_[data-slot=progress-indicator]]:bg-[#ededed]"
+                        value={collection.bandwidth}
+                        className="h-1.5 bg-surface-hover [&_[data-slot=progress-indicator]]:bg-primary"
                       />
-                      <p className="text-xs text-text-secondary">{c.usage}%</p>
+                      <p className="text-xs text-text-secondary">{collection.bandwidth}%</p>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="px-6 py-4 text-right">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="text-muted-foreground hover:text-foreground hover:bg-surface-active"
+                      className="text-muted-foreground hover:bg-surface-active hover:text-foreground"
                     >
                       <ArrowUpRight className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
-              );
-            })}
+              ))}
           </TableBody>
         </Table>
       </div>
@@ -550,77 +603,142 @@ function TopCollectionsTable() {
   );
 }
 
-// --- Screen ------------------------------------------------------------------
+function WorkflowAttention() {
+  const sorted = [...ATTENTION_ITEMS].sort(
+    (a, b) => URGENCY_ORDER.indexOf(a.urgency) - URGENCY_ORDER.indexOf(b.urgency),
+  );
 
-export function HomeScreen({ id }) {
+  return (
+    <WidgetShell contentClassName="flex flex-col">
+      <WidgetHeader
+        title="Workflow Attention"
+        subtitle="The next actions that will keep the library clean and usable."
+        action={
+          <span className="shrink-0 rounded-md border border-border bg-surface-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            6 queues
+          </span>
+        }
+      />
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {sorted.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className="group flex items-center gap-3.5 rounded-xl p-3.5 text-left transition-colors hover:bg-surface-card"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card text-muted-foreground">
+                <Icon className="h-[18px] w-[18px]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-foreground">{item.label}</span>
+                  <span className="shrink-0 rounded-md border border-border bg-surface-card px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+                    {URGENCY_LABELS[item.urgency]}
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-xs text-text-secondary">{item.hint}</p>
+              </div>
+              <span className="shrink-0 text-xl font-bold tabular-nums text-white">{item.value}</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-secondary transition-colors group-hover:text-foreground" />
+            </button>
+          );
+        })}
+      </div>
+    </WidgetShell>
+  );
+}
+
+export function HomeScreen() {
   const { project, loading } = useProject();
   const projectName = project?.name && !loading ? project.name : null;
-  const [filterValue, setFilterValue] = useState("1w");
 
   return (
     <MainScreenWrapper className="dark">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mt-2 gap-4">
-        <div>
-          <div className="flex items-center justify-center md:justify-start gap-3 w-full md:w-auto text-center md:text-left">
-            {loading ? (
-              <div className="h-7 w-56 rounded-md bg-surface-hover animate-pulse" />
-            ) : (
-              <h1 className="text-2xl font-bold text-white tracking-tight">
-                {projectName ? `${projectName} Overview` : "Assets Overview"}
-              </h1>
-            )}
-            <span className="bg-surface-subtle text-text-secondary text-[9px] px-1.5 py-0.5 rounded border border-border font-mono tracking-widest shrink-0">
-              WORKSPACE
-            </span>
-          </div>
-          <div className="w-full mt-2">
-            <p className="text-foreground0 text-sm text-center md:text-left max-w-xl">
-              Track uploads, downloads, storage, and collection activity across
-              your asset library.
+      <div className="mt-2">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <div className="flex w-full items-center justify-center gap-3 text-center md:w-auto md:justify-start md:text-left">
+              {loading ? (
+                <div className="h-7 w-56 animate-pulse rounded-md bg-surface-hover" />
+              ) : (
+                <h1 className="text-2xl font-bold tracking-tight text-white">
+                  Assets Overview
+                </h1>
+              )}
+              <span className="shrink-0 rounded border border-border bg-surface-subtle px-1.5 py-0.5 font-mono text-[9px] tracking-widest text-text-secondary">
+                WORKSPACE
+              </span>
+            </div>
+            <p className="mt-1 max-w-xl text-center text-sm text-muted-foreground md:text-left">
+              Monitor library growth, asset quality, storage, and team workflows in one place.
             </p>
           </div>
-        </div>
-        <div className="w-full md:w-auto">
-          <div className="flex w-full md:w-auto md:gap-0">
-            <div className="flex-1 md:flex-none flex flex-col items-center md:pr-8">
-              <span className="text-text-secondary text-[11px] uppercase tracking-wider font-medium">
-                Assets
-              </span>
-              <RollingNumber value="2,847" className="text-white font-bold text-2xl mt-0.5" />
-            </div>
-            <div className="flex-1 md:flex-none flex flex-col items-center border-l border-border md:px-8">
-              <span className="text-text-secondary text-[11px] uppercase tracking-wider font-medium">
-                Storage
-              </span>
-              <RollingNumber value="4.2 GB" className="text-white font-bold text-2xl mt-0.5" />
-            </div>
-            <div className="flex-1 md:flex-none flex flex-col items-center border-l border-border md:pl-8">
-              <span className="text-text-secondary text-[11px] uppercase tracking-wider font-medium">
-                Collections
-              </span>
-              <RollingNumber value="5" className="text-white font-bold text-2xl mt-0.5" />
+          <div className="w-full md:w-auto">
+            <div className="flex w-full md:w-auto">
+              {WORKSPACE_SUMMARY.map((stat, index) => (
+                <div
+                  key={stat.label}
+                  className={cn(
+                    "flex flex-1 flex-col items-center md:flex-none",
+                    index === 0 && "md:pr-8",
+                    index > 0 && "border-l border-border",
+                    index === 1 && "md:px-8",
+                    index === 2 && "md:pl-8",
+                  )}
+                >
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+                    {stat.label}
+                  </span>
+                  <RollingNumber value={stat.value} className="mt-0.5 text-2xl font-bold text-white" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-surface-active">
-        <FilterDropdown value={filterValue} onValueChange={setFilterValue} />
-      </div>
+      <StatsBar />
 
-      {/* Full-width activity line */}
-      <ActivityCard />
-
-      {/* Three chart columns */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <AssetTypesCard />
-        <StorageCard />
-        <GrowthCard />
+        <div className="h-[390px] lg:col-span-2">
+          <ActivityTrendWidget />
+        </div>
+        <div className="h-[390px]">
+          <FileMixWidget />
+        </div>
       </div>
 
-      {/* Collections table */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="h-[310px]">
+          <ServerTrafficWidget />
+        </div>
+        <div className="h-[310px]">
+          <GaugeWidget
+            title="Edge CDN Hit Ratio"
+            subtitle="Requests served directly from edge cache."
+            value={CDN_HIT_RATIO.value}
+            caption="cache hits"
+            footnote={`${CDN_HIT_RATIO.hits} of ${CDN_HIT_RATIO.requests} requests`}
+            icon={Network}
+          />
+        </div>
+        <div className="h-[310px]">
+          <GaugeWidget
+            title="Bandwidth Usage"
+            subtitle="Data transfer used this billing period."
+            value={BANDWIDTH.value}
+            caption="used"
+            footnote={`${BANDWIDTH.used} TB of ${BANDWIDTH.capacity} TB included`}
+            icon={Activity}
+          />
+        </div>
+      </div>
+
       <TopCollectionsTable />
+      <WorkflowAttention />
     </MainScreenWrapper>
   );
 }

@@ -1,0 +1,38 @@
+category,feature,adobe_aem,aprimo,bynder,acquia_dam,brandfolder,canto,frontify,cloudinary_assets,photoshelter_brands,mediavalet,air,dash
+Library,Centralized asset library,C,C,C,C,C,C,C,C,C,C,C,C
+Library,Custom metadata and taxonomy,C,C,C,C,C,C,C,C,C,C,C,C
+Library,Advanced search and filters,C,C,C,C,C,C,C,C,C,C,C,C
+Library,Bulk upload and bulk operations,C,C,C,C,C,C,C,C,C,C,C,C
+Library,Collections albums or boards,C,C,C,C,C,C,C,C,C,C,C,C
+Collaboration,External share links,C,C,C,C,C,C,C,C,C,C,C,C
+Governance,Role based permissions,C,C,C,C,C,C,C,C,C,C,C,C
+AI,AI tagging captioning or enrichment,C,C,C,C,C,C,C,C,C,C,C,C
+Library,Version control,C,C,C,C,C,C,C,C,C,C,C,U
+Distribution,Branded portals or content hubs,M,M,C,M,C,C,C,M,C,C,U,C
+Collaboration,Comments annotations or proofing,C,C,C,C,C,C,C,C,C,C,C,U
+Workflow,Approval workflows,M,C,M,M,M,M,C,C,C,C,C,U
+Rights,Rights restrictions or expiration,C,C,C,C,C,C,C,C,C,C,U,U
+Analytics,Usage analytics or audit trail,C,C,C,C,C,C,C,C,C,C,U,C
+Platform,APIs integrations or connectors,C,C,C,C,C,C,C,C,C,C,C,C
+AI,Duplicate or near duplicate detection,C,U,C,C,C,C,C,C,U,U,C,C
+AI,Visual semantic or natural language search,C,C,C,C,C,C,C,C,C,C,C,C
+Brand,Brand guidelines hub,U,U,M,M,C,C,C,M,U,U,U,U
+Creation,Editable templates or content creation,M,M,M,M,M,M,C,M,U,U,C,M
+Creation,Media transformation or format conversion,C,C,C,M,C,C,C,C,C,C,C,C
+Distribution,CDN or dynamic asset delivery,C,U,M,M,C,M,M,C,U,U,U,U
+Workflow,Rules based workflow automation,M,C,M,M,M,M,C,C,M,M,M,U
+Product content,PIM or product catalog support,M,M,U,M,U,M,U,M,U,U,U,U
+Platform,Headless or composable delivery,C,C,C,C,C,C,M,C,M,C,M,U
+Video,Advanced video management or transcription,C,C,C,M,C,C,C,C,C,C,C,C
+Specialized media,3D AR or immersive preview,C,C,U,U,C,U,U,C,U,M,U,U
+Governance,Retention archive or legal hold,C,C,M,C,M,U,U,M,U,M,U,U
+AI,Generative AI editing or creation,C,M,M,M,U,M,C,C,U,U,C,U
+Commercial model,Public self serve pricing,U,U,U,U,U,U,U,C,U,U,C,C
+Commercial model,Free forever plan,U,U,U,U,U,U,U,C,U,U,C,U
+Gallery commerce,Storefront checkout,U,U,U,U,U,U,U,U,U,U,U,U
+Gallery commerce,Sell digital downloads,U,U,U,U,U,U,U,U,U,U,U,U
+Licensing,Rules based license pricing,U,U,U,U,U,U,U,U,U,U,U,U
+Licensing,Outbound license record per buyer,U,U,U,U,U,U,U,U,U,U,U,U
+Licensing,Customer specific renewal and expiry tracking,U,U,U,U,U,U,U,U,U,U,U,U
+Licensing,Asset level licensing revenue and royalty tracking,U,U,U,U,U,U,U,U,U,U,U,U
+Gallery commerce,Tax invoice payout and order operations,U,U,U,U,U,U,U,U,U,U,U,U

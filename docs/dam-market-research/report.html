@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Geiger Assets DAM Market and Feature Research</title>
+  <style>
+    :root {
+      --page: #f7f5f2;
+      --panel: #ffffff;
+      --ink: #181716;
+      --muted: #68635e;
+      --line: #ded9d2;
+      --soft: #eee9e2;
+      --blue: #2e4780;
+      --blue-soft: #eaf1fe;
+      --gold: #ffe15b;
+      --orange: #f0986e;
+      --green: #386411;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 72px;
+    }
+    header, section { margin-bottom: 34px; }
+    h1, h2, h3 { line-height: 1.14; }
+    h1 { max-width: 900px; margin: 0 0 10px; font-size: clamp(34px, 5vw, 58px); letter-spacing: -0.045em; }
+    h2 { margin: 0 0 16px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.025em; }
+    h3 { margin: 0 0 8px; font-size: 18px; }
+    p, li { line-height: 1.65; }
+    a { color: var(--blue); }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .lede { max-width: 800px; color: var(--muted); font-size: 18px; }
+    .summary {
+      padding: 24px 26px;
+      border: 1px solid #d6dfef;
+      border-radius: 18px;
+      background: linear-gradient(145deg, #ffffff 0%, var(--blue-soft) 100%);
+      box-shadow: 0 14px 36px rgba(31, 36, 48, 0.06);
+    }
+    .summary ul { margin: 0; padding-left: 22px; }
+    .summary li + li { margin-top: 11px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .card, .callout, .table-wrap, figure {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+    .card { padding: 20px; }
+    .card p { margin-bottom: 0; color: var(--muted); }
+    .callout { padding: 20px 22px; background: #fffdf4; border-color: #e8d980; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 14px; }
+    th { color: #514c47; background: #f3f0ec; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    .tag {
+      display: inline-block;
+      margin: 2px 4px 2px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: #3f3b37;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .tier {
+      display: inline-block;
+      min-width: 112px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 750;
+      text-align: center;
+    }
+    .tier.extreme-common { background: #d8ecbd; color: #284f0b; }
+    .tier.very-common { background: #eaf1fe; color: #2e4780; }
+    .tier.common { background: #fff4c2; color: #66570b; }
+    .tier.uncommon { background: #ffeddf; color: #804126; }
+    .tier.extreme-rare { background: #f4f5f7; color: #464c55; }
+    figure { margin: 20px 0; padding: 18px; }
+    figure img { width: 100%; height: auto; display: block; border-radius: 10px; }
+    figcaption { margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .steps { counter-reset: phase; list-style: none; padding: 0; }
+    .steps li {
+      counter-increment: phase;
+      position: relative;
+      margin: 0 0 12px;
+      padding: 16px 18px 16px 54px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+    .steps li::before {
+      content: counter(phase);
+      position: absolute;
+      left: 17px;
+      top: 16px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .small { color: var(--muted); font-size: 13px; }
+    code { padding: 2px 5px; border-radius: 5px; background: #eeeae5; }
+    @media (max-width: 760px) {
+      main { width: min(100% - 22px, 1180px); padding-top: 28px; }
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 36px; }
+      .summary { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <main data-report-audience="product stakeholders">
+    <header data-contract-section="title">
+      <p class="eyebrow">Market research · June 14, 2026</p>
+      <h1>Geiger Assets DAM Market and Feature Research</h1>
+      <p class="lede">A current competitor map, normalized feature taxonomy, pricing context, and product direction for a modern digital asset manager with hosted galleries, commerce, and outbound media licensing.</p>
+    </header>
+
+    <section class="summary" data-contract-section="executive-summary">
+      <h2>Executive Summary</h2>
+      <ul>
+        <li><strong>The DAM baseline is crowded and mature.</strong> Library, metadata, search, collections, sharing, permissions, AI enrichment, transformations, integrations, and workflow are expected across nearly every leading product reviewed.</li>
+        <li><strong>The market separates on operating model.</strong> Adobe, Aprimo, Bynder, Acquia, Brandfolder, Canto, and Frontify emphasize enterprise governance and custom contracts; Air, Dash, Pics.io, Filecamp, and Cloudinary provide clearer self-serve or developer-led entry points.</li>
+        <li><strong>Branded portals are common, but commerce is not.</strong> Current DAMs routinely publish approved assets through portals. The reviewed core DAM set did not publicly present a complete buyer-facing storefront with checkout, rules-based media licensing, buyer-specific license records, and asset-level licensing income.</li>
+        <li><strong>Geiger should compete on a focused wedge, not maximum feature count.</strong> Build a credible DAM core, then connect approved collections to hosted galleries, transactions, outbound licenses, renewal controls, and revenue reporting. This combines workflows currently split among DAM, gallery commerce, and rights-management systems.</li>
+      </ul>
+    </section>
+
+    <section data-contract-section="key-findings">
+      <h2>The market has four useful competitor groups</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Enterprise content operations</h3>
+          <p>Adobe AEM Assets, Aprimo, Bynder, Acquia DAM, and Brandfolder establish the feature ceiling for governance, workflow, integrations, rights controls, templates, analytics, and content activation.</p>
+        </article>
+        <article class="card">
+          <h3>Brand management suites</h3>
+          <p>Frontify, Canto, and Bynder combine DAM with brand guidelines, templates, portals, and controlled content creation. Their strength is brand consistency, not direct media commerce.</p>
+        </article>
+        <article class="card">
+          <h3>Modern collaborative DAM</h3>
+          <p>Air, Dash, Pics.io, and Filecamp compete through fast onboarding, visual organization, collaboration, unlimited-user or simple-seat offers, and clearer pricing.</p>
+        </article>
+        <article class="card">
+          <h3>Media delivery and specialist DAM</h3>
+          <p>Cloudinary, PhotoShelter for Brands, and MediaValet are strong references for programmable delivery, visual media workflows, video, portals, and specialized asset handling.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Leading and representative DAM products</h2>
+      <p>The list is a strategic benchmark set, not an absolute market ranking. It deliberately includes enterprise leaders and modern tools Geiger is more likely to meet in real buying decisions.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Market posture</th>
+              <th>What it offers</th>
+              <th>Pricing signal</th>
+              <th>Why it matters to Geiger</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://business.adobe.com/products/experience-manager/assets.html">Adobe AEM Assets</a></td>
+              <td>Enterprise suite</td>
+              <td>AI discovery, governance, Dynamic Media, workflow, integrations, analytics, content activation</td>
+              <td>Prime and Ultimate, quote only</td>
+              <td>Enterprise capability ceiling and ecosystem integration reference</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.aprimo.com/">Aprimo</a></td>
+              <td>Enterprise content operations</td>
+              <td>DAM, workflow, metadata, AI agents, planning, performance, rights-oriented governance</td>
+              <td>Configured by users and modules</td>
+              <td>Best reference for joining DAM with operational workflow</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.bynder.com/en/features-index/">Bynder</a></td>
+              <td>Enterprise brand DAM</td>
+              <td>DAM, AI search, workflow, Studio templates, content experiences, brand guidelines</td>
+              <td>Quote only</td>
+              <td>Strong benchmark for modular packaging and brand distribution</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.acquia.com/products/acquia-dam">Acquia DAM</a></td>
+              <td>Enterprise DAM plus product content</td>
+              <td>Assets, Entries PIM, Workflow, Portals, Templates, Insights, AI and rights controls</td>
+              <td>Quote only</td>
+              <td>Reference for a unified asset, product-data, and portal model</td>
+            </tr>
+            <tr>
+              <td><a href="https://brandfolder.com/product/">Brandfolder</a></td>
+              <td>Enterprise brand asset platform</td>
+              <td>Metadata, collections, portals, versioning, workflow, templates, CDN embeds, analytics</td>
+              <td>Quote only</td>
+              <td>Strong reference for polished asset distribution and measurement</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.canto.com/digital-asset-management/">Canto</a></td>
+              <td>Mid-market to enterprise DAM</td>
+              <td>AI search, portals, workflows, rights management, integrations, video, brand templates</td>
+              <td>Quote only</td>
+              <td>Direct feature and usability benchmark for a modern DAM</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.frontify.com/en/digital-asset-management">Frontify</a></td>
+              <td>Brand management suite</td>
+              <td>DAM, guidelines, templates, collaboration, rights management, analytics, integrations</td>
+              <td>Quote only; usage-oriented packaging</td>
+              <td>Reference for brand governance and controlled creation</td>
+            </tr>
+            <tr>
+              <td><a href="https://cloudinary.com/products/digital_asset_management">Cloudinary Assets</a></td>
+              <td>Developer and media delivery platform</td>
+              <td>AI DAM, transformation, workflow, portals, APIs, programmable delivery, PIM/CMS links</td>
+              <td>Public platform plans plus enterprise DAM</td>
+              <td>Technical benchmark for transforms, CDN, APIs, and headless delivery</td>
+            </tr>
+            <tr>
+              <td><a href="https://go.photoshelter.com/brands/digital-asset-management/">PhotoShelter for Brands</a></td>
+              <td>Visual media DAM</td>
+              <td>AI search, sharing, permissions, workflow, video, portals, integrations</td>
+              <td>Quote only</td>
+              <td>Reference for high-volume image and media-team workflows</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.mediavalet.com/what-is-digital-asset-management">MediaValet</a></td>
+              <td>Enterprise cloud DAM</td>
+              <td>Library, metadata, portals, workflow, analytics, integrations, video and specialized media</td>
+              <td>Quote only; unlimited users</td>
+              <td>Reference for inclusive user packaging and specialized media support</td>
+            </tr>
+            <tr>
+              <td><a href="https://air.inc/use-cases/digital-asset-management">Air</a></td>
+              <td>Modern visual workspace</td>
+              <td>Boards, visual search, AI tagging, versioning, comments, approvals, transforms, integrations</td>
+              <td>Free plan plus paid tiers</td>
+              <td>Direct UX benchmark for visual teams and quick adoption</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.dash.app/blog/digital-asset-management-features">Dash</a></td>
+              <td>Simple modern DAM</td>
+              <td>AI search, portals, transformations, integrations, analytics, unlimited users</td>
+              <td>From $109 per month when reviewed</td>
+              <td>Important price-to-simplicity benchmark</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Feature prevalence creates a clear baseline</h2>
+      <p>The chart counts explicit public support across the 12-product core set. It should be used as a prioritization aid, not as a procurement scorecard: an unconfirmed feature may still exist behind an enterprise sales process.</p>
+      <figure>
+        <img src="feature_prevalence.png" alt="Horizontal bar chart showing feature prevalence across 12 DAM competitors">
+        <figcaption>Extremely common means 10-12 products, very common 8-9, common 5-7, uncommon 2-4, and extremely rare 0-1. Source matrix: <a href="feature_matrix.csv">feature_matrix.csv</a>.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Prevalence</th>
+              <th>Definition</th>
+              <th>Typical capabilities</th>
+              <th>Geiger treatment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tier extreme-common">Extremely common</span></td>
+              <td>10-12 of 12</td>
+              <td>Library, metadata, search, bulk operations, collections, sharing, roles, AI enrichment, integrations, media transforms, workflow</td>
+              <td>Required for credibility; simplify and execute well</td>
+            </tr>
+            <tr>
+              <td><span class="tier very-common">Very common</span></td>
+              <td>8-9 of 12</td>
+              <td>Duplicate detection, guidelines, generative AI, richer governance</td>
+              <td>Prioritize based on target customer and implementation cost</td>
+            </tr>
+            <tr>
+              <td><span class="tier common">Common</span></td>
+              <td>5-7 of 12</td>
+              <td>Dynamic delivery, PIM links, 3D support, retention/legal hold</td>
+              <td>Package as business or specialist capabilities</td>
+            </tr>
+            <tr>
+              <td><span class="tier uncommon">Uncommon</span></td>
+              <td>2-4 of 12</td>
+              <td>Transparent self-serve pricing and free plans</td>
+              <td>Use as a go-to-market advantage, not only a product feature</td>
+            </tr>
+            <tr>
+              <td><span class="tier extreme-rare">Extremely rare</span></td>
+              <td>0-1 of 12</td>
+              <td>Store checkout, paid downloads, rules-based license pricing, outbound license ledger, license income and royalty tracking</td>
+              <td>Potential differentiation wedge after the core DAM is reliable</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>The gallery opportunity is bigger than another portal</h2>
+      <p>Leading DAMs already offer branded portals, public collections, and controlled downloads. Geiger should not describe the planned gallery merely as a portal. The differentiated product is a collection-to-market workflow:</p>
+      <ol>
+        <li>An owner selects approved assets or a smart collection.</li>
+        <li>They publish it as a hosted gallery with theme, custom domain, SEO, password, audience, and availability controls.</li>
+        <li>The gallery can run in showcase, free-download, fixed-price sale, or license-request mode.</li>
+        <li>A buyer purchases a file, product, or defined usage license.</li>
+        <li>Payment creates an order, entitlement, delivery record, and outbound license record.</li>
+        <li>The asset owner tracks expiry, renewals, usage scope, conflicts, invoices, and income.</li>
+      </ol>
+      <div class="callout">
+        <strong>Important product distinction:</strong> conventional DAM rights management asks, “Are we allowed to use this asset?” Geiger’s proposed outbound licensing asks, “Who did we authorize to use this asset, for what purpose, where, for how long, and how much revenue did it generate?” Those are related but different systems.
+      </div>
+    </section>
+
+    <section>
+      <h2>A practical license record should cover rights, money, and delivery</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Parties and assets</h3>
+          <p>Licensor, licensee, contacts, organization, gallery, order, licensed assets, bundles, creators, rightsholders, and revenue-share participants.</p>
+        </article>
+        <article class="card">
+          <h3>Grant and restrictions</h3>
+          <p>Exclusive or non-exclusive, usage type, media, channels, territory, language, audience, purpose, placement, modification, attribution, sublicensing, AI-training rights, and prohibited uses.</p>
+        </article>
+        <article class="card">
+          <h3>Term and availability</h3>
+          <p>Issue date, start date, expiry, embargo, renewal option, termination, grace period, asset conflicts, territory conflicts, and automated availability checks.</p>
+        </article>
+        <article class="card">
+          <h3>Commercial terms</h3>
+          <p>Currency, one-time fee, royalty rate, minimum guarantee, revenue split, tax, discounts, refund state, invoice, payment schedule, payout, and recognized income.</p>
+        </article>
+        <article class="card">
+          <h3>Evidence and compliance</h3>
+          <p>Signed agreement, order receipt, usage reports, proof of attribution, model/property releases, amendments, audit log, takedown state, and compliance notes.</p>
+        </article>
+        <article class="card">
+          <h3>Delivery and entitlement</h3>
+          <p>Permitted rendition, watermarking, download limit, secure URL, delivery events, license certificate, buyer account, and revocation state.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Pricing should be evaluated as coverage per dollar</h2>
+      <p>The market offers a useful anchor range, but most enterprise vendors hide prices. When reviewed, Filecamp published $29/$59/$89 monthly plans, Dash started at $109 per month, Pics.io started at $100 per month, and Cloudinary and Air offered free entry points. Enterprise products mostly required a quote and often separated modules, users, storage, portals, or AI usage.</p>
+      <p>Use a simple internal relevance model before setting Geiger prices:</p>
+      <div class="callout">
+        <code>Plan relevance = baseline coverage + target-workflow fit + differentiation + service limits clarity - operational friction</code>
+        <p class="small">Score features only when they are usable in the plan being priced. A feature hidden behind an add-on should not receive the same score as an included feature.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Score component</th>
+              <th>Suggested weight</th>
+              <th>What to measure</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Credibility baseline</td>
+              <td>35%</td>
+              <td>Library, metadata, search, collections, sharing, roles, versions, previews, transforms</td>
+            </tr>
+            <tr>
+              <td>Workflow fit</td>
+              <td>25%</td>
+              <td>Approval, comments, portals, rights checks, automation, integrations</td>
+            </tr>
+            <tr>
+              <td>Differentiation</td>
+              <td>25%</td>
+              <td>Gallery commerce, outbound licenses, renewal controls, asset income analytics</td>
+            </tr>
+            <tr>
+              <td>Commercial clarity</td>
+              <td>15%</td>
+              <td>Transparent limits, included users, storage, AI credits, bandwidth, fees, and support</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section data-contract-section="recommended-next-steps">
+      <h2>Recommended Product Sequence</h2>
+      <ol class="steps">
+        <li><strong>Lock the target customer and baseline.</strong> Decide whether the first buyer is a creative team, agency, photographer/media seller, or brand organization. Select the extremely common features required for that buyer.</li>
+        <li><strong>Build rights-aware DAM foundations.</strong> Model assets, renditions, metadata, versions, collections, permissions, approvals, inbound rights, releases, and usage history before adding transactions.</li>
+        <li><strong>Launch galleries as a publishing surface.</strong> Start with showcase, custom domain, themes, search, password/access, download controls, analytics, and license-request forms.</li>
+        <li><strong>Add commerce with simple products.</strong> Support paid digital downloads and a small number of fixed license templates before introducing fully negotiated rights-managed pricing.</li>
+        <li><strong>Add the outbound license ledger.</strong> Create buyer-specific grants, certificates, expiry/renewal alerts, conflict checks, entitlements, invoices, and asset-level income.</li>
+        <li><strong>Expand into royalties and complex rights only after demand is proven.</strong> Revenue shares, minimum guarantees, usage reporting, contract amendments, and royalty statements materially increase accounting and legal complexity.</li>
+      </ol>
+    </section>
+
+    <section data-contract-section="further-questions">
+      <h2>Questions to answer before feature selection</h2>
+      <ul>
+        <li>Who is the first paying customer: internal brand teams, agencies, photographers, studios, stock-media sellers, or mixed organizations?</li>
+        <li>Is Geiger the merchant of record, or does each gallery owner connect Stripe and remain the seller?</li>
+        <li>Will the first licensing model be fixed-template licensing, request-and-quote licensing, or negotiated rights-managed licensing?</li>
+        <li>Does Geiger need to track inbound rights, outbound rights, or both from the first release?</li>
+        <li>What storage, bandwidth, AI, transcoding, payment, and support costs define sustainable plan limits?</li>
+        <li>Which Geiger Flow and Geiger Notes integrations are genuinely valuable to the initial buyer rather than suite-only future work?</li>
+      </ul>
+    </section>
+
+    <section data-contract-section="caveats-and-assumptions">
+      <h2>Caveats and Assumptions</h2>
+      <div class="callout">
+        <p>This is public-source product research as of June 14, 2026. It is suitable for product planning, not for a final vendor procurement decision or legal design. Enterprise feature availability and packaging may differ by contract. Licensing terms, tax treatment, royalties, and merchant-of-record responsibilities require specialist legal and accounting review before implementation.</p>
+      </div>
+      <p class="small">Detailed source links and evidence notes are in <a href="sources.md">sources.md</a>. The reusable comparison data is in <a href="feature_matrix.csv">feature_matrix.csv</a>.</p>
+    </section>
+  </main>
+</body>
+</html>

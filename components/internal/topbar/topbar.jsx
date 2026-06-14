@@ -1,77 +1,99 @@
 "use client";
 
 import React from "react";
-import {
-  Search,
-  Bell,
-  HelpCircle,
-  ChevronDown,
-  Plus,
-  MoreVertical,
-} from "lucide-react";
+import { Bell, HelpCircle, Search } from "lucide-react";
 import Image from "next/image";
+
+import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import ThemeToggle from "@/components/ui/theme-toggle";
 import { NotificationsDropdown } from "./dialogue/notifications_dropdown";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export function Topbar() {
   return (
-    <header className="h-14 px-4 flex items-center justify-between border-b border-border bg-topbar-bg text-foreground z-20 w-full shrink-0">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger className="md:hidden -ml-2 text-foreground" />
-        <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 md:-ml-1.5">
-          <img
+    <header className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-topbar-border bg-topbar-bg px-4 text-foreground backdrop-blur-md">
+      <div className="flex items-center gap-1.5">
+        <SidebarTrigger className="-ml-2 text-foreground md:hidden" />
+        <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded md:-ml-1.5 md:flex">
+          <Image
             src={`${basePath}/logo1.svg`}
             alt=""
-            className="w-5 h-5 -mr-0.5"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-              e.currentTarget.parentElement.innerHTML =
-                '<div class="w-2 h-2 bg-foreground rounded-full"></div>';
+            width={20}
+            height={20}
+            className="geiger-logo -mr-0.5 h-5 w-5"
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+              event.currentTarget.parentElement.innerHTML =
+                '<div class="h-2 w-2 rounded-full bg-foreground"></div>';
             }}
           />
         </div>
-        <div className="flex items-center gap-1 cursor-pointer group group-data-[collapsible=icon]:hidden md:border-l md:border-border pl-2 hidden sm:flex">
-          <span className="text-foreground font-semibold text-sm ml-1">Assets</span>
+        <div className="hidden cursor-pointer items-center gap-1 border-border pl-2 sm:flex md:border-l">
+          <span className="ml-1 text-sm font-semibold text-foreground">Assets</span>
         </div>
       </div>
 
-      <div className="flex justify-between gap-4 md:gap-8 sm:mr-2">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 md:hidden">
+        <Image
+          src={`${basePath}/logo1.svg`}
+          alt=""
+          width={20}
+          height={20}
+          className="geiger-logo h-5 w-5"
+        />
+        <span className="text-sm font-semibold text-foreground">Assets</span>
+      </div>
+
+      <div className="flex justify-between gap-4 sm:mr-2 md:gap-8">
         <div className="flex items-center gap-2 sm:gap-3">
-          <button className="relative hidden items-center bg-surface-active border border-border hover:border-border-strong transition-colors rounded-md h-8 px-2 sm:flex sm:px-2.5 w-8 sm:w-[240px] justify-center sm:justify-start text-sm text-muted-foreground shadow-sm group">
-            <Search className="w-4 h-4 sm:mr-2 text-muted-foreground group-hover:text-foreground transition-colors" />
-            <span className="hidden sm:inline-block text-muted-foreground group-hover:text-foreground transition-colors">
+          <Button
+            variant="ghost"
+            className="group relative hidden h-8 w-[240px] items-center justify-start rounded-md border border-border bg-surface-active px-2.5 text-sm text-muted-foreground shadow-sm transition-colors hover:border-border-strong sm:flex"
+          >
+            <Search className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground sm:mr-2" />
+            <span className="hidden text-muted-foreground transition-colors group-hover:text-foreground sm:inline-block">
               Search...
             </span>
-            <div className="absolute right-1.5 top-1.5 hidden sm:flex items-center gap-1">
+            <div className="absolute right-1.5 top-1.5 hidden items-center gap-1 sm:flex">
               <KbdGroup>
-                <Kbd className="bg-surface-subtle border-border text-muted-foreground group-hover:bg-surface-hover group-hover:text-foreground transition-colors">
-                  ⌘
+                <Kbd className="border-border bg-surface-subtle text-muted-foreground transition-colors group-hover:bg-surface-hover group-hover:text-foreground">
+                  Ctrl
                 </Kbd>
-                <Kbd className="bg-surface-subtle border-border text-muted-foreground group-hover:bg-surface-hover group-hover:text-foreground transition-colors">
+                <Kbd className="border-border bg-surface-subtle text-muted-foreground transition-colors group-hover:bg-surface-hover group-hover:text-foreground">
                   K
                 </Kbd>
               </KbdGroup>
             </div>
-          </button>
+          </Button>
 
-          <div className="flex items-center gap-0 sm:gap-1 ml-0 sm:ml-1">
-            <button className="w-8 h-8 rounded-full border border-transparent hover:bg-surface-hover hidden sm:flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground">
-              <HelpCircle className="w-[18px] h-[18px]" strokeWidth={2} />
-            </button>
+          <div className="ml-0 flex items-center gap-0 sm:ml-1 sm:gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Help"
+              className="hidden h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:flex"
+            >
+              <HelpCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+            </Button>
             <NotificationsDropdown>
-              <button className="w-8 h-8 rounded-full border border-transparent hover:bg-surface-hover hidden items-center justify-center transition-colors text-muted-foreground hover:text-foreground relative sm:flex">
-                <Bell className="w-[18px] h-[18px]" strokeWidth={2} />
-                <div className="absolute top-[6px] right-[7px] w-2 h-2 rounded-full bg-[#3b82f6] border border-background"></div>
-              </button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Notifications"
+                className="relative hidden h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:flex"
+              >
+                <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
+              </Button>
             </NotificationsDropdown>
-            <ThemeToggle />
-            <button className="w-8 h-8 rounded-full border border-border hover:border-border-strong overflow-hidden ml-1 transition-colors">
-              <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"></div>
-            </button>
+            <Button
+              variant="ghost"
+              aria-label="Profile"
+              className="ml-1 h-8 w-8 overflow-hidden rounded-full border border-border p-0 transition-colors hover:border-border-strong"
+            >
+              <span className="h-full w-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" />
+            </Button>
           </div>
         </div>
       </div>
