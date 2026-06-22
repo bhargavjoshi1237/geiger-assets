@@ -1,20 +1,20 @@
 # Module Conventions (Screen ↔ Suite)
 
 How to build a workspace screen (navigation, data, UI, permissions) so it matches
-the rest of the app. Reference implementation: the **events** area
-(`components/internal/screens/events`, `components/internal/screens/overview`)
+the rest of the app. Reference implementation: the **collections** area
+(`components/internal/screens/projects/collections`)
 and the shared kit (`components/internal/shared`).
 
 ## Where things go
 
 | Concern | Location | Naming |
 |---|---|---|
-| Workspace screen | `components/internal/screens/<area>/<name>.jsx` | snake_case file, `*Screen` export |
+| Workspace screen | `components/internal/screens/projects/<area>/<name>.jsx` | snake_case file, `*Screen` export |
 | Screen ↔ nav wiring | `components/internal/screens/registry.jsx` | title → component map |
 | Sidebar nav entries | `components/internal/sidebar/projects/feature_registry.js` (assembled in `sidebar_data.js`) | `title` must match registry key |
 | Shared screen primitives | `components/internal/shared/screen_kit.jsx` | `ScreenHeader`, `StatsBar`, `DataTable`… |
 | Page-width wrappers | `components/internal/shared/screen_wrappers.jsx` | `MainScreenWrapper`, `SecondaryScreenWrapper` |
-| Lookups & formatters | `components/internal/screens/<area>/constants.js` | status/type `*_MAP`, `*_FILTER_OPTIONS`, `formatDate`/`currency` |
+| Lookups & formatters | `components/internal/screens/projects/<area>/constants.js` | status/type `*_MAP`, `*_FILTER_OPTIONS`, `formatDate`/`currency` |
 | shadcn primitives | `components/ui/*` | `@/components/ui/<name>` |
 | Permissions catalog | `lib/rbac.js` | `WORKSPACE_PERMISSIONS`, dot-namespaced keys |
 | Supabase client | `lib/supabase/client.js` | `createClient()` (browser, activity-tracked) |
@@ -220,7 +220,7 @@ controls; it does not secure data.
    RLS — the screen always reads through the data layer, never a static array).
    Confirm the scope, then build in one pass. Pick an obvious default only when
    the answer is truly inconsequential — and say which default you took.
-1. Component at `components/internal/screens/<area>/<name>.jsx` — `"use client"`,
+1. Component at `components/internal/screens/projects/<area>/<name>.jsx` — `"use client"`,
    `*Screen` export, wrapped in `MainScreenWrapper`/`SecondaryScreenWrapper`.
 2. Register it in `registry.jsx` under the exact `feature_registry.js` title (and add
    the nav entry if it's new).
