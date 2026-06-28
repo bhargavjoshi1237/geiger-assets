@@ -2,24 +2,20 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Upload,
   ChevronDown,
   MoreHorizontal,
-  Download,
+  Eye,
+  RotateCcw,
   Trash2,
-  Share2,
-  Copy,
-  Pencil,
   X,
   ArrowUpDown,
   SlidersHorizontal,
-  Image as ImageIcon,
+  Archive as ArchiveIcon,
   Loader2,
   File,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +39,6 @@ import {
   ScreenHeader,
   StatsBar,
   SearchInput,
-  StatusPill,
   EmptyState,
   DataTable,
   Toolbar,
@@ -51,16 +46,25 @@ import {
 import {
   TYPE_ICONS,
   FILE_TYPE_COLORS,
-  STATUS_META,
   TYPE_FILTER_OPTIONS,
-  STATUS_FILTER_OPTIONS,
   SORT_OPTIONS,
   formatBytes,
   formatDate,
 } from "./constants";
-import { listAssets, softDeleteAsset, createAsset } from "@/lib/supabase/assets";
-import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
-import { AssetEditScreen } from "./asset_detail";
+import {
+  listArchived,
+  listTrashed,
+  restoreFromArchive,
+  trashAsset,
+  restoreFromTrash,
+  purgeAsset,
+} from "@/lib/supabase/archive";
+import { ArchiveDetailScreen } from "./archive_detail";
+
+const VIEWS = [
+  { value: "archived", label: "Archived" },
+  { value: "trash", label: "Trash" },
+];
 
 function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
   return (
@@ -104,7 +108,7 @@ function AssetThumb({ asset }) {
   );
 }
 
-function RowActions({ asset, onEdit, onDuplicate, onDelete }) {
+function RowActions({ asset, isTrash, onView, onRestore, onTrash, onPurge }) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <DropdownMenu>
@@ -121,90 +125,86 @@ function RowActions({ asset, onEdit, onDuplicate, onDelete }) {
         <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="end">
           <DropdownMenuItem
             className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onEdit(asset)}
+            onClick={() => onView(asset)}
           >
-            <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer text-xs focus:bg-surface-hover">
-            <Download className="mr-2 h-3.5 w-3.5" /> Download
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer text-xs focus:bg-surface-hover">
-            <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+            <Eye className="mr-2 h-3.5 w-3.5" /> View
           </DropdownMenuItem>
           <DropdownMenuItem
             className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onDuplicate(asset)}
+            onClick={() => onRestore(asset)}
           >
-            <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate
+            <RotateCcw className="mr-2 h-3.5 w-3.5" /> Restore
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-surface-hover" />
-          <DropdownMenuItem
-            className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-            onClick={() => onDelete(asset)}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-          </DropdownMenuItem>
+          {isTrash ? (
+            <DropdownMenuItem
+              className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
+              onClick={() => onPurge(asset)}
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete permanently
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
+              onClick={() => onTrash(asset)}
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Move to Trash
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
   );
 }
 
-function UploadDialog({ open, onOpenChange }) {
+function ViewToggle({ view, onChange, counts }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-border bg-surface-subtle text-foreground">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">Upload Assets</DialogTitle>
-          <DialogDescription className="text-sm text-text-secondary">
-            Drag and drop files or click to browse.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="cursor-pointer rounded-xl border-2 border-dashed border-border p-10 text-center transition-colors hover:border-border-strong">
-          <Upload className="mx-auto mb-3 h-10 w-10 text-text-tertiary" />
-          <p className="text-sm font-medium text-foreground">Drop files here or click to upload</p>
-          <p className="mt-1 text-xs text-text-secondary">
-            Supports images, videos, audio, documents, and more
-          </p>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90">
-            Upload
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-subtle p-1">
+      {VIEWS.map((v) => (
+        <button
+          key={v.value}
+          type="button"
+          onClick={() => onChange(v.value)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+            view === v.value
+              ? "bg-surface-card text-foreground"
+              : "text-text-secondary hover:text-foreground",
+          )}
+        >
+          {v.label}
+          <span className="tabular-nums text-text-tertiary">{counts[v.value]}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
-export function LibraryScreen({ projectId }) {
-  const [assets, setAssets] = useState([]);
+export function ArchiveTrashScreen({ projectId }) {
+  const [view, setView] = useState("archived");
+  const [archived, setArchived] = useState([]);
+  const [trashed, setTrashed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortValue, setSortValue] = useState("modified-desc");
-  // The open asset lives in the URL (?asset=<id>) so a refresh / shared link
-  // re-opens the same asset (and the editor's ?section).
-  const { assetId: openAssetId, openAsset, closeAsset } = useWorkspaceUrl();
-  const [showUpload, setShowUpload] = useState(false);
+  const [sortValue, setSortValue] = useState("date-desc");
+  const [selectedId, setSelectedId] = useState(null);
+  const [purgeTarget, setPurgeTarget] = useState(null);
+
+  const isTrash = view === "trash";
 
   useEffect(() => {
-    listAssets(projectId).then((rows) => {
-      setAssets(rows ?? []);
+    Promise.all([listArchived(projectId), listTrashed(projectId)]).then(([a, t]) => {
+      setArchived(a ?? []);
+      setTrashed(t ?? []);
       setLoading(false);
     });
   }, []);
 
+  const activeRows = isTrash ? trashed : archived;
+
   const filtered = useMemo(() => {
-    let result = [...assets];
+    let result = [...activeRows];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -215,79 +215,88 @@ export function LibraryScreen({ projectId }) {
       );
     }
     if (typeFilter !== "all") result = result.filter((a) => a.type === typeFilter);
-    if (statusFilter !== "all") result = result.filter((a) => a.status === statusFilter);
 
+    const dateOf = (a) => (isTrash ? a.deletedAt : a.updatedAt);
     const [field, direction] = sortValue.split("-");
     result.sort((a, b) => {
       let cmp = 0;
-      if (field === "modified") cmp = new Date(a.updatedAt) - new Date(b.updatedAt);
+      if (field === "date") cmp = new Date(dateOf(a)) - new Date(dateOf(b));
       else if (field === "name") cmp = a.name.localeCompare(b.name);
       else if (field === "size") cmp = a.sizeBytes - b.sizeBytes;
-      else if (field === "downloads") cmp = a.downloads - b.downloads;
       return direction === "desc" ? -cmp : cmp;
     });
     return result;
-  }, [assets, search, typeFilter, statusFilter, sortValue]);
+  }, [activeRows, search, typeFilter, sortValue, isTrash]);
 
   const stats = useMemo(() => {
-    const totalBytes = assets.reduce((sum, a) => sum + a.sizeBytes, 0);
-    const processing = assets.filter((a) => a.status === "processing").length;
-    const approved = assets.filter((a) => a.status === "approved").length;
+    const trashBytes = trashed.reduce((sum, a) => sum + a.sizeBytes, 0);
     return [
-      { label: "Total Assets", value: String(assets.length), footer: "in this library" },
-      { label: "Storage Used", value: formatBytes(totalBytes), footer: "across all assets" },
-      { label: "Approved", value: String(approved), footer: "ready to use" },
-      { label: "Processing", value: String(processing), footer: "in queue" },
+      { label: "Archived", value: String(archived.length), footer: "retired from library" },
+      { label: "In Trash", value: String(trashed.length), footer: "pending deletion" },
+      { label: "Trash Size", value: formatBytes(trashBytes), footer: "reclaimable storage" },
+      {
+        label: "Recoverable",
+        value: String(archived.length + trashed.length),
+        footer: "can be restored",
+      },
     ];
-  }, [assets]);
+  }, [archived, trashed]);
 
-  const hasActiveFilters =
-    typeFilter !== "all" || statusFilter !== "all" || Boolean(search);
+  const hasActiveFilters = typeFilter !== "all" || Boolean(search);
 
   const clearFilters = () => {
     setTypeFilter("all");
-    setStatusFilter("all");
     setSearch("");
   };
 
-  const handleDelete = async (asset) => {
-    const prev = assets;
-    setAssets((rows) => rows.filter((a) => a.id !== asset.id));
-    const ok = await softDeleteAsset(asset.id);
-    if (!ok) setAssets(prev);
+  const switchView = (v) => {
+    setView(v);
+    clearFilters();
+    setSortValue("date-desc");
   };
 
-  const handleDuplicate = async (asset) => {
-    const id = crypto.randomUUID();
-    const copy = {
-      ...asset,
-      id,
-      name: asset.name.replace(/(\.[^.]+)?$/, " copy$1"),
-      status: "draft",
-      downloads: 0,
-    };
-    setAssets((rows) => [copy, ...rows]);
-    const created = await createAsset({
-      id,
-      name: copy.name,
-      type: copy.type,
-      format: copy.format,
-      sizeBytes: copy.sizeBytes,
-      dimensions: copy.dimensions,
-      folder: copy.folder,
-      status: "draft",
-      tags: copy.tags,
-      color: copy.color,
-    });
-    if (created) {
-      setAssets((rows) => rows.map((a) => (a.id === id ? created : a)));
-    } else {
-      setAssets((rows) => rows.filter((a) => a.id !== id));
+  // Re-fetch a single row after a detail-screen action changed its state.
+  const syncRow = async () => {
+    const [a, t] = await Promise.all([listArchived(projectId), listTrashed(projectId)]);
+    setArchived(a ?? []);
+    setTrashed(t ?? []);
+  };
+
+  const handleRestoreArchive = async (asset) => {
+    const prev = archived;
+    setArchived((rows) => rows.filter((a) => a.id !== asset.id));
+    const ok = await restoreFromArchive(asset.id);
+    if (!ok) setArchived(prev);
+  };
+
+  const handleTrashFromArchive = async (asset) => {
+    const prevA = archived;
+    const prevT = trashed;
+    setArchived((rows) => rows.filter((a) => a.id !== asset.id));
+    setTrashed((rows) => [{ ...asset, deletedAt: new Date().toISOString() }, ...rows]);
+    const ok = await trashAsset(asset.id);
+    if (!ok) {
+      setArchived(prevA);
+      setTrashed(prevT);
     }
   };
 
-  const syncAsset = (updated) =>
-    setAssets((rows) => rows.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
+  const handleRestoreTrash = async (asset) => {
+    const prev = trashed;
+    setTrashed((rows) => rows.filter((a) => a.id !== asset.id));
+    const ok = await restoreFromTrash(asset.id);
+    if (!ok) setTrashed(prev);
+  };
+
+  const handlePurge = async () => {
+    if (!purgeTarget) return;
+    const prev = trashed;
+    const id = purgeTarget.id;
+    setTrashed((rows) => rows.filter((a) => a.id !== id));
+    setPurgeTarget(null);
+    const ok = await purgeAsset(id);
+    if (!ok) setTrashed(prev);
+  };
 
   const columns = [
     {
@@ -325,24 +334,18 @@ export function LibraryScreen({ projectId }) {
       render: (a) => formatBytes(a.sizeBytes),
     },
     {
-      key: "status",
-      header: "Status",
-      render: (a) => <StatusPill status={a.status} map={STATUS_META} className="text-[10px]" />,
+      key: "folder",
+      header: "Folder",
+      className: "text-xs text-text-secondary hidden md:table-cell",
+      headClassName: "hidden md:table-cell",
+      render: (a) => a.folder || "root",
     },
     {
-      key: "modified",
-      header: "Modified",
+      key: "date",
+      header: isTrash ? "Trashed" : "Archived",
       className: "text-xs text-text-secondary hidden lg:table-cell",
       headClassName: "hidden lg:table-cell",
-      render: (a) => formatDate(a.updatedAt),
-    },
-    {
-      key: "downloads",
-      header: "Downloads",
-      align: "right",
-      className: "tabular-nums text-xs text-text-secondary hidden md:table-cell",
-      headClassName: "hidden md:table-cell",
-      render: (a) => a.downloads.toLocaleString(),
+      render: (a) => formatDate(isTrash ? a.deletedAt : a.updatedAt),
     },
     {
       key: "actions",
@@ -351,21 +354,24 @@ export function LibraryScreen({ projectId }) {
       render: (a) => (
         <RowActions
           asset={a}
-          onEdit={(x) => openAsset(x.id)}
-          onDuplicate={handleDuplicate}
-          onDelete={handleDelete}
+          isTrash={isTrash}
+          onView={(x) => setSelectedId(x.id)}
+          onRestore={isTrash ? handleRestoreTrash : handleRestoreArchive}
+          onTrash={handleTrashFromArchive}
+          onPurge={(x) => setPurgeTarget(x)}
         />
       ),
     },
   ];
 
-  if (openAssetId) {
+  if (selectedId) {
     return (
-      <AssetEditScreen
-        key={openAssetId}
-        assetId={openAssetId}
-        onBack={closeAsset}
-        onChange={syncAsset}
+      <ArchiveDetailScreen
+        key={selectedId}
+        id={selectedId}
+        mode={view}
+        onBack={() => setSelectedId(null)}
+        onChange={syncRow}
       />
     );
   }
@@ -373,16 +379,14 @@ export function LibraryScreen({ projectId }) {
   return (
     <MainScreenWrapper className="dark">
       <ScreenHeader
-        title="Asset Library"
-        description="Browse, manage, and organize every digital asset in one place."
+        title="Archive & Trash"
+        description="Retire content without immediately losing it."
         actions={
-          <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-            onClick={() => setShowUpload(true)}
-          >
-            <Upload className="mr-1.5 h-4 w-4" />
-            Upload
-          </Button>
+          <ViewToggle
+            view={view}
+            onChange={switchView}
+            counts={{ archived: archived.length, trash: trashed.length }}
+          />
         }
       />
 
@@ -402,12 +406,6 @@ export function LibraryScreen({ projectId }) {
             options={TYPE_FILTER_OPTIONS}
             placeholder="Type"
             icon={SlidersHorizontal}
-          />
-          <FilterDropdown
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            options={STATUS_FILTER_OPTIONS}
-            placeholder="Status"
           />
           {hasActiveFilters ? (
             <Button
@@ -439,15 +437,23 @@ export function LibraryScreen({ projectId }) {
           columns={columns}
           data={filtered}
           getRowKey={(a) => a.id}
-          onRowClick={(a) => openAsset(a.id)}
+          onRowClick={(a) => setSelectedId(a.id)}
           empty={
             <EmptyState
-              icon={ImageIcon}
-              title="No assets found"
+              icon={isTrash ? Trash2 : ArchiveIcon}
+              title={
+                hasActiveFilters
+                  ? "No results"
+                  : isTrash
+                    ? "Trash is empty"
+                    : "Nothing archived"
+              }
               description={
                 hasActiveFilters
                   ? "Try adjusting your filters or search query."
-                  : "Upload your first asset to get started."
+                  : isTrash
+                    ? "Deleted assets will appear here until you permanently remove them."
+                    : "Archived assets will appear here, ready to restore at any time."
               }
               action={
                 hasActiveFilters ? (
@@ -458,15 +464,7 @@ export function LibraryScreen({ projectId }) {
                   >
                     Clear filters
                   </Button>
-                ) : (
-                  <Button
-                    className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowUpload(true)}
-                  >
-                    <Upload className="mr-1.5 h-4 w-4" />
-                    Upload Assets
-                  </Button>
-                )
+                ) : null
               }
             />
           }
@@ -475,13 +473,40 @@ export function LibraryScreen({ projectId }) {
 
       {!loading && filtered.length > 0 ? (
         <div className="text-xs text-text-secondary">
-          Showing {filtered.length} of {assets.length} assets
+          Showing {filtered.length} of {activeRows.length}{" "}
+          {isTrash ? "trashed" : "archived"} assets
         </div>
       ) : null}
 
-      <UploadDialog open={showUpload} onOpenChange={setShowUpload} />
+      <Dialog open={Boolean(purgeTarget)} onOpenChange={(o) => !o && setPurgeTarget(null)}>
+        <DialogContent className="max-w-md border-border bg-surface-subtle text-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Delete permanently?</DialogTitle>
+            <DialogDescription className="text-sm text-text-secondary">
+              This will permanently remove{" "}
+              <span className="font-medium text-foreground">{purgeTarget?.name}</span>. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              onClick={() => setPurgeTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-500/90 text-xs text-white hover:bg-red-500"
+              onClick={handlePurge}
+            >
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainScreenWrapper>
   );
 }
 
-export default LibraryScreen;
+export default ArchiveTrashScreen;

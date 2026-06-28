@@ -1,4 +1,7 @@
 @AGENTS.md
+@MODULE_CONVENTIONS.md
+@SUPABASE_CONVENTIONS.md
+@crafting.md
 General Guidelines
 Do not run a build unless:
 The change is a significant UI modification, and

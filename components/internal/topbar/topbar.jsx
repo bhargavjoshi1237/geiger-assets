@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NotificationsDropdown } from "./dialogue/notifications_dropdown";
+import { ProfileDropdown } from "./dialogue/profile_dropdown";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -87,13 +88,7 @@ export function Topbar() {
                 <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
               </Button>
             </NotificationsDropdown>
-            <Button
-              variant="ghost"
-              aria-label="Profile"
-              className="ml-1 h-8 w-8 overflow-hidden rounded-full border border-border p-0 transition-colors hover:border-border-strong"
-            >
-              <span className="h-full w-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" />
-            </Button>
+            <ProfileDropdown />
           </div>
         </div>
       </div>

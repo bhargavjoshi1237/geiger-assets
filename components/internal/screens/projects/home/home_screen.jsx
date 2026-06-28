@@ -253,7 +253,8 @@ function ActivityTrendWidget() {
   const [metric, setMetric] = useState("uploads");
   const selected = ACTIVITY_OPTIONS.find((option) => option.value === metric) || ACTIVITY_OPTIONS[0];
   const series = ACTIVITY_SERIES[metric];
-  const data = series.map((value, index) => ({ week: `W${index + 1}`, value }));
+  const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const data = series.map((value, index) => ({ month: MONTHS[index], value }));
   const change = Math.round(((series.at(-1) - series[0]) / series[0]) * 100);
   const total = series.reduce((sum, value) => sum + value, 0);
 
@@ -261,7 +262,7 @@ function ActivityTrendWidget() {
     <WidgetShell contentClassName="flex flex-col">
       <WidgetHeader
         title="Library Activity"
-        subtitle={`${selected.label} across the workspace over 12 weeks.`}
+        subtitle={`${selected.label} across the workspace over 12 months.`}
         action={
           <FilterDropdown
             value={metric}
@@ -279,7 +280,7 @@ function ActivityTrendWidget() {
           <LineChart data={data} margin={{ top: 24, right: 16, left: 12, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="#2a2a2a" strokeDasharray="3 3" />
             <XAxis
-              dataKey="week"
+              dataKey="month"
               tickLine={false}
               axisLine={false}
               tickMargin={8}

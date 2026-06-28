@@ -1,18 +1,28 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect } from "react";
 import { ProjectSidebar } from "@/components/internal/sidebar/projects/project_sidebar";
 import { Topbar } from "@/components/internal/topbar/topbar";
 import { HomeScreen } from "@/components/internal/screens/projects/home/home_screen";
 import { LibraryScreen } from "@/components/internal/screens/projects/library/library_screen";
+import { UploadCenterScreen } from "@/components/internal/screens/projects/uploads/upload_center_screen";
+import { ExternalUploadsScreen } from "@/components/internal/screens/projects/external_uploads/external_uploads_screen";
+import { CollectionsScreen } from "@/components/internal/screens/projects/collections/collections_screen";
+import { FoldersScreen } from "@/components/internal/screens/projects/folders/folders_screen";
+import { DuplicateReviewScreen } from "@/components/internal/screens/projects/duplicates/duplicate_review_screen";
+import { ArchiveTrashScreen } from "@/components/internal/screens/projects/archive/archive_trash_screen";
+import { AssetRequestsScreen } from "@/components/internal/screens/projects/requests/asset_requests_screen";
 import { FeatureScreen } from "@/components/internal/screens/projects/features/feature_screen";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import { settingsNav } from "@/components/internal/sidebar/projects/sidebar_data";
 import { featureItemsByTitle } from "@/components/internal/sidebar/projects/feature_registry";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 
 function AssetsPlaygroundContent({ projectId }) {
-  const [currentTab, setCurrentTab] = useState("Overview");
+  // The active tab lives in the URL (?tab=…) so a refresh or shared link lands
+  // the user on the same screen — and, via the Library, the same asset/section.
+  const { tab: currentTab, setTab: setCurrentTab } = useWorkspaceUrl();
   const { fetchProjectInfo } = useProject();
 
   useEffect(() => {
@@ -35,7 +45,21 @@ function AssetsPlaygroundContent({ projectId }) {
       case "Overview":
         return <HomeScreen />;
       case "Asset Library":
-        return <LibraryScreen id={projectId} />;
+        return <LibraryScreen projectId={projectId} />;
+      case "Upload Center":
+        return <UploadCenterScreen projectId={projectId} />;
+      case "External Uploads":
+        return <ExternalUploadsScreen projectId={projectId} />;
+      case "Collections":
+        return <CollectionsScreen projectId={projectId} />;
+      case "Folders & Storage":
+        return <FoldersScreen projectId={projectId} />;
+      case "Duplicate Review":
+        return <DuplicateReviewScreen projectId={projectId} />;
+      case "Archive & Trash":
+        return <ArchiveTrashScreen projectId={projectId} />;
+      case "Asset Requests":
+        return <AssetRequestsScreen projectId={projectId} />;
       default:
         if (isFeatureTab) {
           return (
@@ -78,7 +102,11 @@ function AssetsPlaygroundContent({ projectId }) {
 export function AssetsPlayground({ projectId = "assets-project" }) {
   return (
     <ProjectProvider>
-      <AssetsPlaygroundContent projectId={projectId} />
+      {/* useWorkspaceUrl() reads useSearchParams(), which requires a Suspense
+          boundary above it. */}
+      <Suspense fallback={null}>
+        <AssetsPlaygroundContent projectId={projectId} />
+      </Suspense>
     </ProjectProvider>
   );
 }
