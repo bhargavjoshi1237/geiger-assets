@@ -56,7 +56,7 @@ export function ProjectProvider({ children }) {
 
       const supabase = createClient();
       const { data: foundProject, error } = await supabase
-        .from("flow_projects")
+        .from("projects")
         .select("*")
         .eq("id", normalizedId)
         .maybeSingle();
