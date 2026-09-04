@@ -1,40 +1,24 @@
 import { redirect } from "next/navigation";
 
-import ClientAssetsPlayground from "@/components/ClientAssetsPlayground";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { tabToSlug, slugToTab } from "@/lib/workspace/tabs";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-const dashOrigin = (process.env.NEXT_PUBLIC_DASH_ORIGIN || "").replace(/\/$/, "");
+const DEFAULT_TAB = "Overview";
 
-// Only enforce the auth guard when the suite is actually wired up — a configured
-// parent login (DASH_ORIGIN) and Supabase env. Standalone/local dev (no suite)
-// renders normally instead of redirect-looping to a login that isn't there.
-const guardEnabled = Boolean(
-  dashOrigin &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
-
-export default async function AssetsProjectPage({ params }) {
+// Legacy route — redirects to the canonical suite URL (/project/<id>/<tab-slug>)
+// so /assets/<id>?tab=… bookmarks keep working. Query-only state (open asset,
+// editor section) is preserved.
+export default async function AssetsProjectLegacyPage({ params, searchParams }) {
   const { projectId } = await params;
+  const query = await searchParams;
 
-  if (guardEnabled) {
-    // Read the running session from the shared parent cookie. getUser() validates
-    // the JWT against the auth server, so it's a trustworthy gate (unlike getSession).
-    const supabase = await createServerSupabase();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const rawTab = Array.isArray(query?.tab) ? query.tab[0] : query?.tab;
+  const tab = slugToTab(rawTab) || rawTab || DEFAULT_TAB;
+  const slug = tab && tab !== DEFAULT_TAB ? tabToSlug(tab) : "";
 
-    if (!user) {
-      const nextPath = `${basePath}/${projectId}`;
-      redirect(`${dashOrigin}/login?next=${encodeURIComponent(nextPath)}`);
-    }
-  }
+  const qp = new URLSearchParams();
+  if (query?.asset) qp.set("asset", Array.isArray(query.asset) ? query.asset[0] : query.asset);
+  if (query?.section) qp.set("section", Array.isArray(query.section) ? query.section[0] : query.section);
+  const qs = qp.toString();
 
-  return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-background">
-      <ClientAssetsPlayground projectId={projectId} />
-    </div>
-  );
+  redirect(`/project/${projectId}${slug ? `/${slug}` : ""}${qs ? `?${qs}` : ""}`);
 }
