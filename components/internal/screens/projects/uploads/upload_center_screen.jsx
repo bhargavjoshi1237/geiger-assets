@@ -68,6 +68,8 @@ import {
   updateUploadJob,
   deleteUploadJob,
 } from "@/lib/supabase/uploads";
+import { uploadAsset } from "@/lib/storage/client";
+import { toast } from "sonner";
 import { UploadJobDetailScreen } from "./upload_job_detail";
 
 const FOLDER_OPTIONS = [
@@ -219,6 +221,8 @@ export function UploadCenterScreen({ projectId }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  // File bytes for staged/failed jobs, keyed by job id — powers real retry.
+  const fileRefs = useRef(new Map());
 
   const [folder, setFolder] = useState("root");
   const [tags, setTags] = useState("");
@@ -237,7 +241,7 @@ export function UploadCenterScreen({ projectId }) {
       setJobs(rows ?? []);
       setLoadingJobs(false);
     });
-  }, []);
+  }, [projectId]);
 
   const addFiles = useCallback((files) => {
     const next = Array.from(files).map((f) => ({
@@ -279,47 +283,120 @@ export function UploadCenterScreen({ projectId }) {
     });
   };
 
+  const setJobProgress = useCallback(
+    (id, progress) =>
+      setJobs((rows) => rows.map((j) => (j.id === id ? { ...j, progress } : j))),
+    [],
+  );
+
+  const runRealUpload = useCallback(
+    async (jobId, file) => {
+      const tagList = tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      setJobs((rows) =>
+        rows.map((j) => (j.id === jobId ? { ...j, status: "uploading", progress: 1 } : j)),
+      );
+      const asset = await uploadAsset(file, {
+        projectId,
+        folder,
+        tags: tagList,
+        onProgress: (progress) => setJobProgress(jobId, progress),
+      });
+      if (asset) {
+        setJobs((rows) =>
+          rows.map((j) =>
+            j.id === jobId
+              ? { ...j, status: "completed", progress: 100, assetId: asset.id, error: "" }
+              : j,
+          ),
+        );
+        await updateUploadJob(jobId, { status: "completed", progress: 100, assetId: asset.id });
+        fileRefs.current.delete(jobId);
+        return true;
+      }
+      setJobs((rows) =>
+        rows.map((j) =>
+          j.id === jobId ? { ...j, status: "failed", error: "Upload failed" } : j,
+        ),
+      );
+      await updateUploadJob(jobId, { status: "failed", error: "Upload failed" });
+      return false;
+    },
+    [folder, projectId, setJobProgress, tags],
+  );
+
   const handleUploadAll = async () => {
     if (!staged.length || uploading) return;
     setUploading(true);
     const toUpload = [...staged];
     setStaged([]);
-    for (const f of toUpload) {
-      const id = crypto.randomUUID();
-      const optimistic = {
-        id,
-        projectId: null,
-        filename: f.name,
-        fileType: f.fileType,
-        sizeBytes: f.size,
-        status: "queued",
-        progress: 0,
-        source: "drag-drop",
-        error: "",
-        assetId: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setJobs((prev) => [optimistic, ...prev]);
-      const created = await createUploadJob({
-        id,
-        filename: f.name,
-        fileType: f.fileType,
-        sizeBytes: f.size,
-        status: "queued",
-        progress: 0,
-        source: "drag-drop",
-      });
-      if (created) {
-        setJobs((prev) => prev.map((j) => (j.id === id ? created : j)));
-      } else {
-        setJobs((prev) => prev.filter((j) => j.id !== id));
+    let done = 0;
+    let failed = 0;
+    const pool = 3;
+    for (let i = 0; i < toUpload.length; i += pool) {
+      const batch = toUpload.slice(i, i + pool);
+      const results = await Promise.all(
+        batch.map(async (f) => {
+          const id = crypto.randomUUID();
+          const optimistic = {
+            id,
+            projectId: projectId ?? null,
+            filename: f.name,
+            fileType: f.fileType,
+            sizeBytes: f.size,
+            status: "uploading",
+            progress: 0,
+            source: "drag-drop",
+            error: "",
+            assetId: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setJobs((prev) => [optimistic, ...prev]);
+          const created = await createUploadJob({
+            id,
+            projectId: projectId ?? null,
+            filename: f.name,
+            fileType: f.fileType,
+            sizeBytes: f.size,
+            status: "uploading",
+            progress: 0,
+            source: "drag-drop",
+          });
+          if (!created) {
+            setJobs((prev) => prev.filter((j) => j.id !== id));
+            return false;
+          }
+          fileRefs.current.set(id, f.file);
+          return runRealUpload(id, f.file);
+        }),
+      );
+      for (const ok of results) {
+        if (ok) done += 1;
+        else failed += 1;
       }
     }
     setUploading(false);
+    if (done > 0 && failed === 0) toast.success(`${done} file${done !== 1 ? "s" : ""} uploaded`);
+    else if (done > 0) toast.warning(`${done} uploaded, ${failed} failed`);
+    else if (failed > 0) toast.error("Upload failed");
   };
 
   const handleRetry = async (job) => {
+    const file = fileRefs.current.get(job.id);
+    if (file) {
+      setJobs((rows) =>
+        rows.map((j) =>
+          j.id === job.id ? { ...j, status: "queued", progress: 0, error: "" } : j,
+        ),
+      );
+      await updateUploadJob(job.id, { status: "uploading", progress: 0, error: "" });
+      const ok = await runRealUpload(job.id, file);
+      if (!ok) toast.error(`Couldn't upload ${job.filename}.`);
+      return;
+    }
     const prev = jobs;
     setJobs((rows) =>
       rows.map((j) =>

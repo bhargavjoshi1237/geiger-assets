@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
-  ArrowLeft,
   Download,
   Loader2,
-  Save,
-  Trash2,
   Plus,
   X,
   History,
@@ -14,29 +12,26 @@ import {
   RotateCcw,
   Check,
   File,
-  LayoutDashboard,
-  SquarePen,
-  Share2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Input } from "@geiger/ui/input";
+import { Textarea } from "@geiger/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@geiger/ui/select";
 import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
   SectionCard,
   StatusPill,
   Field,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
   TYPE_ICONS,
@@ -58,59 +53,19 @@ import {
   restoreVersion,
 } from "@/lib/supabase/assets";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
-
-// Stacked editor nav — mirrors the Geiger Events event editor. Each item maps to
-// a section keyed in the URL (?section=<key>); the default ("overview") is
-// dropped from the URL for cleanliness.
-const NAV_GROUPS = [
-  {
-    group: null,
-    items: [
-      {
-        key: "overview",
-        label: "Overview",
-        icon: LayoutDashboard,
-        desc: "A snapshot of this asset — preview and key details.",
-      },
-    ],
-  },
-  {
-    group: "Manage",
-    items: [
-      {
-        key: "details",
-        label: "Asset details",
-        icon: SquarePen,
-        desc: "Name, description, status, type, folder, and tags.",
-      },
-      {
-        key: "relationships",
-        label: "Relationships",
-        icon: Share2,
-        desc: "Originals, derivatives, variants, and related records.",
-      },
-      {
-        key: "versions",
-        label: "Versions",
-        icon: History,
-        desc: "An inspectable history of every revision.",
-      },
-    ],
-  },
-];
-
-const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+import { NAV_GROUPS } from "./asset_sections";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
   return <Icon className={className} style={{ color: color || "#737373" }} />;
 }
 
-// ---------------------------------------------------------------------------
-// Right rail — Relationships
-// ---------------------------------------------------------------------------
-
-function RelationshipsPanel({ assetId, rows, onAdd, onRemove }) {
+export function RelationshipsSection({
+  asset,
+  relationships = [],
+  onAdd,
+  onRemove,
+}) {
   const [adding, setAdding] = useState(false);
   const [relationType, setRelationType] = useState("derived");
   const [label, setLabel] = useState("");
@@ -119,7 +74,7 @@ function RelationshipsPanel({ assetId, rows, onAdd, onRemove }) {
   const submit = async () => {
     if (!label.trim()) return;
     setBusy(true);
-    await onAdd({ relationType, label: label.trim() });
+    await onAdd?.({ relationType, label: label.trim() });
     setBusy(false);
     setLabel("");
     setRelationType("derived");
@@ -186,7 +141,7 @@ function RelationshipsPanel({ assetId, rows, onAdd, onRemove }) {
         </div>
       ) : null}
 
-      {rows.length === 0 && !adding ? (
+      {relationships.length === 0 && !adding ? (
         <EmptyState
           icon={Repeat2}
           title="No relationships"
@@ -195,7 +150,7 @@ function RelationshipsPanel({ assetId, rows, onAdd, onRemove }) {
         />
       ) : (
         <div className="divide-y divide-border">
-          {rows.map((rel) => {
+          {relationships.map((rel) => {
             const meta = RELATION_META[rel.relationType] || RELATION_META.derived;
             const name = rel.related?.name || rel.label || "Untitled";
             return (
@@ -218,7 +173,7 @@ function RelationshipsPanel({ assetId, rows, onAdd, onRemove }) {
                   size="icon-sm"
                   aria-label="Remove relationship"
                   className="h-7 w-7 shrink-0 text-text-tertiary opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-                  onClick={() => onRemove(rel.id)}
+                  onClick={() => onRemove?.(rel.id)}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -231,18 +186,14 @@ function RelationshipsPanel({ assetId, rows, onAdd, onRemove }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Right rail — Version Control
-// ---------------------------------------------------------------------------
-
-function VersionsPanel({ rows, onRestore }) {
+export function VersionsSection({ versions = [], onRestore }) {
   return (
     <SectionCard
       title="Version Control"
       description="An inspectable history of every revision."
       bodyPadding={false}
     >
-      {rows.length === 0 ? (
+      {versions.length === 0 ? (
         <EmptyState
           icon={History}
           title="No versions yet"
@@ -251,7 +202,7 @@ function VersionsPanel({ rows, onRestore }) {
         />
       ) : (
         <div className="divide-y divide-border">
-          {rows.map((v) => (
+          {versions.map((v) => (
             <div key={v.id} className="group flex items-center gap-3 px-4 py-3">
               <div
                 className={cn(
@@ -285,7 +236,7 @@ function VersionsPanel({ rows, onRestore }) {
                   variant="ghost"
                   size="sm"
                   className="h-7 shrink-0 text-xs text-text-secondary opacity-0 transition-opacity hover:bg-surface-active hover:text-foreground group-hover:opacity-100"
-                  onClick={() => onRestore(v.id)}
+                  onClick={() => onRestore?.(v.id)}
                 >
                   <RotateCcw className="mr-1 h-3.5 w-3.5" />
                   Restore
@@ -299,16 +250,13 @@ function VersionsPanel({ rows, onRestore }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Section — Overview (preview + key details snapshot)
-// ---------------------------------------------------------------------------
-
-function OverviewSection({ draft, relationships, versions }) {
+export function OverviewSection({ asset, relationships = [], versions = [] }) {
+  if (!asset) return null;
   const facts = [
-    { label: "Type", value: draft.format || draft.type },
-    { label: "Size", value: formatBytes(draft.sizeBytes) },
-    { label: "Folder", value: draft.folder || "—" },
-    { label: "Downloads", value: (draft.downloads ?? 0).toLocaleString() },
+    { label: "Type", value: asset.format || asset.type },
+    { label: "Size", value: formatBytes(asset.sizeBytes) },
+    { label: "Folder", value: asset.folder || "—" },
+    { label: "Downloads", value: (asset.downloads ?? 0).toLocaleString() },
     { label: "Relationships", value: String(relationships.length) },
     { label: "Versions", value: String(versions.length) },
   ];
@@ -319,11 +267,11 @@ function OverviewSection({ draft, relationships, versions }) {
         <div
           className="flex aspect-video items-center justify-center rounded-xl border border-border"
           style={{
-            background: `linear-gradient(135deg, ${draft.color}15 0%, ${draft.color}08 100%)`,
-            borderColor: `${draft.color}20`,
+            background: `linear-gradient(135deg, ${asset.color}15 0%, ${asset.color}08 100%)`,
+            borderColor: `${asset.color}20`,
           }}
         >
-          <TypeGlyph type={draft.type} color={draft.color} className="h-16 w-16" />
+          <TypeGlyph type={asset.type} color={asset.color} className="h-16 w-16" />
         </div>
       </SectionCard>
 
@@ -344,7 +292,7 @@ function OverviewSection({ draft, relationships, versions }) {
               Status
             </dt>
             <dd className="mt-1">
-              <StatusPill status={draft.status} map={STATUS_META} className="text-[10px]" />
+              <StatusPill status={asset.status} map={STATUS_META} className="text-[10px]" />
             </dd>
           </div>
           <div className="min-w-0">
@@ -352,7 +300,7 @@ function OverviewSection({ draft, relationships, versions }) {
               Modified
             </dt>
             <dd className="mt-1 text-sm font-medium text-foreground">
-              {draft.updatedAt ? formatDate(draft.updatedAt) : "—"}
+              {asset.updatedAt ? formatDate(asset.updatedAt) : "—"}
             </dd>
           </div>
         </dl>
@@ -361,34 +309,31 @@ function OverviewSection({ draft, relationships, versions }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Section — Asset details (editable form)
-// ---------------------------------------------------------------------------
-
-function DetailsSection({ draft, set, addTag, removeTag }) {
+export function DetailsSection({ asset, onPatch, onAddTag, onRemoveTag }) {
+  if (!asset) return null;
+  const patch = onPatch || (() => {});
   return (
     <SectionCard title="Details">
       <div className="grid gap-4">
         <Field label="Name" htmlFor="asset-name">
           <Input
             id="asset-name"
-            value={draft.name}
-            onChange={(e) => set("name")(e.target.value)}
-            className="border-border bg-surface-card text-foreground"
+            value={asset.name}
+            onChange={(e) => patch({ name: e.target.value })}
           />
         </Field>
         <Field label="Description" htmlFor="asset-desc">
           <Textarea
             id="asset-desc"
-            value={draft.description}
-            onChange={(e) => set("description")(e.target.value)}
+            value={asset.description}
+            onChange={(e) => patch({ description: e.target.value })}
             placeholder="Add a description…"
             className="min-h-20 border-border bg-surface-card text-foreground"
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Status">
-            <Select value={draft.status} onValueChange={set("status")}>
+            <Select value={asset.status} onValueChange={(v) => patch({ status: v })}>
               <SelectTrigger className="border-border bg-surface-card">
                 <SelectValue />
               </SelectTrigger>
@@ -402,7 +347,7 @@ function DetailsSection({ draft, set, addTag, removeTag }) {
             </Select>
           </Field>
           <Field label="Type">
-            <Select value={draft.type} onValueChange={set("type")}>
+            <Select value={asset.type} onValueChange={(v) => patch({ type: v })}>
               <SelectTrigger className="border-border bg-surface-card">
                 <SelectValue />
               </SelectTrigger>
@@ -419,14 +364,13 @@ function DetailsSection({ draft, set, addTag, removeTag }) {
         <Field label="Folder" htmlFor="asset-folder">
           <Input
             id="asset-folder"
-            value={draft.folder}
-            onChange={(e) => set("folder")(e.target.value)}
-            className="border-border bg-surface-card text-foreground"
+            value={asset.folder}
+            onChange={(e) => patch({ folder: e.target.value })}
           />
         </Field>
         <Field label="Tags" hint="Press Enter to add a tag.">
           <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-surface-card px-2 py-2">
-            {draft.tags.map((tag) => (
+            {(asset.tags || []).map((tag) => (
               <Badge
                 key={tag}
                 variant="outline"
@@ -436,7 +380,7 @@ function DetailsSection({ draft, set, addTag, removeTag }) {
                 <button
                   type="button"
                   aria-label={`Remove ${tag}`}
-                  onClick={() => removeTag(tag)}
+                  onClick={() => onRemoveTag?.(tag)}
                   className="text-text-tertiary hover:text-red-400"
                 >
                   <X className="h-3 w-3" />
@@ -444,8 +388,8 @@ function DetailsSection({ draft, set, addTag, removeTag }) {
               </Badge>
             ))}
             <input
-              onKeyDown={addTag}
-              placeholder={draft.tags.length ? "" : "Add tags…"}
+              onKeyDown={onAddTag}
+              placeholder={asset.tags?.length ? "" : "Add tags…"}
               className="min-w-24 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-text-tertiary"
             />
           </div>
@@ -455,22 +399,21 @@ function DetailsSection({ draft, set, addTag, removeTag }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Edit screen
-// ---------------------------------------------------------------------------
+export const SECTIONS = {
+  overview: OverviewSection,
+  details: DetailsSection,
+  relationships: RelationshipsSection,
+  versions: VersionsSection,
+};
 
-export function AssetEditScreen({ assetId, onBack, onChange }) {
+export function AssetEditScreen({ assetId, onBack, onUpdate }) {
+  const { section: active, setSection: setActive } = useWorkspaceUrl();
   const [loading, setLoading] = useState(true);
   const [asset, setAsset] = useState(null);
-  const [draft, setDraft] = useState(null);
+  const [form, setForm] = useState(null);
   const [relationships, setRelationships] = useState([]);
   const [versions, setVersions] = useState([]);
   const [saving, setSaving] = useState(false);
-
-  // Active editor section lives in the URL (?section=<key>) — falls back to the
-  // first nav item for an unknown/absent value.
-  const { section, setSection } = useWorkspaceUrl();
-  const active = NAV_ITEMS.some((i) => i.key === section) ? section : NAV_ITEMS[0].key;
 
   useEffect(() => {
     let alive = true;
@@ -481,7 +424,7 @@ export function AssetEditScreen({ assetId, onBack, onChange }) {
     ]).then(([a, rels, vers]) => {
       if (!alive) return;
       setAsset(a);
-      setDraft(a);
+      setForm(a);
       setRelationships(rels ?? []);
       setVersions(vers ?? []);
       setLoading(false);
@@ -492,39 +435,90 @@ export function AssetEditScreen({ assetId, onBack, onChange }) {
   }, [assetId]);
 
   const dirty = useMemo(() => {
-    if (!asset || !draft) return false;
+    if (!asset || !form) return false;
     return (
-      asset.name !== draft.name ||
-      asset.description !== draft.description ||
-      asset.status !== draft.status ||
-      asset.type !== draft.type ||
-      asset.folder !== draft.folder ||
-      asset.tags.join(",") !== draft.tags.join(",")
+      asset.name !== form.name ||
+      asset.description !== form.description ||
+      asset.status !== form.status ||
+      asset.type !== form.type ||
+      asset.folder !== form.folder ||
+      (asset.tags || []).join(",") !== (form.tags || []).join(",")
     );
-  }, [asset, draft]);
+  }, [asset, form]);
 
-  const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
+  if (loading) {
+    return (
+      <EditorShell
+        back={{ label: "Asset Library", onClick: onBack }}
+        title="Loading asset…"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
+        <div className="flex h-64 items-center justify-center text-text-tertiary">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      </EditorShell>
+    );
+  }
 
-  const handleSave = async () => {
-    if (!dirty) return;
+  if (!asset || !form) {
+    return (
+      <EditorShell
+        back={{ label: "Asset Library", onClick: onBack }}
+        title="Asset not found"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
+        <EmptyState
+          icon={File}
+          title="Asset not found"
+          description="This asset may have been deleted or isn't available."
+          action={
+            <Button
+              variant="outline"
+              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              onClick={onBack}
+            >
+              Back to Library
+            </Button>
+          }
+        />
+      </EditorShell>
+    );
+  }
+
+  const patch = (partial) => setForm((f) => ({ ...f, ...partial }));
+
+  const commit = (partial) => {
+    const next = { ...form, ...partial };
+    setForm(next);
+    onUpdate?.(next);
+  };
+
+  const save = async () => {
+    if (!dirty || saving) return;
     setSaving(true);
-    const patch = {
-      name: draft.name,
-      description: draft.description,
-      status: draft.status,
-      type: draft.type,
-      folder: draft.folder,
-      tags: draft.tags,
-    };
-    const updated = await updateAsset(assetId, patch);
+    const updated = await updateAsset(assetId, {
+      name: form.name,
+      description: form.description,
+      status: form.status,
+      type: form.type,
+      folder: form.folder,
+      tags: form.tags,
+    });
     setSaving(false);
     if (updated) {
       setAsset(updated);
-      setDraft(updated);
-      onChange?.(updated);
+      setForm(updated);
+      onUpdate?.(updated);
+      toast.success("Changes saved.");
     } else {
-      // write failed — reconcile back to the last known-good asset
-      setDraft(asset);
+      setForm(asset);
+      toast.error("Couldn't save your changes to the server.");
     }
   };
 
@@ -544,6 +538,7 @@ export function AssetEditScreen({ assetId, onBack, onChange }) {
       setRelationships((prev) => prev.map((r) => (r.id === optimistic.id ? created : r)));
     } else {
       setRelationships((prev) => prev.filter((r) => r.id !== optimistic.id));
+      toast.error("Couldn't save the link to the server.");
     }
   };
 
@@ -551,184 +546,90 @@ export function AssetEditScreen({ assetId, onBack, onChange }) {
     const prev = relationships;
     setRelationships((rows) => rows.filter((r) => r.id !== id));
     const ok = await deleteRelationship(id);
-    if (!ok) setRelationships(prev);
+    if (!ok) {
+      setRelationships(prev);
+      toast.error("Couldn't remove the link on the server.");
+    }
   };
 
   const handleRestoreVersion = async (versionId) => {
     const prev = versions;
     setVersions((rows) => rows.map((v) => ({ ...v, isCurrent: v.id === versionId })));
     const ok = await restoreVersion(assetId, versionId);
-    if (!ok) setVersions(prev);
+    if (!ok) {
+      setVersions(prev);
+      toast.error("Couldn't restore that version on the server.");
+    } else {
+      toast.success("Version restored.");
+    }
   };
 
-  const removeTag = (tag) => set("tags")(draft.tags.filter((t) => t !== tag));
+  const removeTag = (tag) => patch({ tags: (form.tags || []).filter((t) => t !== tag) });
   const addTag = (e) => {
     if (e.key !== "Enter") return;
     const value = e.target.value.trim();
-    if (value && !draft.tags.includes(value)) set("tags")([...draft.tags, value]);
+    if (value && !(form.tags || []).includes(value))
+      patch({ tags: [...(form.tags || []), value] });
     e.target.value = "";
     e.preventDefault();
   };
 
-  if (loading) {
-    return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
-      </MainScreenWrapper>
-    );
-  }
-
-  if (!asset || !draft) {
-    return (
-      <MainScreenWrapper className="dark">
-        <EmptyState
-          icon={File}
-          title="Asset not found"
-          description="This asset may have been deleted or isn't available."
-          action={
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-              onClick={onBack}
-            >
-              Back to Library
-            </Button>
-          }
-        />
-      </MainScreenWrapper>
-    );
-  }
-
   return (
-    <MainScreenWrapper className="dark">
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to library"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
-            style={{ background: `${draft.color}15`, borderColor: `${draft.color}25` }}
-          >
-            <TypeGlyph type={draft.type} color={draft.color} className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              {draft.name || "Untitled asset"}
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <StatusPill status={draft.status} map={STATUS_META} className="text-[10px]" />
-              <span className="text-xs text-text-secondary">
-                {draft.format} · {formatBytes(draft.sizeBytes)}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+    <EditorShell
+      searchable
+      back={{ label: "Asset Library", onClick: onBack }}
+      title={form.name || "Untitled asset"}
+      status={form.status}
+      statusMap={STATUS_META}
+      meta={
+        [form.format || form.type, formatBytes(form.sizeBytes), form.folder]
+          .filter(Boolean)
+          .join(" · ") || "No details set yet"
+      }
+      actions={
+        <>
           <Button
             variant="outline"
-            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
           >
-            <Download className="mr-1.5 h-4 w-4" />
-            Download
+            <Download className="h-4 w-4" />
           </Button>
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-            onClick={handleSave}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={save}
             disabled={!dirty || saving}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-1.5 h-4 w-4" />
-            )}
-            {dirty ? "Save changes" : "Saved"}
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            {dirty ? "Save Changes" : "Saved"}
           </Button>
-        </div>
-      </div>
-
-      {/* Content (left) + stacked section nav (right) — mirrors the Geiger
-          Events event editor. */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_260px]">
-        <div className="order-2 min-w-0 lg:order-1">
-          {active === "overview" ? (
-            <OverviewSection
-              draft={draft}
-              relationships={relationships}
-              versions={versions}
-            />
-          ) : active === "details" ? (
-            <DetailsSection
-              draft={draft}
-              set={set}
-              addTag={addTag}
-              removeTag={removeTag}
-            />
-          ) : active === "relationships" ? (
-            <RelationshipsPanel
-              assetId={assetId}
-              rows={relationships}
-              onAdd={handleAddRelationship}
-              onRemove={handleRemoveRelationship}
-            />
-          ) : active === "versions" ? (
-            <VersionsPanel rows={versions} onRestore={handleRestoreVersion} />
-          ) : null}
-        </div>
-
-        <aside className="order-1 lg:order-2">
-          {/* Pinned to the viewport so the nav spans the full height even when the
-              section content is shorter, scrolling inside its own area. Offset =
-              topbar + main padding. Scrollbar hidden to match the suite chrome. */}
-          <nav className="space-y-5 lg:sticky lg:top-0 lg:h-[calc(100dvh-7.5rem)] lg:overflow-y-auto lg:pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {NAV_GROUPS.map((group, gi) => (
-              <div key={group.group || `g${gi}`}>
-                {group.group ? (
-                  <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    {group.group}
-                  </p>
-                ) : null}
-                <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = active === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => setSection(item.key)}
-                        className={cn(
-                          "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                          isActive
-                            ? "bg-surface-card font-medium text-white"
-                            : "text-muted-foreground hover:bg-surface-subtle hover:text-foreground",
-                        )}
-                      >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4 shrink-0",
-                            isActive ? "text-white" : "text-text-secondary",
-                          )}
-                        />
-                        <span className="truncate capitalize">{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </nav>
-        </aside>
-      </div>
-    </MainScreenWrapper>
+        </>
+      }
+      nav={NAV_GROUPS}
+      subject={form}
+      active={active}
+      onActiveChange={setActive}
+    >
+      {({ active: key }) => {
+        const ActiveSection = SECTIONS[key] || SECTIONS.overview;
+        return (
+          <ActiveSection
+            asset={form}
+            headerItem={NAV_GROUPS.flatMap((g) => g.items).find((i) => i.key === key)}
+            relationships={relationships}
+            versions={versions}
+            onPatch={patch}
+            onCommit={commit}
+            onAdd={handleAddRelationship}
+            onRemove={handleRemoveRelationship}
+            onRestore={handleRestoreVersion}
+            onAddTag={addTag}
+            onRemoveTag={removeTag}
+          />
+        );
+      }}
+    </EditorShell>
   );
 }
 

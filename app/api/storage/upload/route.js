@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { storageAuth } from "@/lib/storage/auth";
+import { requireProjectAccess } from "@/lib/storage/auth";
 import { proxyStore, PROXY_MAX_BYTES, isStorageConfigured } from "@/lib/storage/service";
 
 export const runtime = "nodejs";
 
 export async function POST(request) {
-  const auth = await storageAuth();
-  if (auth.response) return auth.response;
-
   if (!isStorageConfigured()) {
     return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   }
@@ -25,6 +22,10 @@ export async function POST(request) {
   if (!(file instanceof Blob) || !projectId || !uploadJobId) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
+
+  const access = await requireProjectAccess({ projectId: String(projectId), action: "write" });
+  if (access.response) return access.response;
+
   if (file.size > PROXY_MAX_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
   }

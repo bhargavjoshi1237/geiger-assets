@@ -1,34 +1,35 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Upload,
-  ChevronDown,
-  MoreHorizontal,
-  Download,
-  Trash2,
-  Share2,
   Copy,
   Pencil,
-  X,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Image as ImageIcon,
+  Trash2,
   Loader2,
+  Image as ImageIcon,
   File,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+
+import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
+import {
+  DataTable,
+  EmptyState,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
+  Field,
+} from "@/components/internal/shared/screen_kit";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Input } from "@geiger/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -36,25 +37,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+} from "@geiger/ui/dialog";
 import {
-  ScreenHeader,
-  StatsBar,
-  SearchInput,
-  StatusPill,
-  EmptyState,
-  DataTable,
-  Toolbar,
-} from "@/components/internal/shared/screen_kit";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@geiger/ui/select";
+import { ActionMenu } from "@geiger/ui/action-menu";
+import FilterDropdown from "@/components/internal/screens/projects/home/filter_dropdown";
+import { cn } from "@/lib/utils";
 import {
   TYPE_ICONS,
   FILE_TYPE_COLORS,
   STATUS_META,
   TYPE_FILTER_OPTIONS,
   STATUS_FILTER_OPTIONS,
-  SORT_OPTIONS,
   formatBytes,
   formatDate,
 } from "./constants";
@@ -62,33 +61,121 @@ import { listAssets, softDeleteAsset, createAsset } from "@/lib/supabase/assets"
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { AssetEditScreen } from "./asset_detail";
 
-function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
+const EMPTY_DRAFT = {
+  name: "",
+  type: "image",
+  folder: "root",
+  status: "draft",
+};
+
+function UploadDialog({ open, onOpenChange }) {
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+
+  const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
+
+  const submit = () => {
+    if (!draft.name.trim()) {
+      toast.error("Give your asset a name first.");
+      return;
+    }
+    setDraft(EMPTY_DRAFT);
+    onOpenChange(false);
+  };
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-8 gap-1.5 rounded-md border-border bg-surface-card px-3 text-xs font-medium text-foreground hover:bg-surface-subtle"
-        >
-          {Icon ? <Icon className="h-3.5 w-3.5 text-text-secondary" /> : null}
-          {options.find((o) => o.value === value)?.label || placeholder}
-          <ChevronDown className="h-3 w-3 text-text-secondary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="start">
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.value}
-              value={option.value}
-              className="cursor-pointer text-xs focus:bg-surface-hover focus:text-foreground"
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl bg-background">
+        <DialogHeader>
+          <DialogTitle>Upload assets</DialogTitle>
+          <DialogDescription>
+            Set the essentials now — you can flesh out details, relationships,
+            and versions in the Asset Editor.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <Field label="Asset name" htmlFor="asset-name">
+            <Input
+              id="asset-name"
+              value={draft.name}
+              onChange={(e) => set("name")(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder="e.g. Hero banner Q3"
+              autoFocus
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Type">
+              <Select value={draft.type} onValueChange={set("type")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TYPE_FILTER_OPTIONS.filter((o) => o.value !== "all").map(
+                    (o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select value={draft.status} onValueChange={set("status")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_FILTER_OPTIONS.filter((o) => o.value !== "all").map(
+                    (o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
+          <div
+            className="cursor-pointer rounded-xl border-2 border-dashed border-border p-10 text-center transition-colors hover:border-border-strong"
+            onClick={submit}
+          >
+            <Upload className="mx-auto mb-3 h-10 w-10 text-text-tertiary" />
+            <p className="text-sm font-medium text-foreground">
+              Drop files here or click to upload
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              Supports images, videos, audio, documents, and more
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={submit}
+          >
+            Upload
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -104,157 +191,66 @@ function AssetThumb({ asset }) {
   );
 }
 
-function RowActions({ asset, onEdit, onDuplicate, onDelete }) {
-  return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Asset actions"
-            className="h-7 w-7 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="end">
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onEdit(asset)}
-          >
-            <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer text-xs focus:bg-surface-hover">
-            <Download className="mr-2 h-3.5 w-3.5" /> Download
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer text-xs focus:bg-surface-hover">
-            <Share2 className="mr-2 h-3.5 w-3.5" /> Share
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onDuplicate(asset)}
-          >
-            <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-surface-hover" />
-          <DropdownMenuItem
-            className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-            onClick={() => onDelete(asset)}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-function UploadDialog({ open, onOpenChange }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-border bg-surface-subtle text-foreground">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">Upload Assets</DialogTitle>
-          <DialogDescription className="text-sm text-text-secondary">
-            Drag and drop files or click to browse.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="cursor-pointer rounded-xl border-2 border-dashed border-border p-10 text-center transition-colors hover:border-border-strong">
-          <Upload className="mx-auto mb-3 h-10 w-10 text-text-tertiary" />
-          <p className="text-sm font-medium text-foreground">Drop files here or click to upload</p>
-          <p className="mt-1 text-xs text-text-secondary">
-            Supports images, videos, audio, documents, and more
-          </p>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90">
-            Upload
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function LibraryScreen({ projectId }) {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortValue, setSortValue] = useState("modified-desc");
-  // The open asset lives in the URL (?asset=<id>) so a refresh / shared link
-  // re-opens the same asset (and the editor's ?section).
-  const { assetId: openAssetId, openAsset, closeAsset } = useWorkspaceUrl();
   const [showUpload, setShowUpload] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const { assetId: openAssetId, openAsset, closeAsset } = useWorkspaceUrl();
 
   useEffect(() => {
+    let alive = true;
     listAssets(projectId).then((rows) => {
+      if (!alive) return;
       setAssets(rows ?? []);
       setLoading(false);
     });
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   const filtered = useMemo(() => {
-    let result = [...assets];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) ||
-          a.format.toLowerCase().includes(q) ||
-          a.tags.some((t) => t.toLowerCase().includes(q)),
-      );
-    }
-    if (typeFilter !== "all") result = result.filter((a) => a.type === typeFilter);
-    if (statusFilter !== "all") result = result.filter((a) => a.status === statusFilter);
-
-    const [field, direction] = sortValue.split("-");
-    result.sort((a, b) => {
-      let cmp = 0;
-      if (field === "modified") cmp = new Date(a.updatedAt) - new Date(b.updatedAt);
-      else if (field === "name") cmp = a.name.localeCompare(b.name);
-      else if (field === "size") cmp = a.sizeBytes - b.sizeBytes;
-      else if (field === "downloads") cmp = a.downloads - b.downloads;
-      return direction === "desc" ? -cmp : cmp;
+    return assets.filter((a) => {
+      if (typeFilter !== "all" && a.type !== typeFilter) return false;
+      if (statusFilter !== "all" && a.status !== statusFilter) return false;
+      if (
+        search &&
+        !`${a.name} ${a.format} ${(a.tags || []).join(" ")}`
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      )
+        return false;
+      return true;
     });
-    return result;
-  }, [assets, search, typeFilter, statusFilter, sortValue]);
+  }, [assets, search, typeFilter, statusFilter]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${typeFilter}|${statusFilter}`,
+  });
 
   const stats = useMemo(() => {
-    const totalBytes = assets.reduce((sum, a) => sum + a.sizeBytes, 0);
+    const totalBytes = assets.reduce((sum, a) => sum + (a.sizeBytes || 0), 0);
     const processing = assets.filter((a) => a.status === "processing").length;
     const approved = assets.filter((a) => a.status === "approved").length;
     return [
-      { label: "Total Assets", value: String(assets.length), footer: "in this library" },
-      { label: "Storage Used", value: formatBytes(totalBytes), footer: "across all assets" },
-      { label: "Approved", value: String(approved), footer: "ready to use" },
-      { label: "Processing", value: String(processing), footer: "in queue" },
+      { label: "Total assets", value: String(assets.length), footer: "in this library" },
+      { label: "Storage used", value: formatBytes(totalBytes), footer: "Across all assets" },
+      { label: "Approved", value: String(approved), footer: "Ready to use" },
+      { label: "Processing", value: String(processing), footer: "In queue" },
     ];
   }, [assets]);
 
-  const hasActiveFilters =
-    typeFilter !== "all" || statusFilter !== "all" || Boolean(search);
-
-  const clearFilters = () => {
-    setTypeFilter("all");
-    setStatusFilter("all");
-    setSearch("");
-  };
-
-  const handleDelete = async (asset) => {
-    const prev = assets;
-    setAssets((rows) => rows.filter((a) => a.id !== asset.id));
-    const ok = await softDeleteAsset(asset.id);
-    if (!ok) setAssets(prev);
+  const handleDelete = (asset) => {
+    setDeleteTarget(null);
+    setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+    toast.success(`Deleted "${asset.name}".`);
+    softDeleteAsset(asset.id).then((ok) => {
+      if (!ok) toast.error("Couldn't delete the asset on the server.");
+    });
   };
 
   const handleDuplicate = async (asset) => {
@@ -262,11 +258,12 @@ export function LibraryScreen({ projectId }) {
     const copy = {
       ...asset,
       id,
-      name: asset.name.replace(/(\.[^.]+)?$/, " copy$1"),
+      name: asset.name.replace(/(\.[^.]+)?$/, " (copy)$1"),
       status: "draft",
       downloads: 0,
     };
-    setAssets((rows) => [copy, ...rows]);
+    setAssets((prev) => [copy, ...prev]);
+    toast.success(`Duplicated "${asset.name}".`);
     const created = await createAsset({
       id,
       name: copy.name,
@@ -280,9 +277,9 @@ export function LibraryScreen({ projectId }) {
       color: copy.color,
     });
     if (created) {
-      setAssets((rows) => rows.map((a) => (a.id === id ? created : a)));
+      setAssets((prev) => prev.map((a) => (a.id === id ? created : a)));
     } else {
-      setAssets((rows) => rows.filter((a) => a.id !== id));
+      toast.error("Couldn't save the copy to the server.");
     }
   };
 
@@ -292,22 +289,25 @@ export function LibraryScreen({ projectId }) {
   const columns = [
     {
       key: "name",
-      header: "Name",
+      header: "Asset",
       render: (a) => (
         <div className="flex items-center gap-3">
           <AssetThumb asset={a} />
-          <div className="min-w-0">
-            <p className="max-w-[260px] truncate text-sm font-medium text-foreground">{a.name}</p>
-            <div className="mt-0.5 flex gap-1">
-              {a.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="text-[10px] text-text-tertiary">
-                  #{tag}
-                </span>
-              ))}
-            </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="max-w-[260px] truncate font-medium text-foreground">
+              {a.name}
+            </span>
+            <span className="text-xs text-text-secondary">
+              {a.format || a.type} · {formatBytes(a.sizeBytes)} · {a.folder}
+            </span>
           </div>
         </div>
       ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (a) => <StatusPill status={a.status} map={STATUS_META} />,
     },
     {
       key: "type",
@@ -317,17 +317,6 @@ export function LibraryScreen({ projectId }) {
           {a.format || a.type}
         </Badge>
       ),
-    },
-    {
-      key: "size",
-      header: "Size",
-      className: "tabular-nums text-xs text-muted-foreground",
-      render: (a) => formatBytes(a.sizeBytes),
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (a) => <StatusPill status={a.status} map={STATUS_META} className="text-[10px]" />,
     },
     {
       key: "modified",
@@ -340,20 +329,29 @@ export function LibraryScreen({ projectId }) {
       key: "downloads",
       header: "Downloads",
       align: "right",
-      className: "tabular-nums text-xs text-text-secondary hidden md:table-cell",
+      className: "text-right tabular-nums text-text-secondary hidden md:table-cell",
       headClassName: "hidden md:table-cell",
-      render: (a) => a.downloads.toLocaleString(),
+      render: (a) => (a.downloads ?? 0).toLocaleString("en-US"),
     },
     {
       key: "actions",
       header: "",
       align: "right",
+      className: "text-right",
       render: (a) => (
-        <RowActions
-          asset={a}
-          onEdit={(x) => openAsset(x.id)}
-          onDuplicate={handleDuplicate}
-          onDelete={handleDelete}
+        <ActionMenu
+          label={`Actions for ${a.name}`}
+          items={[
+            { icon: Pencil, label: "Edit", onSelect: () => openAsset(a.id) },
+            { icon: Copy, label: "Duplicate", onSelect: () => handleDuplicate(a) },
+            { separator: true },
+            {
+              icon: Trash2,
+              label: "Delete",
+              variant: "destructive",
+              onSelect: () => setDeleteTarget(a),
+            },
+          ]}
         />
       ),
     },
@@ -371,17 +369,16 @@ export function LibraryScreen({ projectId }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader
         title="Asset Library"
-        description="Browse, manage, and organize every digital asset in one place."
+        description="Every asset in your workspace — drafts, in review, and approved. Search, filter, and manage them all from here."
         actions={
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => setShowUpload(true)}
           >
-            <Upload className="mr-1.5 h-4 w-4" />
-            Upload
+            <Upload className="h-4 w-4" /> Upload
           </Button>
         }
       />
@@ -389,97 +386,99 @@ export function LibraryScreen({ projectId }) {
       <StatsBar stats={stats} />
 
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search assets..."
-            className="w-full sm:w-64"
-          />
+        <div className="flex items-center gap-2">
           <FilterDropdown
             value={typeFilter}
             onValueChange={setTypeFilter}
             options={TYPE_FILTER_OPTIONS}
-            placeholder="Type"
-            icon={SlidersHorizontal}
+            height="h-9"
           />
           <FilterDropdown
             value={statusFilter}
             onValueChange={setStatusFilter}
             options={STATUS_FILTER_OPTIONS}
-            placeholder="Status"
+            height="h-9"
           />
-          {hasActiveFilters ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
-              onClick={clearFilters}
-            >
-              <X className="mr-1 h-3 w-3" />
-              Clear
-            </Button>
-          ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search assets, formats, tags…"
         />
       </Toolbar>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle px-6 py-16 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading assets…
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowKey={(a) => a.id}
-          onRowClick={(a) => openAsset(a.id)}
-          empty={
-            <EmptyState
-              icon={ImageIcon}
-              title="No assets found"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : "Upload your first asset to get started."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                ) : (
-                  <Button
-                    className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowUpload(true)}
-                  >
-                    <Upload className="mr-1.5 h-4 w-4" />
-                    Upload Assets
-                  </Button>
-                )
-              }
-            />
-          }
-        />
+        <div className="space-y-5">
+          <DataTable
+            columns={columns}
+            data={pager.pageItems}
+            getRowKey={(a) => a.id}
+            onRowClick={(a) => openAsset(a.id)}
+            empty={
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                <EmptyState
+                  icon={ImageIcon}
+                  title={
+                    assets.length
+                      ? "No assets match your filters"
+                      : "No assets yet"
+                  }
+                  description={
+                    assets.length
+                      ? "Try clearing the search or filters, or upload a new asset to get started."
+                      : "Upload your first asset to start organizing your library."
+                  }
+                  action={
+                    <Button
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={() => setShowUpload(true)}
+                    >
+                      <Upload className="h-4 w-4" /> Upload assets
+                    </Button>
+                  }
+                />
+              </div>
+            }
+          />
+          <ListPagination {...pager} itemLabel="assets" />
+        </div>
       )}
 
-      {!loading && filtered.length > 0 ? (
-        <div className="text-xs text-text-secondary">
-          Showing {filtered.length} of {assets.length} assets
-        </div>
-      ) : null}
-
       <UploadDialog open={showUpload} onOpenChange={setShowUpload} />
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete asset</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-foreground">
+                {deleteTarget?.name}
+              </span>
+              ? This action can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-500/90 text-white hover:bg-red-500"
+              onClick={() => handleDelete(deleteTarget)}
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainScreenWrapper>
   );
 }

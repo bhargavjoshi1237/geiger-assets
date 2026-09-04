@@ -46,27 +46,31 @@ async function main() {
 
     let orphans = 0;
     let deleted = 0;
-    let cursor = undefined;
-    for (;;) {
-      const page = await s3.listObjects("p/", { limit: 1000, cursor });
-      if (!page) break;
-      for (const obj of page.objects) {
-        if (!obj.key.includes("/tmp/")) continue;
-        const ageMs = obj.lastModified ? Date.now() - new Date(obj.lastModified).getTime() : 0;
-        if (ageMs < TMP_MAX_AGE_MS) continue;
-        const ref = await pg.query(
-          `select 1 from assets.upload_jobs where storage_key = $1
-           union select 1 from assets.assets where storage_key = $1 limit 1`,
-          [obj.key]
-        );
-        if (ref.rowCount === 0) {
-          orphans += 1;
-          console.log(`  orphan staging object ${obj.key} (${Math.round(ageMs / 3600000)}h old)`);
-          if (APPLY && (await s3.deleteObject(obj.key))) deleted += 1;
+    const top = await s3.listObjects("p/", { limit: 1000, delimiter: "/" });
+    const projectPrefixes = top ? top.prefixes.filter((p) => p !== "p/_health/") : [];
+    console.log(`pass 2: scanning tmp/ under ${projectPrefixes.length} project prefix(es)`);
+    for (const projectPrefix of projectPrefixes) {
+      let cursor = undefined;
+      for (;;) {
+        const page = await s3.listObjects(`${projectPrefix}tmp/`, { limit: 1000, cursor });
+        if (!page) break;
+        for (const obj of page.objects) {
+          const ageMs = obj.lastModified ? Date.now() - new Date(obj.lastModified).getTime() : 0;
+          if (ageMs < TMP_MAX_AGE_MS) continue;
+          const ref = await pg.query(
+            `select 1 from assets.upload_jobs where storage_key = $1
+             union select 1 from assets.assets where storage_key = $1 limit 1`,
+            [obj.key]
+          );
+          if (ref.rowCount === 0) {
+            orphans += 1;
+            console.log(`  orphan staging object ${obj.key} (${Math.round(ageMs / 3600000)}h old)`);
+            if (APPLY && (await s3.deleteObject(obj.key))) deleted += 1;
+          }
         }
+        if (!page.nextCursor) break;
+        cursor = page.nextCursor;
       }
-      if (!page.nextCursor) break;
-      cursor = page.nextCursor;
     }
     console.log(`pass 2: ${orphans} orphan(s) ${APPLY ? `(${deleted} deleted)` : "(none deleted in dry-run)"}`);
 
@@ -77,7 +81,7 @@ async function main() {
            and storage_key is not null`
       )
     ).rows;
-    console.log(`pass 3: ${stale.length} soft-deleted row(s) past the 30-day retention window`);
+    console.log(`pass 3: ${stale.length} soft-deleted row(s) past the ${Math.round(SOFT_DELETE_RETENTION_MS / 86400000)}-day retention window`);
     if (APPLY) {
       for (const row of stale) {
         if (await s3.deleteObject(row.storage_key)) {
@@ -86,7 +90,6 @@ async function main() {
         }
       }
     }
-    void SOFT_DELETE_RETENTION_MS;
   } finally {
     await pg.end();
   }

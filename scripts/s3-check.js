@@ -55,6 +55,33 @@ async function main() {
   const listed = await s3.listObjects("p/_health/tmp/", { limit: 10 });
   step(Boolean(listed && listed.objects.some((o) => o.key === probeKey)), "list objects (prefix)");
 
+  // The primary upload path is a presigned PUT signed with an exact
+  // Content-Type and Content-Length — Appwrite's S3 gateway is the unknown
+  // here, so probe it directly. A failure means uploads fall back to the
+  // 4 MB proxy, which s3-check reports explicitly rather than hiding.
+  const putProbeKey = `p/_health/tmp/s3-check-put-${Date.now()}.txt`;
+  const putBody = "presigned-put-probe";
+  const putUrl = await s3.signPutUrl(putProbeKey, {
+    contentType: "text/plain",
+    maxBytes: Buffer.byteLength(putBody),
+  });
+  if (putUrl) {
+    try {
+      const putRes = await fetch(putUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "text/plain", "Content-Length": String(Buffer.byteLength(putBody)) },
+        body: putBody,
+      });
+      const putHead = putRes.ok ? await s3.headObject(putProbeKey) : null;
+      step(Boolean(putRes.ok && putHead && putHead.size === putBody.length), "presigned PUT round-trip", `status=${putRes.status}`);
+    } catch (err) {
+      step(false, "presigned PUT round-trip", `${err.message} — uploads will use the proxy fallback`);
+    }
+    await s3.deleteObject(putProbeKey);
+  } else {
+    step(false, "presigned PUT round-trip", "could not sign — uploads will use the proxy fallback");
+  }
+
   const copyKey = `${probeKey}.copy`;
   const copied = await s3.copyObject(probeKey, copyKey);
   step(copied, "copy object", copied ? copyKey : "gateway may not support CopyObject — version promotion will download-and-re-put");

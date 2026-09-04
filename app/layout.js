@@ -19,6 +19,7 @@ export const metadata = {
 };
 
 import { BannerProvider } from "@/context/banner-context";
+import { Toaster } from "@geiger/ui/sonner";
 
 export default function RootLayout({ children }) {
   return (
@@ -37,6 +38,7 @@ export default function RootLayout({ children }) {
             <div className="flex flex-col min-h-screen">
               {children}
             </div>
+            <Toaster />
           </BannerProvider>
         </ThemeProvider>
       </body>

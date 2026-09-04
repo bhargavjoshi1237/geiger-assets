@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { storageAuth } from "@/lib/storage/auth";
+import { requireProjectAccess } from "@/lib/storage/auth";
 import { commitUpload, isStorageConfigured } from "@/lib/storage/service";
+import { parseKey } from "@/lib/s3/keys";
 
 export const runtime = "nodejs";
 
 export async function POST(request) {
-  const auth = await storageAuth();
-  if (auth.response) return auth.response;
-
   if (!isStorageConfigured()) {
     return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   }
@@ -23,6 +21,13 @@ export async function POST(request) {
   if (!uploadJobId || !key) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
+
+  // Ownership is re-derived from the key, never trusted from the body: the
+  // project segment decides whose membership (and whose edit right) applies.
+  const parsed = parseKey(key);
+  if (!parsed?.projectId) return NextResponse.json({ error: "bad_key" }, { status: 400 });
+  const access = await requireProjectAccess({ projectId: parsed.projectId, action: "write" });
+  if (access.response) return access.response;
 
   const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, folder, tags });
   if (result.error === "not_committed") return NextResponse.json({ error: "not_committed" }, { status: 409 });

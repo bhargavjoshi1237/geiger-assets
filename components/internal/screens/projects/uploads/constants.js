@@ -46,6 +46,12 @@ export const STATUS_META = {
     className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
+  // Alias retained by the widened upload_jobs status check — renders as completed.
+  complete: {
+    label: "Completed",
+    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    dotClass: "bg-emerald-400",
+  },
   failed: {
     label: "Failed",
     className: "bg-red-500/15 text-red-300 border-red-500/30",

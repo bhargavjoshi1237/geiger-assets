@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { storageAuth } from "@/lib/storage/auth";
-import { softDeleteAssetFile } from "@/lib/storage/service";
+import { storageAuth, requireProjectAccess } from "@/lib/storage/auth";
+import { softDeleteAssetFile, getAssetRow } from "@/lib/storage/service";
 
 export const runtime = "nodejs";
 
@@ -18,6 +18,12 @@ export async function DELETE(request) {
   if (!assetId) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
+
+  const row = await getAssetRow(String(assetId));
+  if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  const access = await requireProjectAccess({ projectId: row.project_id, action: "delete" });
+  if (access.response) return access.response;
 
   const ok = await softDeleteAssetFile(String(assetId));
   if (!ok) return NextResponse.json({ error: "not_found" }, { status: 404 });
