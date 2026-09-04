@@ -68,7 +68,7 @@ import {
   updateUploadJob,
   deleteUploadJob,
 } from "@/lib/supabase/uploads";
-import { uploadAsset } from "@/lib/storage/client";
+import { uploadAsset, UPLOAD_ERROR_MESSAGES } from "@/lib/storage/client";
 import { toast } from "sonner";
 import { FileDropzone } from "@/components/internal/shared/file_dropzone";
 import { uniqueId } from "@/lib/utils";
@@ -281,13 +281,17 @@ export function UploadCenterScreen({ projectId }) {
         .map((t) => t.trim())
         .filter(Boolean);
       setJobs((rows) =>
-        rows.map((j) => (j.id === jobId ? { ...j, status: "uploading", progress: 1 } : j)),
+        rows.map((j) => (j.id === jobId ? { ...j, status: "uploading", progress: 1, error: "" } : j)),
       );
+      let failure = null;
       const asset = await uploadAsset(file, {
         projectId,
         folder,
         tags: tagList,
         onProgress: (progress) => setJobProgress(jobId, progress),
+        onError: (code) => {
+          failure = code;
+        },
       });
       if (asset) {
         setJobs((rows) =>
@@ -301,12 +305,13 @@ export function UploadCenterScreen({ projectId }) {
         fileRefs.current.delete(jobId);
         return true;
       }
+      const message = UPLOAD_ERROR_MESSAGES[failure] || "Upload failed";
       setJobs((rows) =>
         rows.map((j) =>
-          j.id === jobId ? { ...j, status: "failed", error: "Upload failed" } : j,
+          j.id === jobId ? { ...j, status: "failed", error: message } : j,
         ),
       );
-      await updateUploadJob(jobId, { status: "failed", error: "Upload failed" });
+      await updateUploadJob(jobId, { status: "failed", error: message });
       return false;
     },
     [folder, projectId, setJobProgress, tags],

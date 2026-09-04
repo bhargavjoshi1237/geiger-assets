@@ -58,7 +58,7 @@ import {
   formatDate,
 } from "./constants";
 import { listAssets, softDeleteAsset, createAsset } from "@/lib/supabase/assets";
-import { uploadAsset } from "@/lib/storage/client";
+import { uploadAsset, UPLOAD_PHASE_LABELS, UPLOAD_ERROR_MESSAGES } from "@/lib/storage/client";
 import { FileDropzone } from "@/components/internal/shared/file_dropzone";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { AssetEditScreen } from "./asset_detail";
@@ -74,6 +74,7 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [phaseLabel, setPhaseLabel] = useState("");
   const [busy, setBusy] = useState(false);
 
   const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
@@ -90,6 +91,7 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     setDraft(EMPTY_DRAFT);
     setFile(null);
     setProgress(0);
+    setPhaseLabel("");
     onOpenChange(false);
   };
 
@@ -101,20 +103,27 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     }
     setBusy(true);
     setProgress(1);
+    setPhaseLabel(UPLOAD_PHASE_LABELS.hashing);
+    let failure = null;
     const asset = await uploadAsset(file, {
       projectId,
       folder: draft.folder || "root",
       onProgress: setProgress,
+      onPhase: (p) => setPhaseLabel(UPLOAD_PHASE_LABELS[p] || ""),
+      onError: (code) => {
+        failure = code;
+      },
     });
     setBusy(false);
     if (!asset) {
-      toast.error(`Couldn't upload ${file.name || "file"}.`);
+      toast.error(UPLOAD_ERROR_MESSAGES[failure] || `Couldn't upload ${file.name || "file"}.`);
       return;
     }
     toast.success(`${asset.name || file.name || "File"} uploaded`);
     setDraft(EMPTY_DRAFT);
     setFile(null);
     setProgress(0);
+    setPhaseLabel("");
     onOpenChange(false);
     if (typeof onUploaded === "function") onUploaded(asset);
   };
@@ -226,7 +235,8 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
                   style={{ width: `${Math.max(0, Math.min(100, progress || 0))}%` }}
                 />
               </div>
-              <span className="tabular-nums text-[11px] text-text-secondary">
+              <span className="whitespace-nowrap tabular-nums text-[11px] text-text-secondary">
+                {phaseLabel || UPLOAD_PHASE_LABELS.uploading}{" "}
                 {Math.max(0, Math.min(100, Math.round(progress || 0)))}%
               </span>
             </div>
