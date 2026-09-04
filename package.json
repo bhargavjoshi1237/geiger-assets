@@ -16,6 +16,8 @@
     "ui:update": "npm update @geiger/ui"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/s3-request-presigner": "^3.1127.0",
     "@geiger/orm": "github:bhargavjoshi1237/geiger-orm#master",
     "@geiger/rbac": "github:bhargavjoshi1237/geiger-rbac#1835de3735cf9c86df5adebdbc7458dd4302e40d",
     "@geiger/ui": "github:bhargavjoshi1237/geiger-ui#f66c10da7a5544b462360a747c2a40987493b5a9",
