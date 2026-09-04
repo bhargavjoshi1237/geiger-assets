@@ -70,6 +70,8 @@ import {
 } from "@/lib/supabase/uploads";
 import { uploadAsset } from "@/lib/storage/client";
 import { toast } from "sonner";
+import { FileDropzone } from "@/components/internal/shared/file_dropzone";
+import { uniqueId } from "@/lib/utils";
 import { UploadJobDetailScreen } from "./upload_job_detail";
 
 const FOLDER_OPTIONS = [
@@ -218,9 +220,7 @@ export function UploadCenterScreen({ projectId }) {
   const [loadingJobs, setLoadingJobs] = useState(true);
 
   const [staged, setStaged] = useState([]);
-  const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef(null);
   // File bytes for staged/failed jobs, keyed by job id — powers real retry.
   const fileRefs = useRef(new Map());
 
@@ -244,33 +244,18 @@ export function UploadCenterScreen({ projectId }) {
   }, [projectId]);
 
   const addFiles = useCallback((files) => {
-    const next = Array.from(files).map((f) => ({
-      id: crypto.randomUUID(),
-      name: f.name,
-      size: f.size,
-      fileType: guessFileType(f),
-      file: f,
-    }));
-    setStaged((prev) => [...prev, ...next]);
+    const next = Array.from(files || [])
+      .filter((f) => f instanceof Blob)
+      .map((f) => ({
+        id: uniqueId(),
+        name: f.name || "file",
+        size: f.size,
+        fileType: guessFileType(f),
+        file: f,
+      }));
+    if (next.length) setStaged((prev) => [...prev, ...next]);
   }, []);
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setDragging(true);
-  };
-  const handleDragLeave = (e) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false);
-  };
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
-  };
-  const handleBrowse = () => fileInputRef.current?.click();
-  const handleFileInput = (e) => {
-    if (e.target.files.length) addFiles(e.target.files);
-    e.target.value = "";
-  };
   const removeStaged = (id) => setStaged((prev) => prev.filter((f) => f.id !== id));
   const clearStaged = () => setStaged([]);
 
@@ -339,7 +324,7 @@ export function UploadCenterScreen({ projectId }) {
       const batch = toUpload.slice(i, i + pool);
       const results = await Promise.all(
         batch.map(async (f) => {
-          const id = crypto.randomUUID();
+          const id = uniqueId();
           const optimistic = {
             id,
             projectId: projectId ?? null,
@@ -557,118 +542,103 @@ export function UploadCenterScreen({ projectId }) {
       {/* Drop zone + options panel */}
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         {/* Drop zone */}
-        <div
+        <FileDropzone
+          onFiles={addFiles}
           className={cn(
             "relative flex min-h-[280px] flex-col rounded-xl border-2 border-dashed transition-colors",
-            dragging
-              ? "border-primary bg-primary/5"
-              : "border-border bg-surface-subtle hover:border-border-strong",
-            staged.length === 0 ? "cursor-pointer items-center justify-center" : "",
+            "border-border bg-surface-subtle hover:border-border-strong",
+            staged.length === 0 ? "items-center justify-center" : "",
           )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={staged.length === 0 ? handleBrowse : undefined}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileInput}
-          />
-
-          {staged.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-              <div
-                className={cn(
-                  "flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface-card transition-colors",
-                  dragging && "border-primary/40 bg-primary/10",
-                )}
-              >
-                <UploadCloud
-                  className={cn(
-                    "h-7 w-7 transition-colors",
-                    dragging ? "text-primary" : "text-text-secondary",
-                  )}
-                />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {dragging ? "Drop files here" : "Drag & drop files here"}
-                </p>
-                <p className="mt-1 text-xs text-text-tertiary">
-                  or{" "}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleBrowse();
-                    }}
-                    className="text-primary underline-offset-2 hover:underline"
+          {({ browseId, dragging }) => (
+            <div
+              className={cn(
+                "flex flex-1 flex-col rounded-[10px] transition-colors",
+                dragging && "bg-primary/5",
+                staged.length === 0 ? "items-center justify-center" : "",
+              )}
+            >
+              {staged.length === 0 ? (
+                <label
+                  htmlFor={browseId}
+                  className="flex cursor-pointer flex-col items-center gap-3 px-6 py-10 text-center"
+                >
+                  <span
+                    className={cn(
+                      "flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface-card transition-colors",
+                      dragging && "border-primary/40 bg-primary/10",
+                    )}
                   >
-                    browse your device
-                  </button>
-                </p>
-              </div>
-              <p className="text-[11px] text-text-tertiary">
-                Images, video, audio, documents, 3D models and archives
-              </p>
-            </div>
-          ) : (
-            <div className="p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-medium text-foreground">
-                  {staged.length} file{staged.length !== 1 ? "s" : ""} staged
-                </p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleBrowse();
-                    }}
-                    className="text-[11px] text-primary hover:underline"
+                    <UploadCloud
+                      className={cn(
+                        "h-7 w-7 transition-colors",
+                        dragging ? "text-primary" : "text-text-secondary",
+                      )}
+                    />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">
+                      {dragging ? "Drop files here" : "Drag & drop files here"}
+                    </span>
+                    <span className="mt-1 block text-xs text-text-tertiary">
+                      or{" "}
+                      <span className="text-primary underline-offset-2 hover:underline">
+                        browse your device
+                      </span>
+                    </span>
+                  </span>
+                  <span className="text-[11px] text-text-tertiary">
+                    Images, video, audio, documents, 3D models and archives
+                  </span>
+                </label>
+              ) : (
+                <div className="p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-medium text-foreground">
+                      {staged.length} file{staged.length !== 1 ? "s" : ""} staged
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <label
+                        htmlFor={browseId}
+                        className="cursor-pointer text-[11px] text-primary hover:underline"
+                      >
+                        + Add more
+                      </label>
+                      <button
+                        onClick={clearStaged}
+                        className="text-[11px] text-text-tertiary hover:text-foreground"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {staged.map((f) => (
+                      <StagedFileCard key={f.id} file={f} onRemove={removeStaged} />
+                    ))}
+                  </div>
+                  <Button
+                    className="mt-4 w-full bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                    onClick={handleUploadAll}
+                    disabled={uploading}
                   >
-                    + Add more
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearStaged();
-                    }}
-                    className="text-[11px] text-text-tertiary hover:text-foreground"
-                  >
-                    Clear all
-                  </button>
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        Queuing uploads…
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="mr-2 h-3.5 w-3.5" />
+                        Upload {staged.length} file{staged.length !== 1 ? "s" : ""}
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </div>
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                {staged.map((f) => (
-                  <StagedFileCard key={f.id} file={f} onRemove={removeStaged} />
-                ))}
-              </div>
-              <Button
-                className="mt-4 w-full bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleUploadAll();
-                }}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    Queuing uploads…
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="mr-2 h-3.5 w-3.5" />
-                    Upload {staged.length} file{staged.length !== 1 ? "s" : ""}
-                  </>
-                )}
-              </Button>
+              )}
             </div>
           )}
-        </div>
+        </FileDropzone>
 
         {/* Options panel */}
         <div className="flex flex-col gap-3">
