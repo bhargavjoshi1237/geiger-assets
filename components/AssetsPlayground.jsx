@@ -12,6 +12,14 @@ import { FoldersScreen } from "@/components/internal/screens/projects/folders/fo
 import { DuplicateReviewScreen } from "@/components/internal/screens/projects/duplicates/duplicate_review_screen";
 import { ArchiveTrashScreen } from "@/components/internal/screens/projects/archive/archive_trash_screen";
 import { AssetRequestsScreen } from "@/components/internal/screens/projects/requests/asset_requests_screen";
+import { TiersScreen } from "@/components/internal/screens/projects/creator/tiers_screen";
+import { MembersScreen } from "@/components/internal/screens/projects/creator/members_screen";
+import { SubscriptionsScreen } from "@/components/internal/screens/projects/creator/subscriptions_screen";
+import { PpvScreen } from "@/components/internal/screens/projects/creator/ppv_screen";
+import { MessagesScreen } from "@/components/internal/screens/projects/creator/messages_screen";
+import { TipsScreen } from "@/components/internal/screens/projects/creator/tips_screen";
+import { PayoutsScreen } from "@/components/internal/screens/projects/creator/payouts_screen";
+import { PromosScreen } from "@/components/internal/screens/projects/creator/promos_screen";
 import { FeatureScreen } from "@/components/internal/screens/projects/features/feature_screen";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ProjectProvider, useProject } from "@/context/project-context";
@@ -60,6 +68,22 @@ function AssetsPlaygroundContent({ projectId }) {
         return <ArchiveTrashScreen projectId={projectId} />;
       case "Asset Requests":
         return <AssetRequestsScreen projectId={projectId} />;
+      case "Membership Tiers":
+        return <TiersScreen projectId={projectId} />;
+      case "Members":
+        return <MembersScreen projectId={projectId} />;
+      case "Subscriptions":
+        return <SubscriptionsScreen projectId={projectId} />;
+      case "Pay-Per-View":
+        return <PpvScreen projectId={projectId} />;
+      case "Paid Messages":
+        return <MessagesScreen projectId={projectId} />;
+      case "Tips":
+        return <TipsScreen projectId={projectId} />;
+      case "Payouts":
+        return <PayoutsScreen projectId={projectId} />;
+      case "Promo Codes & Perks":
+        return <PromosScreen projectId={projectId} />;
       default:
         if (isFeatureTab) {
           return (

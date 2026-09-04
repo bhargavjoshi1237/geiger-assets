@@ -31,6 +31,8 @@ const NAV_SECTIONS = [
 const CREATOR_SECTIONS = [
   "Membership Tiers",
   "Members",
+  "Member Registry",
+  "Subscriptions",
   "Recurring Billing",
   "Pay-Per-View",
   "Paid Messages",
