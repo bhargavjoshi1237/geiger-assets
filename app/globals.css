@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../node_modules/@geiger/ui/src";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -27,6 +28,7 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -94,6 +96,7 @@
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
+  --destructive-text: #b91c1c;
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
@@ -152,6 +155,7 @@
   --accent-foreground: #e7e7e7;
   --destructive: #7f1d1d;
   --destructive-foreground: #ffffff;
+  --destructive-text: #f87171;
   --border: #333333;
   --input: #242424;
   --ring: #474747;
@@ -198,7 +202,20 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer base {
+  [data-slot="input"][data-lead] {
+    padding-inline-start: calc(
+      var(--input-box-padding-x, 0.75rem) + var(--input-box-icon-gap, 0.5rem) + 1rem
+    ) !important;
+  }
+  [data-slot="input"][data-trail] {
+    padding-inline-end: calc(
+      var(--input-box-padding-x, 0.75rem) + var(--input-box-icon-gap, 0.5rem) + 1rem
+    ) !important;
   }
 }
 
