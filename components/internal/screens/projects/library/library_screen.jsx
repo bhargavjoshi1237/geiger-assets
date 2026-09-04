@@ -58,6 +58,8 @@ import {
   formatDate,
 } from "./constants";
 import { listAssets, softDeleteAsset, createAsset } from "@/lib/supabase/assets";
+import { uploadAsset } from "@/lib/storage/client";
+import { FileDropzone } from "@/components/internal/shared/file_dropzone";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { AssetEditScreen } from "./asset_detail";
 
@@ -68,18 +70,53 @@ const EMPTY_DRAFT = {
   status: "draft",
 };
 
-function UploadDialog({ open, onOpenChange }) {
+function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [file, setFile] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const submit = () => {
-    if (!draft.name.trim()) {
-      toast.error("Give your asset a name first.");
+  const pickFiles = (files) => {
+    const next = (files || []).find((f) => f instanceof Blob);
+    if (!next) return;
+    setFile(next);
+    setDraft((d) => (d.name.trim() ? d : { ...d, name: next.name || "" }));
+  };
+
+  const close = () => {
+    if (busy) return;
+    setDraft(EMPTY_DRAFT);
+    setFile(null);
+    setProgress(0);
+    onOpenChange(false);
+  };
+
+  const submit = async () => {
+    if (busy) return;
+    if (!file) {
+      toast.error("Choose a file first.");
       return;
     }
+    setBusy(true);
+    setProgress(1);
+    const asset = await uploadAsset(file, {
+      projectId,
+      folder: draft.folder || "root",
+      onProgress: setProgress,
+    });
+    setBusy(false);
+    if (!asset) {
+      toast.error(`Couldn't upload ${file.name || "file"}.`);
+      return;
+    }
+    toast.success(`${asset.name || file.name || "File"} uploaded`);
     setDraft(EMPTY_DRAFT);
+    setFile(null);
+    setProgress(0);
     onOpenChange(false);
+    if (typeof onUploaded === "function") onUploaded(asset);
   };
 
   return (
@@ -145,33 +182,78 @@ function UploadDialog({ open, onOpenChange }) {
             </Field>
           </div>
 
-          <div
-            className="cursor-pointer rounded-xl border-2 border-dashed border-border p-10 text-center transition-colors hover:border-border-strong"
-            onClick={submit}
+          <FileDropzone
+            onFiles={pickFiles}
+            multiple={false}
+            className="rounded-xl border-2 border-dashed border-border p-10 text-center transition-colors hover:border-border-strong"
           >
-            <Upload className="mx-auto mb-3 h-10 w-10 text-text-tertiary" />
-            <p className="text-sm font-medium text-foreground">
-              Drop files here or click to upload
-            </p>
-            <p className="mt-1 text-xs text-text-secondary">
-              Supports images, videos, audio, documents, and more
-            </p>
-          </div>
+            {({ browseId, dragging }) => (
+              <label htmlFor={browseId} className="block cursor-pointer">
+                {file ? (
+                  <span className="block">
+                    <File className="mx-auto mb-3 h-10 w-10 text-primary" />
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {file.name || "Selected file"}
+                    </span>
+                    <span className="mt-1 block text-xs text-text-secondary">
+                      {formatBytes(file.size)} — click to choose a different file
+                    </span>
+                  </span>
+                ) : (
+                  <span className="block">
+                    <Upload
+                      className={cn(
+                        "mx-auto mb-3 h-10 w-10 transition-colors",
+                        dragging ? "text-primary" : "text-text-tertiary",
+                      )}
+                    />
+                    <span className="block text-sm font-medium text-foreground">
+                      {dragging ? "Drop files here" : "Drop files here or click to upload"}
+                    </span>
+                    <span className="mt-1 block text-xs text-text-secondary">
+                      Supports images, videos, audio, documents, and more
+                    </span>
+                  </span>
+                )}
+              </label>
+            )}
+          </FileDropzone>
+          {busy && (
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-card">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${Math.max(0, Math.min(100, progress || 0))}%` }}
+                />
+              </div>
+              <span className="tabular-nums text-[11px] text-text-secondary">
+                {Math.max(0, Math.min(100, Math.round(progress || 0)))}%
+              </span>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button
             variant="outline"
             className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-            onClick={() => onOpenChange(false)}
+            onClick={close}
+            disabled={busy}
           >
             Cancel
           </Button>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={submit}
+            disabled={busy}
           >
-            Upload
+            {busy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+              </>
+            ) : (
+              "Upload"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -212,6 +294,14 @@ export function LibraryScreen({ projectId }) {
       alive = false;
     };
   }, [projectId]);
+
+  const reload = () => {
+    setLoading(true);
+    listAssets(projectId).then((rows) => {
+      setAssets(rows ?? []);
+      setLoading(false);
+    });
+  };
 
   const filtered = useMemo(() => {
     return assets.filter((a) => {
@@ -449,7 +539,12 @@ export function LibraryScreen({ projectId }) {
         </div>
       )}
 
-      <UploadDialog open={showUpload} onOpenChange={setShowUpload} />
+      <UploadDialog
+        open={showUpload}
+        onOpenChange={setShowUpload}
+        projectId={projectId}
+        onUploaded={reload}
+      />
 
       <Dialog
         open={!!deleteTarget}
