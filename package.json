@@ -13,6 +13,8 @@
     "db:new": "geiger-orm create",
     "db:seed": "geiger-orm seed",
     "db:push:legacy": "node scripts/run-sqls.js",
+    "s3:check": "node scripts/s3-check.js",
+    "s3:reconcile": "node scripts/s3-reconcile.js",
     "ui:update": "npm update @geiger/ui"
   },
   "dependencies": {
