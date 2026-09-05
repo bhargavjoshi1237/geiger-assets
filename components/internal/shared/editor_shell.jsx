@@ -137,7 +137,7 @@ function EditorNav({
             placeholder="Search screens…"
             label="Search screens"
             open={searchOpen}
-            onOpenChange={setSearchOpen}
+            onOpenChange={onSearchOpenChange}
             expandedWidth="16rem"
             className="ml-auto"
             inputClassName="[&::-webkit-search-cancel-button]:appearance-none"

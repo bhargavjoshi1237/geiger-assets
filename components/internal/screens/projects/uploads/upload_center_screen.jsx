@@ -288,6 +288,7 @@ export function UploadCenterScreen({ projectId }) {
         projectId,
         folder,
         tags: tagList,
+        quality,
         onProgress: (progress) => setJobProgress(jobId, progress),
         onError: (code) => {
           failure = code;
@@ -314,7 +315,7 @@ export function UploadCenterScreen({ projectId }) {
       await updateUploadJob(jobId, { status: "failed", error: message });
       return false;
     },
-    [folder, projectId, setJobProgress, tags],
+    [folder, projectId, quality, setJobProgress, tags],
   );
 
   const handleUploadAll = async () => {

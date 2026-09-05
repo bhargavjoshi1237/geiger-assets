@@ -51,6 +51,7 @@ export async function POST(request) {
     folder: form.get("folder") ? String(form.get("folder")) : undefined,
     tags,
     checksum: form.get("checksum") ? String(form.get("checksum")) : undefined,
+    quality: form.get("quality") ? String(form.get("quality")) : undefined,
   });
 
   if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });

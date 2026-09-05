@@ -54,6 +54,8 @@ import {
 } from "@/lib/supabase/assets";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { NAV_GROUPS } from "./asset_sections";
+import { AssetPreview } from "@/components/internal/shared/asset_preview";
+import { assetFileUrl } from "@/lib/storage/client";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
@@ -264,15 +266,7 @@ export function OverviewSection({ asset, relationships = [], versions = [] }) {
   return (
     <div className="space-y-4">
       <SectionCard title="Preview">
-        <div
-          className="flex aspect-video items-center justify-center rounded-xl border border-border"
-          style={{
-            background: `linear-gradient(135deg, ${asset.color}15 0%, ${asset.color}08 100%)`,
-            borderColor: `${asset.color}20`,
-          }}
-        >
-          <TypeGlyph type={asset.type} color={asset.color} className="h-16 w-16" />
-        </div>
+        <AssetPreview asset={asset} />
       </SectionCard>
 
       <SectionCard title="Key details" description="At-a-glance metadata for this asset.">
@@ -591,6 +585,13 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
           <Button
             variant="outline"
             className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={() => {
+              if (!form?.id || !form?.storageKey) {
+                toast.error("No file uploaded yet for this asset.");
+                return;
+              }
+              window.open(assetFileUrl(form.id, { download: true }), "_blank");
+            }}
           >
             <Download className="h-4 w-4" />
           </Button>

@@ -45,6 +45,7 @@ import {
   restoreFromTrash,
   purgeAsset,
 } from "@/lib/supabase/archive";
+import { AssetPreview } from "@/components/internal/shared/asset_preview";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
@@ -247,15 +248,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
         <TabsContent value="overview">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.9fr)]">
             <SectionCard title="Preview">
-              <div
-                className="flex aspect-video items-center justify-center rounded-xl border border-border"
-                style={{
-                  background: `linear-gradient(135deg, ${asset.color}15 0%, ${asset.color}08 100%)`,
-                  borderColor: `${asset.color}20`,
-                }}
-              >
-                <TypeGlyph type={asset.type} color={asset.color} className="h-16 w-16" />
-              </div>
+              <AssetPreview asset={asset} />
             </SectionCard>
 
             <SectionCard title="Details">
