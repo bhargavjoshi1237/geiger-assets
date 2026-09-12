@@ -38,6 +38,7 @@ Maintain visual consistency with the rest of the application.
 Reuse existing patterns, layouts, spacing, typography, and component structures whenever possible.
 Prefer shadcn/ui components unless there is a strong reason not to.
 Use Lucide icons consistently throughout the application.
+For loading states, use `LogoLoading` from `@geiger/ui` on full-page and section-level loaders — a screen's initial data fetch, a dialog/panel body, a route-level `loading.jsx`/Suspense fallback. Omit its `name` prop so it randomly picks one of its animated Geiger-mark treatments per mount; pass `size` to fit the space (roughly 32-40px for a compact panel, 40-56px for a standard section card, 72-96px for a full-page loader). Keep the plain `Loader2`/`animate-spin` spinner on buttons and small inline/icon-sized indicators — never put `LogoLoading` there.
 Suite-Wide Consistency
 
 This project is part of a larger suite of applications.
