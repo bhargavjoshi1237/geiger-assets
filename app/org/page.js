@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@geiger/ui";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -9,14 +9,9 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
 import LandingAssetShowcase from "@/components/LandingAssetShowcase";
-import { SuiteMegaMenu } from "@/components/landing/suite-mega-menu";
+import { SuiteHeader } from "@geiger/ui/suite-header";
 
 export const metadata = {
   title: "Assets - Geiger Studio",
@@ -106,33 +101,7 @@ const faqs = [
 ];
 
 function Header() {
-  return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background md:border-border/50 md:bg-background/85 md:backdrop-blur-md">
-      <div className="relative mx-auto flex h-12 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href={basePath || "/"} className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center">
-          <Image
-            src={`${basePath}/logo1.svg`}
-            alt="Geiger logo"
-            width={20}
-            height={20}
-            className="h-5 w-5"
-          />
-          </div>
-          <span className="truncate bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-sm font-bold tracking-tight text-transparent">
-            Geiger Studios
-          </span>
-        </Link>
-        <SuiteMegaMenu />
-        <Link
-          href={loginHref}
-          className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
-        >
-          Sign In
-        </Link>
-      </div>
-    </header>
-  );
+  return <SuiteHeader signInHref={loginHref} homeHref={basePath || "/"} />;
 }
 
 export default function AssetsOrgPage() {
