@@ -3,6 +3,8 @@ import { requireProjectAccess } from "@/lib/storage/auth";
 import { getAssetRow, isStorageConfigured, proxyStreamResponse } from "@/lib/storage/service";
 import { DEFAULT_FORMAT, DELIVERABLE_FORMATS, isVariantName, resolveVariant } from "@/lib/media/variants";
 import { negotiateImageFormat, varyHeader } from "@/lib/media/negotiate";
+import { throttle } from "@/lib/storage/throttle";
+import { meterVariantDelivery } from "@/lib/storage/meter";
 
 export const runtime = "nodejs";
 
@@ -24,6 +26,9 @@ export async function GET(request, { params }) {
 
     const access = await requireProjectAccess({ projectId: row.project_id, action: "read" });
     if (access.response) return access.response;
+
+    const limited = throttle("deliver", access.userId);
+    if (limited) return limited;
 
     const { searchParams } = new URL(request.url);
     const override = searchParams.get("format");
@@ -55,6 +60,7 @@ export async function GET(request, { params }) {
       fallback.headers.set("Cache-Control", "public, max-age=3600, must-revalidate");
       // Without Vary: Accept a shared cache would serve AVIF bytes to a client that cannot decode them.
       fallback.headers.set("Vary", varyHeader(fallback.headers.get("Vary")));
+      await meterVariantDelivery(row, "original", fallback);
       return fallback;
     }
 
@@ -66,6 +72,7 @@ export async function GET(request, { params }) {
     res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
     // Without Vary: Accept a shared cache would serve AVIF bytes to a client that cannot decode them.
     res.headers.set("Vary", varyHeader(res.headers.get("Vary")));
+    await meterVariantDelivery(row, `${name}.${format}`, res);
     return res;
   } catch (e) {
     console.error("[media.variant]", e?.message || e);

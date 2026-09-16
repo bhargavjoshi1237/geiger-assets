@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
-import { isStorageConfigured } from "@/lib/storage/service";
+import { isStorageConfigured, nextVersionKey, upsertUploadJob } from "@/lib/storage/service";
 import { assetTypeForContentType, isAllowedContentType, s3Config } from "@/lib/s3/config";
-import { assetKey, stagingKey } from "@/lib/s3/keys";
+import { stagingKey } from "@/lib/s3/keys";
 import { createMultipart, planParts, MULTIPART_MAX_OBJECT_SIZE } from "@/lib/s3/multipart";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { throttle } from "@/lib/storage/throttle";
 
 export const runtime = "nodejs";
 
@@ -28,8 +28,15 @@ export async function POST(request) {
   const access = await requireProjectAccess({ projectId, action: "write" });
   if (access.response) return access.response;
 
+  const limited = throttle("uploadUrl", access.userId);
+  if (limited) return limited;
+
   const size = Number(sizeBytes);
-  if (!Number.isFinite(size) || size <= 0 || size > MULTIPART_MAX_OBJECT_SIZE) {
+  // MULTIPART_MAX_OBJECT_SIZE is the protocol ceiling (5 TiB); maxUploadBytes is
+  // what this deployment actually allows. Checking only the former would let
+  // multipart walk straight past the limit every other upload path enforces.
+  const cfg = s3Config();
+  if (!Number.isFinite(size) || size <= 0 || size > MULTIPART_MAX_OBJECT_SIZE || size > cfg.maxUploadBytes) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
   }
   const plan = planParts(size);
@@ -41,14 +48,7 @@ export async function POST(request) {
   let key;
   try {
     if (assetId) {
-      const sb = await createServerSupabase();
-      const { data: asset } = await sb.schema("assets").from("assets")
-        .select("id, project_id").eq("id", assetId).is("deleted_at", null).single();
-      if (!asset) throw new Error("unknown asset");
-      if (asset.project_id && asset.project_id !== projectId) throw new Error("project mismatch");
-      const { data: latest } = await sb.schema("assets").from("asset_versions")
-        .select("version_number").eq("asset_id", assetId).order("version_number", { ascending: false }).limit(1);
-      key = assetKey({ projectId, assetId, versionNumber: (latest?.[0]?.version_number ?? 0) + 1, filename });
+      key = await nextVersionKey({ projectId, assetId, filename });
     } else {
       key = stagingKey({ projectId, uploadJobId, filename });
     }
@@ -59,23 +59,17 @@ export async function POST(request) {
   const created = await createMultipart(key, { contentType });
   if (!created) return NextResponse.json({ error: "create_failed" }, { status: 400 });
 
-  const mode = s3Config().presignedUploads ? "presigned" : "proxy";
-  try {
-    const sb = await createServerSupabase();
-    const { error } = await sb.schema("assets").from("upload_jobs").upsert({
-      id: uploadJobId,
-      project_id: projectId,
-      filename,
-      file_type: assetTypeForContentType(contentType, filename) || "image",
-      size_bytes: size,
-      status: "uploading",
-      storage_key: key,
-      upload_mode: mode,
-    }, { onConflict: "id" });
-    if (error) console.error("[storage.multipart.create]", error.message);
-  } catch (e) {
-    console.error("[storage.multipart.create]", e);
-  }
+  const mode = cfg.presignedUploads ? "presigned" : "proxy";
+  await upsertUploadJob({
+    uploadJobId,
+    projectId,
+    filename,
+    fileType: assetTypeForContentType(contentType, filename) || "image",
+    sizeBytes: size,
+    storageKey: key,
+    mode,
+    status: "uploading",
+  });
 
   return NextResponse.json({
     uploadId: created.uploadId,

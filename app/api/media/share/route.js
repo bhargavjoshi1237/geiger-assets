@@ -3,6 +3,7 @@ import { requireProjectAccess } from "@/lib/storage/auth";
 import { getAssetRow } from "@/lib/storage/service";
 import { isVariantName } from "@/lib/media/variants";
 import { isTokenSigningConfigured, signDeliveryToken, verifyDeliveryToken } from "@/lib/media/token";
+import { throttle } from "@/lib/storage/throttle";
 
 export const runtime = "nodejs";
 
@@ -43,13 +44,17 @@ export async function POST(request) {
     const access = await requireProjectAccess({ projectId: row.project_id, action: "read" });
     if (access.response) return access.response;
 
+    const limited = throttle("sign", access.userId);
+    if (limited) return limited;
+
     const token = signDeliveryToken({ assetId: row.id, variant, ttlSeconds: body?.ttlSeconds, scope });
     if (!token) {
       return NextResponse.json({ error: "sign_failed" }, { status: 500 });
     }
 
     const claims = verifyDeliveryToken(token);
-    return NextResponse.json({ token, url: `/t/${token}`, expiresAt: claims?.expiresAt ?? null });
+    const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    return NextResponse.json({ token, url: `${base}/t/${token}`, expiresAt: claims?.expiresAt ?? null });
   } catch (e) {
     console.error("[media.share]", e?.message || e);
     return NextResponse.json({ error: "share_failed" }, { status: 500 });

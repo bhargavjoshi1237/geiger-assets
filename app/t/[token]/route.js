@@ -4,6 +4,7 @@ import { verifyDeliveryToken } from "@/lib/media/token";
 import { resolveVariant, isVariantName, DELIVERABLE_FORMATS, DEFAULT_FORMAT } from "@/lib/media/variants";
 import { rateLimit, rateLimitHeaders, RATE_LIMITS } from "@/lib/media/ratelimit";
 import { negotiateImageFormat, varyHeader } from "@/lib/media/negotiate";
+import { meterVariantDelivery } from "@/lib/storage/meter";
 
 export const runtime = "nodejs";
 
@@ -50,8 +51,13 @@ export async function GET(request, { params }) {
     if (!res) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
     // The URL is a bearer credential — a shared cache keyed on it hands the bytes onward.
-    res.headers.set("Cache-Control", "private, max-age=31536000, immutable");
+    // The lifetime is capped at what remains of the token, not a year: caching
+    // past expiry would keep serving a link whose access has already lapsed.
+    const remaining = Math.floor((new Date(claims.expiresAt).getTime() - Date.now()) / 1000);
+    const maxAge = Number.isFinite(remaining) && remaining > 0 ? Math.min(remaining, 31536000) : 0;
+    res.headers.set("Cache-Control", `private, max-age=${maxAge}, immutable`);
     if (negotiated) res.headers.set("Vary", varyHeader(res.headers.get("Vary")));
+    await meterVariantDelivery(row, negotiated ? `${variant}.share` : "original.share", res);
     return res;
   } catch (e) {
     console.error("[media.deliver]", e?.message || e);
