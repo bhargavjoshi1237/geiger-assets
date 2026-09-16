@@ -74,19 +74,43 @@ async function main() {
     }
     console.log(`pass 2: ${orphans} orphan(s) ${APPLY ? `(${deleted} deleted)` : "(none deleted in dry-run)"}`);
 
+    // Every version of a swept asset has to go, not just the current one.
+    // Sweeping assets.storage_key alone left each superseded v/1..n-1 object
+    // orphaned in the bucket permanently, so storage only ever grew.
     const stale = (
       await pg.query(
-        `select id, storage_key from assets.assets
-         where deleted_at is not null and deleted_at < now() - make_interval(days => 30)
-           and storage_key is not null`
+        `select a.id,
+                a.project_id,
+                a.storage_key,
+                coalesce(
+                  array_agg(v.storage_key) filter (where v.storage_key is not null),
+                  '{}'
+                ) as version_keys
+           from assets.assets a
+           left join assets.asset_versions v on v.asset_id = a.id
+          where a.deleted_at is not null
+            and a.deleted_at < now() - make_interval(days => 30)
+          group by a.id, a.project_id, a.storage_key`
       )
     ).rows;
-    console.log(`pass 3: ${stale.length} soft-deleted row(s) past the ${Math.round(SOFT_DELETE_RETENTION_MS / 86400000)}-day retention window`);
+    const sweepable = stale.filter((r) => r.storage_key || (r.version_keys || []).length);
+    console.log(`pass 3: ${sweepable.length} soft-deleted row(s) past the ${Math.round(SOFT_DELETE_RETENTION_MS / 86400000)}-day retention window`);
     if (APPLY) {
-      for (const row of stale) {
-        if (await s3.deleteObject(row.storage_key)) {
+      for (const row of sweepable) {
+        const keys = [...new Set([row.storage_key, ...(row.version_keys || [])].filter(Boolean))];
+        let swept = 0;
+        for (const key of keys) {
+          if (await s3.deleteObject(key)) swept += 1;
+        }
+        // Derivatives hang off the asset prefix and are regenerable, so they go
+        // wholesale rather than key by key.
+        if (row.project_id) {
+          swept += await s3.deleteObjectsByPrefix(`p/${row.project_id}/a/${row.id}/derivatives/`);
+        }
+        if (swept > 0) {
           await pg.query(`update assets.assets set storage_key = null where id = $1`, [row.id]);
-          console.log(`  swept bytes for ${row.id}`);
+          await pg.query(`update assets.asset_versions set storage_key = null where asset_id = $1`, [row.id]);
+          console.log(`  swept ${swept} object(s) for ${row.id}`);
         }
       }
     }
