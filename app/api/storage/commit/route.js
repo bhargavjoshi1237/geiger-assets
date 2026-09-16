@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
 import { commitUpload, isStorageConfigured } from "@/lib/storage/service";
 import { parseKey } from "@/lib/s3/keys";
+import { throttle } from "@/lib/storage/throttle";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,9 @@ export async function POST(request) {
   if (!parsed?.projectId) return NextResponse.json({ error: "bad_key" }, { status: 400 });
   const access = await requireProjectAccess({ projectId: parsed.projectId, action: "write" });
   if (access.response) return access.response;
+
+  const limited = throttle("commit", access.userId);
+  if (limited) return limited;
 
   const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, folder, tags });
   if (result.error === "not_committed") return NextResponse.json({ error: "not_committed" }, { status: 409 });

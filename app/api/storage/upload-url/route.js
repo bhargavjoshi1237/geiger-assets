@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
 import { issueUploadUrl } from "@/lib/storage/service";
 import { isStorageConfigured } from "@/lib/storage/service";
+import { throttle } from "@/lib/storage/throttle";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,9 @@ export async function POST(request) {
 
   const access = await requireProjectAccess({ projectId, action: "write" });
   if (access.response) return access.response;
+
+  const limited = throttle("uploadUrl", access.userId);
+  if (limited) return limited;
 
   const result = await issueUploadUrl({ projectId, assetId, filename, contentType, sizeBytes, uploadJobId });
   if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });
