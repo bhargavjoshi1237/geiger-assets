@@ -33,7 +33,7 @@ grant usage on schema assets to anon, authenticated, service_role;
 
 create table if not exists assets.storage_backends (
   id                uuid primary key default gen_random_uuid(),
-  project_id        uuid references public.project(id) on delete cascade,
+  project_id        uuid references public.projects(id) on delete cascade,
   kind              text not null,
   label             text not null default '',
   enabled           boolean not null default true,
@@ -50,7 +50,7 @@ create table if not exists assets.storage_backends (
 
 create table if not exists assets.storage_pools (
   id          uuid primary key default gen_random_uuid(),
-  project_id  uuid references public.project(id) on delete cascade,
+  project_id  uuid references public.projects(id) on delete cascade,
   name        text not null,
   strategy    text not null default 'failover',
   enabled     boolean not null default true,
