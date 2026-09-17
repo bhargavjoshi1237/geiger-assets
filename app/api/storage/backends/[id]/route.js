@@ -3,6 +3,7 @@ import { requireProjectAccess } from "@/lib/storage/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { throttle } from "@/lib/storage/throttle";
 import { getBackend, updateBackend, softDeleteBackend } from "@/lib/storage/backends/store";
+import { hasSecretKey, isSecretField } from "@/lib/storage/backends/secrets";
 
 // The data layer defaults to the browser client, which has no session here.
 async function assetsSchema() {
@@ -15,6 +16,40 @@ const KINDS = new Set(["s3", "rest"]);
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// The store refuses to persist a credential without STORAGE_SECRET_KEY rather
+// than silently downgrading to plaintext, which otherwise surfaces as an opaque
+// 500. Answer with a code the settings UI can explain instead. A blank secret
+// means "leave the stored one alone", so it needs no key.
+function missingSecretKey(config) {
+  if (hasSecretKey()) return false;
+  return Object.entries(config || {}).some(
+    ([name, value]) => isSecretField(name) && value !== "" && value !== null && value !== undefined,
+  );
+}
+
+// How many assets are pinned to this backend, for the disable/delete impact
+// warning. A null storage_backend means "the env-configured default backend",
+// never this one, so an equality filter is exactly right — null rows must not be
+// counted against a specific id. Returns null when the count could not be taken,
+// which the UI reports as "couldn't determine impact" rather than as zero.
+async function assetPinCount(client, id) {
+  try {
+    const { count, error } = await client
+      .from("assets")
+      .select("id", { count: "exact", head: true })
+      .eq("storage_backend", id)
+      .is("deleted_at", null);
+    if (error) {
+      console.error("[storage.backends.usage]", error.message);
+      return null;
+    }
+    return typeof count === "number" ? count : null;
+  } catch (e) {
+    console.error("[storage.backends.usage]", e);
+    return null;
+  }
 }
 
 export async function GET(request, { params }) {
@@ -30,7 +65,10 @@ export async function GET(request, { params }) {
   const limited = throttle("deliver", access.userId);
   if (limited) return limited;
 
-  return NextResponse.json({ backend });
+  return NextResponse.json({
+    backend,
+    usage: { assetCount: await assetPinCount(client, id) },
+  });
 }
 
 export async function PATCH(request, { params }) {
@@ -60,6 +98,9 @@ export async function PATCH(request, { params }) {
   }
   if (body?.config !== undefined && !isPlainObject(body.config)) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  }
+  if (missingSecretKey(body?.config)) {
+    return NextResponse.json({ error: "secret_key_missing" }, { status: 503 });
   }
   let label;
   if (body?.label !== undefined) {

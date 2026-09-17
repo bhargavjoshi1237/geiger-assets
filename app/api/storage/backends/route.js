@@ -3,6 +3,7 @@ import { requireProjectAccess } from "@/lib/storage/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { throttle } from "@/lib/storage/throttle";
 import { listBackends, createBackend } from "@/lib/storage/backends/store";
+import { hasSecretKey, isSecretField } from "@/lib/storage/backends/secrets";
 
 // The data layer defaults to the browser client, which has no session here.
 async function assetsSchema() {
@@ -17,6 +18,16 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// The store refuses to persist a credential without STORAGE_SECRET_KEY rather
+// than silently downgrading to plaintext, which otherwise surfaces as an opaque
+// 500. Answer with a code the settings UI can explain instead.
+function missingSecretKey(config) {
+  if (hasSecretKey()) return false;
+  return Object.entries(config || {}).some(
+    ([name, value]) => isSecretField(name) && value !== "" && value !== null && value !== undefined,
+  );
+}
+
 export async function GET(request) {
   const projectId = new URL(request.url).searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ error: "bad_request" }, { status: 400 });
@@ -26,9 +37,19 @@ export async function GET(request) {
   const limited = throttle("deliver", access.userId);
   if (limited) return limited;
 
-  const backends = await listBackends({ projectId, client: await assetsSchema() });
+  const client = await assetsSchema();
+  const backends = await listBackends({ projectId, client });
   if (!backends) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  return NextResponse.json({ backends });
+
+  // Suite-wide backends (project_id null) are shared across every Geiger
+  // product and seeded in SQL. They are readable here so the settings screen can
+  // show what a project actually resolves against, in their own array so a
+  // caller never mistakes one for a row it may edit.
+  let suiteBackends = [];
+  if (new URL(request.url).searchParams.get("includeSuite") === "1") {
+    suiteBackends = (await listBackends({ projectId: null, client })) || [];
+  }
+  return NextResponse.json({ backends, suiteBackends });
 }
 
 export async function POST(request) {
@@ -56,6 +77,9 @@ export async function POST(request) {
   if (!label) return NextResponse.json({ error: "bad_request" }, { status: 400 });
   if (body?.config !== undefined && !isPlainObject(body.config)) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  }
+  if (missingSecretKey(body?.config)) {
+    return NextResponse.json({ error: "secret_key_missing" }, { status: 503 });
   }
 
   const backend = await createBackend(
