@@ -1,5 +1,22 @@
 "use client";
 
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  cn,
+  Progress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@geiger/ui";
 import React, { useEffect, useState } from "react";
 import {
   ArrowDownRight,
@@ -29,25 +46,8 @@ import {
   XAxis,
 } from "recharts";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useProject } from "@/context/project-context";
-import { cn } from "@/lib/utils";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import FilterDropdown from "./filter_dropdown";
 

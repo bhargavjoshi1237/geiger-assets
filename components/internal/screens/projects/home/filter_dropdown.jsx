@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@geiger/ui/button";
-import { ChevronDown } from "lucide-react";
 import {
+  Button,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@geiger/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+} from "@geiger/ui";
+import { useState } from "react";
+
+import { ChevronDown } from "lucide-react";
 
 const defaultOptions = [
   { value: "1d", label: "Last 1 day" },

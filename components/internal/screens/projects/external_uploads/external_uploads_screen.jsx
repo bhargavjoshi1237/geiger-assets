@@ -1,66 +1,49 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
 import {
-  Plus,
-  ChevronDown,
-  MoreHorizontal,
-  Link2,
-  Pause,
-  Play,
-  Copy,
-  Trash2,
-  Eye,
-  X,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Inbox,
-  Loader2,
-  FormInput,
-  Zap,
-  Bell,
-  Shield,
-  FolderOpen,
-  AlertCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import {
+  Badge,
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  cn,
+} from "@geiger/ui";
+import React, { useEffect, useMemo, useState } from "react";
+import { Plus, ChevronDown, MoreHorizontal, Link2, Pause, Play, Copy, Trash2, Eye, X, ArrowUpDown, SlidersHorizontal, Inbox, FormInput, Zap, Bell, Shield, FolderOpen, AlertCircle } from "lucide-react";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   ScreenHeader,
   SearchInput,
+  StatsBar,
   StatusPill,
   EmptyState,
   DataTable,
   Field,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   PORTAL_STATUS_META,
   TYPE_LABELS,
@@ -571,6 +554,31 @@ export function ExternalUploadsScreen({ projectId }) {
     return result;
   }, [portals, search, statusFilter, typeFilter, sortValue]);
 
+  const stats = useMemo(() => {
+    const active = portals.filter((p) => p.status === "active").length;
+    const paused = portals.filter((p) => p.status === "paused").length;
+    const submissions = portals.reduce(
+      (sum, p) => sum + (p.submissionCount || 0),
+      0,
+    );
+    return [
+      { label: "Total portals", value: String(portals.length), footer: "in this workspace" },
+      { label: "Active", value: String(active), footer: "Accepting submissions" },
+      { label: "Paused", value: String(paused), footer: "Temporarily closed" },
+      { label: "Submissions", value: String(submissions), footer: "Across all portals" },
+    ];
+  }, [portals]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${typeFilter}|${sortValue}`,
+  });
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+  };
+
   const handleCreate = async (draft) => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -728,6 +736,8 @@ export function ExternalUploadsScreen({ projectId }) {
         }
       />
 
+      <StatsBar stats={stats} />
+
       {/* Provider connections */}
       <div className="flex flex-col gap-6">
         <ProviderSection
@@ -771,95 +781,97 @@ export function ExternalUploadsScreen({ projectId }) {
           </Button>
         </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Toolbar className="mb-3">
+          <div className="flex items-center gap-2">
+            <FilterDropdown
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              options={STATUS_FILTER_OPTIONS}
+              placeholder="Status"
+              icon={SlidersHorizontal}
+            />
+            <FilterDropdown
+              value={typeFilter}
+              onValueChange={setTypeFilter}
+              options={TYPE_FILTER_OPTIONS}
+              placeholder="Type"
+            />
+            <FilterDropdown
+              value={sortValue}
+              onValueChange={setSortValue}
+              options={SORT_OPTIONS}
+              placeholder="Sort"
+              icon={ArrowUpDown}
+            />
+            {hasPortalFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
+                onClick={() => {
+                  setStatusFilter("all");
+                  setTypeFilter("all");
+                  setSearch("");
+                }}
+              >
+                <X className="mr-1 h-3 w-3" />
+                Clear
+              </Button>
+            )}
+          </div>
           <SearchInput
             value={search}
             onChange={setSearch}
             placeholder="Search portals…"
             className="w-44"
           />
-          <FilterDropdown
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            options={STATUS_FILTER_OPTIONS}
-            placeholder="Status"
-            icon={SlidersHorizontal}
-          />
-          <FilterDropdown
-            value={typeFilter}
-            onValueChange={setTypeFilter}
-            options={TYPE_FILTER_OPTIONS}
-            placeholder="Type"
-          />
-          <FilterDropdown
-            value={sortValue}
-            onValueChange={setSortValue}
-            options={SORT_OPTIONS}
-            placeholder="Sort"
-            icon={ArrowUpDown}
-          />
-          {hasPortalFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
-              onClick={() => {
-                setStatusFilter("all");
-                setTypeFilter("all");
-                setSearch("");
-              }}
-            >
-              <X className="mr-1 h-3 w-3" />
-              Clear
-            </Button>
-          )}
-        </div>
+        </Toolbar>
 
         {loading ? (
           <div className="flex h-48 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <LogoLoading size={40} />
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={filtered}
-            getRowKey={(p) => p.id}
-            onRowClick={(p) => setOpenPortalId(p.id)}
+          <div className="space-y-5">
+            <DataTable
+              columns={columns}
+              data={pager.pageItems}
+              getRowKey={(p) => p.id}
+              onRowClick={(p) => setOpenPortalId(p.id)}
             empty={
-              <EmptyState
-                icon={Inbox}
-                title="No portals found"
-                description={
-                  hasPortalFilters
-                    ? "Try adjusting your filters or search query."
-                    : "Create your first upload portal to start collecting files."
-                }
-                action={
-                  hasPortalFilters ? (
-                    <Button
-                      variant="outline"
-                      className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                      onClick={() => {
-                        setStatusFilter("all");
-                        setTypeFilter("all");
-                        setSearch("");
-                      }}
-                    >
-                      Clear filters
-                    </Button>
-                  ) : (
-                    <Button
-                      className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                      onClick={() => setShowCreate(true)}
-                    >
-                      <Plus className="mr-1.5 h-4 w-4" />
-                      New Portal
-                    </Button>
-                  )
-                }
-              />
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                {portals.length === 0 ? (
+                  <EmptyState
+                    icon={Inbox}
+                    title="No portals yet"
+                    description="Create your first upload portal to start collecting files."
+                    action={
+                      <Button
+                        className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                        onClick={() => setShowCreate(true)}
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        New Portal
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Inbox}
+                    title="No matching portals"
+                    description="No portals match the current search and filter."
+                    action={
+                      <Button variant="ghost" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
             }
-          />
+            />
+            <ListPagination {...pager} itemLabel="portals" />
+          </div>
         )}
       </div>
 

@@ -2,6 +2,7 @@
 @source "../node_modules/@geiger/ui/src";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@geiger/ui/logo-loading.css";
 
 @custom-variant dark (&:is(.dark *));
 

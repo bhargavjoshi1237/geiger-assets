@@ -1,7 +1,8 @@
 "use client";
 
+import { cn } from "@geiger/ui";
 import { useCallback, useId, useRef, useState } from "react";
-import { cn, uniqueId } from "@/lib/utils";
+import { uniqueId } from "@/lib/utils";
 
 export { uniqueId };
 

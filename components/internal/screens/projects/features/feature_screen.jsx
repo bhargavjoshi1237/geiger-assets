@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge, Button } from "@geiger/ui";
 import React from "react";
 import {
   ArrowRight,
@@ -9,8 +10,6 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   ScreenHeader,
   SectionCard,

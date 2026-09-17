@@ -1,40 +1,32 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
-  MoreHorizontal,
-  Eye,
-  RotateCcw,
-  Trash2,
-  X,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Archive as ArchiveIcon,
-  Loader2,
-  File,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import {
+  Badge,
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  LogoLoading,
+  cn,
+} from "@geiger/ui";
+import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown, MoreHorizontal, Eye, RotateCcw, Trash2, X, ArrowUpDown, SlidersHorizontal, Archive as ArchiveIcon, File } from "lucide-react";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader,
   StatsBar,
@@ -228,6 +220,10 @@ export function ArchiveTrashScreen({ projectId }) {
     return result;
   }, [activeRows, search, typeFilter, sortValue, isTrash]);
 
+  const pager = usePagination(filtered, {
+    resetKey: `${view}|${search}|${typeFilter}|${sortValue}`,
+  });
+
   const stats = useMemo(() => {
     const trashBytes = trashed.reduce((sum, a) => sum + a.sizeBytes, 0);
     return [
@@ -393,19 +389,20 @@ export function ArchiveTrashScreen({ projectId }) {
       <StatsBar stats={stats} />
 
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search assets..."
-            className="w-full sm:w-64"
-          />
+        <div className="flex items-center gap-2">
           <FilterDropdown
             value={typeFilter}
             onValueChange={setTypeFilter}
             options={TYPE_FILTER_OPTIONS}
             placeholder="Type"
             icon={SlidersHorizontal}
+          />
+          <FilterDropdown
+            value={sortValue}
+            onValueChange={setSortValue}
+            options={SORT_OPTIONS}
+            placeholder="Sort"
+            icon={ArrowUpDown}
           />
           {hasActiveFilters ? (
             <Button
@@ -419,64 +416,54 @@ export function ArchiveTrashScreen({ projectId }) {
             </Button>
           ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search assets..."
         />
       </Toolbar>
 
       {loading ? (
         <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowKey={(a) => a.id}
-          onRowClick={(a) => setSelectedId(a.id)}
-          empty={
-            <EmptyState
-              icon={isTrash ? Trash2 : ArchiveIcon}
-              title={
-                hasActiveFilters
-                  ? "No results"
-                  : isTrash
-                    ? "Trash is empty"
-                    : "Nothing archived"
-              }
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : isTrash
-                    ? "Deleted assets will appear here until you permanently remove them."
-                    : "Archived assets will appear here, ready to restore at any time."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                ) : null
-              }
-            />
-          }
-        />
-      )}
-
-      {!loading && filtered.length > 0 ? (
-        <div className="text-xs text-text-secondary">
-          Showing {filtered.length} of {activeRows.length}{" "}
-          {isTrash ? "trashed" : "archived"} assets
+        <div className="space-y-5">
+          <DataTable
+            columns={columns}
+            data={pager.pageItems}
+            getRowKey={(a) => a.id}
+            onRowClick={(a) => setSelectedId(a.id)}
+            empty={
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                {activeRows.length === 0 ? (
+                  <EmptyState
+                    icon={isTrash ? Trash2 : ArchiveIcon}
+                    title={isTrash ? "Trash is empty" : "Nothing archived"}
+                    description={
+                      isTrash
+                        ? "Deleted assets will appear here until you permanently remove them."
+                        : "Archived assets will appear here, ready to restore at any time."
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    icon={isTrash ? Trash2 : ArchiveIcon}
+                    title="No matching assets"
+                    description="No assets matches the current search and filter."
+                    action={
+                      <Button variant="ghost" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
+            }
+          />
+          <ListPagination {...pager} itemLabel="items" />
         </div>
-      ) : null}
+      )}
 
       <Dialog open={Boolean(purgeTarget)} onOpenChange={(o) => !o && setPurgeTarget(null)}>
         <DialogContent className="max-w-md border-border bg-surface-subtle text-foreground">

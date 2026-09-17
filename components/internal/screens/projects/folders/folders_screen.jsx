@@ -1,5 +1,27 @@
 "use client";
 
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from "@geiger/ui";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   FolderPlus,
@@ -14,32 +36,12 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader,
   StatsBar,
@@ -280,6 +282,10 @@ export function FoldersScreen({ projectId }) {
     return folders.filter((f) => (f.parentId ?? null) === currentParentId);
   }, [folders, search, searching, currentParentId]);
 
+  const pager = usePagination(visible, {
+    resetKey: `${search}|${currentParentId ?? "root"}`,
+  });
+
   const childCount = useMemo(() => {
     const counts = new Map();
     folders.forEach((f) => {
@@ -436,101 +442,107 @@ export function FoldersScreen({ projectId }) {
 
       <StatsBar stats={stats} />
 
-      {/* Breadcrumb */}
-      <div className="flex flex-wrap items-center gap-1 text-sm">
-        <button
-          type="button"
-          onClick={() => {
-            setSearch("");
-            setCurrentParentId(null);
-          }}
-          className={cn(
-            "rounded-md px-2 py-1 font-medium transition-colors hover:bg-surface-hover",
-            currentParentId === null ? "text-foreground" : "text-text-secondary",
-          )}
-        >
-          All Folders
-        </button>
-        {trail.map((crumb) => (
-          <React.Fragment key={crumb.id}>
-            <ChevronRight className="h-3.5 w-3.5 text-text-tertiary" aria-hidden="true" />
+      <Toolbar>
+        <div className="flex items-center gap-2">
+          {/* Breadcrumb */}
+          <div className="flex flex-wrap items-center gap-1 text-sm">
             <button
               type="button"
               onClick={() => {
                 setSearch("");
-                setCurrentParentId(crumb.id);
+                setCurrentParentId(null);
               }}
               className={cn(
-                "max-w-[200px] truncate rounded-md px-2 py-1 font-medium transition-colors hover:bg-surface-hover",
-                crumb.id === currentParentId ? "text-foreground" : "text-text-secondary",
+                "rounded-md px-2 py-1 font-medium transition-colors hover:bg-surface-hover",
+                currentParentId === null ? "text-foreground" : "text-text-secondary",
               )}
             >
-              {crumb.name}
+              All Folders
             </button>
-          </React.Fragment>
-        ))}
-      </div>
-
-      <Toolbar>
+            {trail.map((crumb) => (
+              <React.Fragment key={crumb.id}>
+                <ChevronRight className="h-3.5 w-3.5 text-text-tertiary" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setCurrentParentId(crumb.id);
+                  }}
+                  className={cn(
+                    "max-w-[200px] truncate rounded-md px-2 py-1 font-medium transition-colors hover:bg-surface-hover",
+                    crumb.id === currentParentId ? "text-foreground" : "text-text-secondary",
+                  )}
+                >
+                  {crumb.name}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+          {searching ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
+              onClick={() => setSearch("")}
+            >
+              <X className="mr-1 h-3 w-3" />
+              Clear
+            </Button>
+          ) : null}
+        </div>
         <SearchInput
           value={search}
           onChange={setSearch}
           placeholder="Search folders..."
-          className="w-full sm:w-64"
         />
-        {searching ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={() => setSearch("")}
-          >
-            <X className="mr-1 h-3 w-3" />
-            Clear
-          </Button>
-        ) : null}
       </Toolbar>
 
       {loading ? (
         <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={visible}
-          getRowKey={(f) => f.id}
-          onRowClick={(f) => navigateInto(f)}
-          empty={
-            <EmptyState
-              icon={FolderIcon}
-              title={searching ? "No folders found" : "This folder has no subfolders"}
-              description={
-                searching
-                  ? "Try a different search query."
-                  : "Create a subfolder to organize this branch of storage."
-              }
-              action={
-                <Button
-                  className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                  onClick={() => setShowCreate(true)}
-                >
-                  <FolderPlus className="mr-1.5 h-4 w-4" />
-                  New Folder
-                </Button>
-              }
-            />
-          }
-        />
-      )}
-
-      {!loading && visible.length > 0 ? (
-        <div className="text-xs text-text-secondary">
-          {searching
-            ? `Showing ${visible.length} of ${folders.length} folders`
-            : `${visible.length} folder${visible.length === 1 ? "" : "s"} here`}
+        <div className="space-y-5">
+          <DataTable
+            columns={columns}
+            data={pager.pageItems}
+            getRowKey={(f) => f.id}
+            onRowClick={(f) => navigateInto(f)}
+            empty={
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                {folders.length === 0 ? (
+                  <EmptyState
+                    icon={FolderIcon}
+                    title="This folder has no subfolders"
+                    description="Create a subfolder to organize this branch of storage."
+                    action={
+                      <Button
+                        className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                        onClick={() => setShowCreate(true)}
+                      >
+                        <FolderPlus className="mr-1.5 h-4 w-4" />
+                        New Folder
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    icon={FolderIcon}
+                    title="No matching folders"
+                    description="No folders match the current search and filter."
+                    action={
+                      <Button variant="ghost" onClick={() => setSearch("")}>
+                        Clear filters
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
+            }
+          />
+          <ListPagination {...pager} itemLabel="folders" />
         </div>
-      ) : null}
+      )}
 
       <CreateFolderDialog
         key={showCreate ? `open-${currentParentId ?? "root"}` : "closed"}

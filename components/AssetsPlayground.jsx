@@ -1,5 +1,6 @@
 "use client";
 
+import { SidebarInset, SidebarProvider } from "@geiger/ui";
 import React, { Suspense, useEffect } from "react";
 import { ProjectSidebar } from "@/components/internal/sidebar/projects/project_sidebar";
 import { Topbar } from "@/components/internal/topbar/topbar";
@@ -12,6 +13,9 @@ import { FoldersScreen } from "@/components/internal/screens/projects/folders/fo
 import { DuplicateReviewScreen } from "@/components/internal/screens/projects/duplicates/duplicate_review_screen";
 import { ArchiveTrashScreen } from "@/components/internal/screens/projects/archive/archive_trash_screen";
 import { AssetRequestsScreen } from "@/components/internal/screens/projects/requests/asset_requests_screen";
+import { AllWorkflowsScreen } from "@/components/internal/screens/projects/workflows/all_workflows";
+import { WorkflowTemplatesScreen } from "@/components/internal/screens/projects/workflows/workflow_templates";
+import { RunHistoryScreen } from "@/components/internal/screens/projects/workflows/run_history";
 import { TiersScreen } from "@/components/internal/screens/projects/creator/tiers_screen";
 import { MembersScreen } from "@/components/internal/screens/projects/creator/members_screen";
 import { SubscriptionsScreen } from "@/components/internal/screens/projects/creator/subscriptions_screen";
@@ -21,7 +25,7 @@ import { TipsScreen } from "@/components/internal/screens/projects/creator/tips_
 import { PayoutsScreen } from "@/components/internal/screens/projects/creator/payouts_screen";
 import { PromosScreen } from "@/components/internal/screens/projects/creator/promos_screen";
 import { FeatureScreen } from "@/components/internal/screens/projects/features/feature_screen";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+
 import { ProjectProvider, useProject } from "@/context/project-context";
 import { settingsNav } from "@/components/internal/sidebar/projects/sidebar_data";
 import { featureItemsByTitle } from "@/components/internal/sidebar/projects/feature_registry";
@@ -68,6 +72,12 @@ function AssetsPlaygroundContent({ projectId }) {
         return <ArchiveTrashScreen projectId={projectId} />;
       case "Asset Requests":
         return <AssetRequestsScreen projectId={projectId} />;
+      case "All Workflows":
+        return <AllWorkflowsScreen projectId={projectId} />;
+      case "Workflow Templates":
+        return <WorkflowTemplatesScreen projectId={projectId} />;
+      case "Run History":
+        return <RunHistoryScreen projectId={projectId} />;
       case "Membership Tiers":
         return <TiersScreen projectId={projectId} />;
       case "Members":

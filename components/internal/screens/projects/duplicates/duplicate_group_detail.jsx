@@ -1,8 +1,19 @@
 "use client";
 
+import {
+  Badge,
+  Button,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  cn,
+} from "@geiger/ui";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Loader2,
   Save,
   CheckCircle2,
@@ -13,19 +24,7 @@ import {
   File,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
 import {
   SectionCard,
   StatusPill,
@@ -46,6 +45,38 @@ import {
   resolveGroup,
   ignoreGroup,
 } from "@/lib/supabase/duplicates";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
+
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "members",
+        label: "Members",
+        icon: CopyCheck,
+        desc: "Duplicate assets in this group — pick one to keep.",
+      },
+    ],
+  },
+  {
+    group: "Review",
+    items: [
+      {
+        key: "resolution",
+        label: "Resolution",
+        icon: CheckCircle2,
+        desc: "Recommended action and status for this group.",
+      },
+      {
+        key: "details",
+        label: "Details",
+        icon: File,
+        desc: "Match type, similarity, and timestamps.",
+      },
+    ],
+  },
+];
 
 function MemberCard({ member, onMakeKeeper }) {
   const asset = member.asset;
@@ -113,7 +144,169 @@ function MemberCard({ member, onMakeKeeper }) {
   );
 }
 
+export function MembersSection({ members, onMakeKeeper }) {
+  return (
+    <SectionCard
+      title="Duplicate assets"
+      description="Pick one asset to keep — the rest can be removed once resolved."
+    >
+      {members.length === 0 ? (
+        <EmptyState
+          icon={CopyCheck}
+          title="No members"
+          description="This group has no linked assets."
+          className="py-10"
+        />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {members.map((member) => (
+            <MemberCard
+              key={member.id}
+              member={member}
+              onMakeKeeper={onMakeKeeper}
+            />
+          ))}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+export function ResolutionSection({
+  action,
+  onActionChange,
+  status,
+  onStatusChange,
+  dirty,
+  saving,
+  busy,
+  groupStatus,
+  onSave,
+  onResolve,
+  onIgnore,
+}) {
+  return (
+    <SectionCard title="Resolution">
+      <div className="grid gap-4">
+        <Field label="Recommended action" hint="What should happen to this group.">
+          <Textarea
+            value={action}
+            onChange={(e) => onActionChange(e.target.value)}
+            placeholder="e.g. Keep the highest-resolution copy and delete the rest…"
+            className="min-h-24 border-border bg-surface-card text-foreground"
+          />
+        </Field>
+        <Field label="Status" className="sm:max-w-xs">
+          <Select value={status} onValueChange={onStatusChange}>
+            <SelectTrigger className="border-border bg-surface-card">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="border-border bg-surface-subtle text-foreground">
+              {STATUS_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+          <Button
+            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            onClick={onSave}
+            disabled={!dirty || saving}
+          >
+            {saving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
+            {dirty ? "Save changes" : "Saved"}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={onResolve}
+            disabled={busy || groupStatus === "resolved"}
+          >
+            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+            Resolve
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={onIgnore}
+            disabled={busy || groupStatus === "ignored"}
+          >
+            <EyeOff className="mr-1.5 h-4 w-4" />
+            Ignore
+          </Button>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+export function GroupDetailsSection({ group, members, matchMeta }) {
+  if (!group) return null;
+  return (
+    <SectionCard title="Details">
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Match type
+          </dt>
+          <dd className="mt-1">
+            <Badge className={cn("border px-1.5 py-0 text-[10px]", matchMeta.className)}>
+              {matchMeta.label}
+            </Badge>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Similarity
+          </dt>
+          <dd className="mt-1 text-sm tabular-nums text-foreground">{group.similarity}%</dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Members
+          </dt>
+          <dd className="mt-1 text-sm tabular-nums text-foreground">{members.length}</dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Status
+          </dt>
+          <dd className="mt-1">
+            <StatusPill status={group.status} map={STATUS_META} className="text-[10px]" />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Detected
+          </dt>
+          <dd className="mt-1 text-sm text-foreground">{formatDate(group.createdAt)}</dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Last updated
+          </dt>
+          <dd className="mt-1 text-sm text-foreground">{formatDate(group.updatedAt)}</dd>
+        </div>
+      </dl>
+    </SectionCard>
+  );
+}
+
+export const SECTIONS = {
+  members: MembersSection,
+  resolution: ResolutionSection,
+  details: GroupDetailsSection,
+};
+
 export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
+  const { section: active, setSection: setActive } = useWorkspaceUrl();
   const [loading, setLoading] = useState(true);
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -203,17 +396,31 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
+      <EditorShell
+        back={{ label: "Duplicate Review", onClick: onBack }}
+        title="Loading duplicate group…"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
         <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
-      </MainScreenWrapper>
+      </EditorShell>
     );
   }
 
   if (!group) {
     return (
-      <MainScreenWrapper className="dark">
+      <EditorShell
+        back={{ label: "Duplicate Review", onClick: onBack }}
+        title="Duplicate group not found"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
         <EmptyState
           icon={CopyCheck}
           title="Duplicate group not found"
@@ -228,47 +435,27 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
             </Button>
           }
         />
-      </MainScreenWrapper>
+      </EditorShell>
     );
   }
 
   const matchMeta = MATCH_META[group.matchType] || MATCH_META.exact;
 
   return (
-    <MainScreenWrapper className="dark">
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to duplicate review"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border",
-              matchMeta.className,
-            )}
-          >
-            <CopyCheck className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              Duplicate group
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <Badge className={cn("border px-1.5 py-0 text-[10px]", matchMeta.className)}>
-                {matchMeta.label}
-              </Badge>
-              <StatusPill status={group.status} map={STATUS_META} className="text-[10px]" />
-              <span className="text-xs text-text-secondary">{group.similarity}% match</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+    <EditorShell
+      searchable
+      back={{ label: "Duplicate Review", onClick: onBack }}
+      title="Duplicate group"
+      status={group.status}
+      statusMap={STATUS_META}
+      badges={
+        <Badge className={cn("border px-1.5 py-0 text-[10px]", matchMeta.className)}>
+          {matchMeta.label}
+        </Badge>
+      }
+      meta={`${members.length} member${members.length === 1 ? "" : "s"} · ${group.similarity}% match`}
+      actions={
+        <>
           <Button
             variant="outline"
             className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
@@ -279,7 +466,8 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
             Ignore
           </Button>
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            variant="outline"
+            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
             onClick={handleResolve}
             disabled={busy || group.status === "resolved"}
           >
@@ -290,156 +478,49 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
             )}
             Resolve
           </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="members" className="gap-4">
-        <TabsList>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="resolution">Resolution</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-        </TabsList>
-
-        {/* Members */}
-        <TabsContent value="members">
-          <SectionCard
-            title="Duplicate assets"
-            description="Pick one asset to keep — the rest can be removed once resolved."
+          <Button
+            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            onClick={handleSave}
+            disabled={!dirty || saving}
           >
-            {members.length === 0 ? (
-              <EmptyState
-                icon={CopyCheck}
-                title="No members"
-                description="This group has no linked assets."
-                className="py-10"
-              />
+            {saving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {members.map((member) => (
-                  <MemberCard
-                    key={member.id}
-                    member={member}
-                    onMakeKeeper={handleMakeKeeper}
-                  />
-                ))}
-              </div>
+              <Save className="mr-1.5 h-4 w-4" />
             )}
-          </SectionCard>
-        </TabsContent>
-
-        {/* Resolution */}
-        <TabsContent value="resolution">
-          <SectionCard title="Resolution">
-            <div className="grid gap-4">
-              <Field label="Recommended action" hint="What should happen to this group.">
-                <Textarea
-                  value={action}
-                  onChange={(e) => setAction(e.target.value)}
-                  placeholder="e.g. Keep the highest-resolution copy and delete the rest…"
-                  className="min-h-24 border-border bg-surface-card text-foreground"
-                />
-              </Field>
-              <Field label="Status" className="sm:max-w-xs">
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="border-border bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="border-border bg-surface-subtle text-foreground">
-                    {STATUS_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="text-xs">
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                <Button
-                  className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                  onClick={handleSave}
-                  disabled={!dirty || saving}
-                >
-                  {saving ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-1.5 h-4 w-4" />
-                  )}
-                  {dirty ? "Save changes" : "Saved"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                  onClick={handleResolve}
-                  disabled={busy || group.status === "resolved"}
-                >
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                  Resolve
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                  onClick={handleIgnore}
-                  disabled={busy || group.status === "ignored"}
-                >
-                  <EyeOff className="mr-1.5 h-4 w-4" />
-                  Ignore
-                </Button>
-              </div>
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        {/* Details */}
-        <TabsContent value="details">
-          <SectionCard title="Details">
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  Match type
-                </dt>
-                <dd className="mt-1">
-                  <Badge className={cn("border px-1.5 py-0 text-[10px]", matchMeta.className)}>
-                    {matchMeta.label}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  Similarity
-                </dt>
-                <dd className="mt-1 text-sm tabular-nums text-foreground">{group.similarity}%</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  Members
-                </dt>
-                <dd className="mt-1 text-sm tabular-nums text-foreground">{members.length}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  Status
-                </dt>
-                <dd className="mt-1">
-                  <StatusPill status={group.status} map={STATUS_META} className="text-[10px]" />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  Detected
-                </dt>
-                <dd className="mt-1 text-sm text-foreground">{formatDate(group.createdAt)}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  Last updated
-                </dt>
-                <dd className="mt-1 text-sm text-foreground">{formatDate(group.updatedAt)}</dd>
-              </div>
-            </dl>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
-    </MainScreenWrapper>
+            {dirty ? "Save changes" : "Saved"}
+          </Button>
+        </>
+      }
+      nav={NAV_GROUPS}
+      subject={group}
+      active={active}
+      onActiveChange={setActive}
+    >
+      {({ active: key }) => {
+        const ActiveSection = SECTIONS[key] || SECTIONS.members;
+        return (
+          <ActiveSection
+            group={group}
+            members={members}
+            matchMeta={matchMeta}
+            action={action}
+            status={status}
+            dirty={dirty}
+            saving={saving}
+            busy={busy}
+            groupStatus={group.status}
+            onActionChange={setAction}
+            onStatusChange={setStatus}
+            onSave={handleSave}
+            onResolve={handleResolve}
+            onIgnore={handleIgnore}
+            onMakeKeeper={handleMakeKeeper}
+            headerItem={NAV_GROUPS.flatMap((g) => g.items).find((i) => i.key === key)}
+          />
+        );
+      }}
+    </EditorShell>
   );
 }
 

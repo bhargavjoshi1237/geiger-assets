@@ -1,3 +1,4 @@
+import { Toaster } from "@geiger/ui";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -19,7 +20,6 @@ export const metadata = {
 };
 
 import { BannerProvider } from "@/context/banner-context";
-import { Toaster } from "@geiger/ui/sonner";
 
 export default function RootLayout({ children }) {
   return (

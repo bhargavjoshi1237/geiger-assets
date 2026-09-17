@@ -1,10 +1,15 @@
 "use client";
 
+import { Button, LogoLoading } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
-import { BadgePlus, Layers, Loader2, SlidersHorizontal } from "lucide-react";
+import { ArrowUpDown, BadgePlus, Layers, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -13,6 +18,15 @@ import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateD
 import { listTiers, createTier, updateTier, deleteTier } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(TIER_STATUS_META, "All statuses");
+
+const SORT_OPTIONS = [
+  { value: "updated-desc", label: "Recently updated" },
+  { value: "updated-asc", label: "Least recently updated" },
+  { value: "name-asc", label: "Name A–Z" },
+  { value: "name-desc", label: "Name Z–A" },
+  { value: "price-desc", label: "Highest price" },
+  { value: "price-asc", label: "Lowest price" },
+];
 
 function TierDialog({ open, onOpenChange, initial, onSubmit, submitLabel, title }) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -44,6 +58,7 @@ export function TiersScreen({ projectId }) {
   const [rows, setRows, loading] = useCreatorRows(listTiers, projectId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("updated-desc");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -54,8 +69,20 @@ export function TiersScreen({ projectId }) {
       r = r.filter((t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
     }
     if (statusFilter !== "all") r = r.filter((t) => (t.isActive ? "active" : "archived") === statusFilter);
+    const [field, direction] = sortValue.split("-");
+    r.sort((a, b) => {
+      let cmp = 0;
+      if (field === "updated") cmp = new Date(a.updatedAt) - new Date(b.updatedAt);
+      else if (field === "name") cmp = a.name.localeCompare(b.name);
+      else if (field === "price") cmp = a.priceCents - b.priceCents;
+      return direction === "desc" ? -cmp : cmp;
+    });
     return r;
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, sortValue]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
 
   const stats = useMemo(() => {
     const active = rows.filter((t) => t.isActive);
@@ -120,23 +147,33 @@ export function TiersScreen({ projectId }) {
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+  };
+
   return (
     <MainScreenWrapper className="dark">
       <ScreenHeader title="Membership Tiers" description="Patreon-style recurring tiers — free funnel entry plus paid plans with perks." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="mr-1.5 h-4 w-4" />New tier</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search tiers..." className="w-full sm:w-64" />
+        <div className="flex items-center gap-2">
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
-          {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
+          <FilterDropdown value={sortValue} onValueChange={setSortValue} options={SORT_OPTIONS} placeholder="Sort" icon={ArrowUpDown} />
+          {hasFilters ? <ClearFiltersButton onClick={clearFilters} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search tiers..." />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
+          <LogoLoading size={40} />
+        </div>
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(t) => t.id} onRowClick={setEditing} empty={<EmptyState icon={Layers} title="No tiers yet" description={hasFilters ? "Try adjusting your filters." : "Create your first membership tier to start recurring revenue."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="mr-1.5 h-4 w-4" />New tier</Button>} />} />
+        <div className="space-y-5">
+          <DataTable columns={columns} data={pager.pageItems} getRowKey={(t) => t.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle">{rows.length === 0 ? (<EmptyState icon={Layers} title="No tiers yet" description="Create your first membership tier to start recurring revenue." action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="mr-1.5 h-4 w-4" />New tier</Button>} />) : (<EmptyState icon={Layers} title="No matching tiers" description="No tiers matches the current search and filter." action={<Button variant="ghost" onClick={clearFilters}>Clear filters</Button>} />)}</div>} />
+          <ListPagination {...pager} itemLabel="tiers" />
+        </div>
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} tiers</div> : null}
       <TierDialog open={showCreate} onOpenChange={setShowCreate} title="New tier" submitLabel="Create tier" onSubmit={handleCreate} />
       {editing ? (
         <TierDialog open={Boolean(editing)} onOpenChange={(v) => !v && setEditing(null)} initial={editing} title={`Edit ${editing.name}`} submitLabel="Save changes" onSubmit={handleSave} />

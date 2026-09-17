@@ -1,10 +1,15 @@
 "use client";
 
+import { Button, LogoLoading } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
-import { Loader2, SlidersHorizontal, TicketPercent } from "lucide-react";
+import { ArrowUpDown, SlidersHorizontal, TicketPercent } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -15,6 +20,15 @@ import { listPromos, createPromo, updatePromo, deletePromo } from "@/lib/supabas
 const KIND_FILTERS = [
   { value: "all", label: "All kinds" },
   ...Object.entries(PROMO_KIND_META).map(([value, m]) => ({ value, label: m.label })),
+];
+
+const SORT_OPTIONS = [
+  { value: "updated-desc", label: "Recently updated" },
+  { value: "updated-asc", label: "Least recently updated" },
+  { value: "code-asc", label: "Code A–Z" },
+  { value: "code-desc", label: "Code Z–A" },
+  { value: "claimed-desc", label: "Most claimed" },
+  { value: "claimed-asc", label: "Least claimed" },
 ];
 
 function PromoDialog({ open, onOpenChange, initial, onSubmit, title, submitLabel }) {
@@ -47,6 +61,7 @@ export function PromosScreen({ projectId }) {
   const [rows, setRows, loading] = useCreatorRows(listPromos, projectId);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("updated-desc");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -57,8 +72,20 @@ export function PromosScreen({ projectId }) {
       r = r.filter((p) => p.code.toLowerCase().includes(q));
     }
     if (kindFilter !== "all") r = r.filter((p) => p.kind === kindFilter);
+    const [field, direction] = sortValue.split("-");
+    r.sort((a, b) => {
+      let cmp = 0;
+      if (field === "updated") cmp = new Date(a.updatedAt) - new Date(b.updatedAt);
+      else if (field === "code") cmp = a.code.localeCompare(b.code);
+      else if (field === "claimed") cmp = a.redeemedCount - b.redeemedCount;
+      return direction === "desc" ? -cmp : cmp;
+    });
     return r;
-  }, [rows, search, kindFilter]);
+  }, [rows, search, kindFilter, sortValue]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${kindFilter}|${sortValue}`,
+  });
 
   const stats = useMemo(() => {
     const redemptions = rows.reduce((s, p) => s + p.redeemedCount, 0);
@@ -135,18 +162,23 @@ export function PromosScreen({ projectId }) {
       <ScreenHeader title="Promo Codes & Perks" description="Discounts, trials, and gifted months — autopilot acquisition and win-backs." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="mr-1.5 h-4 w-4" />New promo</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search codes..." className="w-full sm:w-64" />
+        <div className="flex items-center gap-2">
           <FilterDropdown value={kindFilter} onValueChange={setKindFilter} options={KIND_FILTERS} placeholder="Kind" icon={SlidersHorizontal} />
+          <FilterDropdown value={sortValue} onValueChange={setSortValue} options={SORT_OPTIONS} placeholder="Sort" icon={ArrowUpDown} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setKindFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search codes..." />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
+          <LogoLoading size={40} />
+        </div>
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={handleToggle} empty={<EmptyState icon={TicketPercent} title="No promo codes yet" description={hasFilters ? "Try adjusting your filters." : "Create a trial or discount to grow the funnel."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="mr-1.5 h-4 w-4" />New promo</Button>} />} />
+        <div className="space-y-5">
+          <DataTable columns={columns} data={pager.pageItems} getRowKey={(p) => p.id} onRowClick={handleToggle} empty={<div className="rounded-xl border border-border bg-surface-subtle">{rows.length === 0 ? (<EmptyState icon={TicketPercent} title="No promo codes yet" description="Create a trial or discount to grow the funnel." action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="mr-1.5 h-4 w-4" />New promo</Button>} />) : (<EmptyState icon={TicketPercent} title="No matching promo codes" description="No promo codes matches the current search and filter." action={<Button variant="ghost" onClick={() => { setKindFilter("all"); setSearch(""); }}>Clear filters</Button>} />)}</div>} />
+          <ListPagination {...pager} itemLabel="promos" />
+        </div>
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} promos · click a row to pause/resume</div> : null}
       <PromoDialog open={showCreate} onOpenChange={setShowCreate} title="New promo code" submitLabel="Create promo" onSubmit={handleCreate} />
       {editing ? <PromoDialog open={Boolean(editing)} onOpenChange={(v) => !v && setEditing(null)} initial={editing} title={`Edit ${editing.code}`} submitLabel="Save changes" onSubmit={handleSave} /> : null}
     </MainScreenWrapper>

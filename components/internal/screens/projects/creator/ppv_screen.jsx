@@ -1,10 +1,15 @@
 "use client";
 
+import { Button, LogoLoading } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
-import { Eye, Loader2, Lock, SlidersHorizontal } from "lucide-react";
+import { ArrowUpDown, Eye, Lock, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -13,6 +18,17 @@ import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateD
 import { listPpvPosts, createPpvPost, updatePpvPost, deletePpvPost } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(PPV_STATUS_META, "All statuses");
+
+const SORT_OPTIONS = [
+  { value: "updated-desc", label: "Recently updated" },
+  { value: "updated-asc", label: "Least recently updated" },
+  { value: "title-asc", label: "Title A–Z" },
+  { value: "title-desc", label: "Title Z–A" },
+  { value: "price-desc", label: "Highest price" },
+  { value: "price-asc", label: "Lowest price" },
+  { value: "revenue-desc", label: "Highest revenue" },
+  { value: "revenue-asc", label: "Lowest revenue" },
+];
 
 function PpvDialog({ open, onOpenChange, initial, onSubmit, title, submitLabel }) {
   const [postTitle, setPostTitle] = useState(initial?.title ?? "");
@@ -44,6 +60,7 @@ export function PpvScreen({ projectId }) {
   const [rows, setRows, loading] = useCreatorRows(listPpvPosts, projectId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("updated-desc");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -54,8 +71,21 @@ export function PpvScreen({ projectId }) {
       r = r.filter((p) => p.title.toLowerCase().includes(q));
     }
     if (statusFilter !== "all") r = r.filter((p) => p.status === statusFilter);
+    const [field, direction] = sortValue.split("-");
+    r.sort((a, b) => {
+      let cmp = 0;
+      if (field === "updated") cmp = new Date(a.updatedAt) - new Date(b.updatedAt);
+      else if (field === "title") cmp = a.title.localeCompare(b.title);
+      else if (field === "price") cmp = a.priceCents - b.priceCents;
+      else if (field === "revenue") cmp = a.revenueCents - b.revenueCents;
+      return direction === "desc" ? -cmp : cmp;
+    });
     return r;
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, sortValue]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
 
   const stats = useMemo(() => {
     const revenue = rows.reduce((s, p) => s + p.revenueCents, 0);
@@ -134,18 +164,23 @@ export function PpvScreen({ projectId }) {
       <ScreenHeader title="Pay-Per-View" description="OnlyFans-style locked posts — free teaser, paid unlock, per-post revenue." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="mr-1.5 h-4 w-4" />New PPV</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search PPV posts..." className="w-full sm:w-64" />
+        <div className="flex items-center gap-2">
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
+          <FilterDropdown value={sortValue} onValueChange={setSortValue} options={SORT_OPTIONS} placeholder="Sort" icon={ArrowUpDown} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search PPV posts..." />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
+          <LogoLoading size={40} />
+        </div>
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={(p) => handlePublish(p)} empty={<EmptyState icon={Eye} title="No PPV posts yet" description={hasFilters ? "Try adjusting your filters." : "Lock your best content behind a pay-per-view price."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="mr-1.5 h-4 w-4" />New PPV</Button>} />} />
+        <div className="space-y-5">
+          <DataTable columns={columns} data={pager.pageItems} getRowKey={(p) => p.id} onRowClick={(p) => handlePublish(p)} empty={<div className="rounded-xl border border-border bg-surface-subtle">{rows.length === 0 ? (<EmptyState icon={Eye} title="No PPV posts yet" description="Lock your best content behind a pay-per-view price." action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="mr-1.5 h-4 w-4" />New PPV</Button>} />) : (<EmptyState icon={Eye} title="No matching PPV posts" description="No PPV posts matches the current search and filter." action={<Button variant="ghost" onClick={() => { setStatusFilter("all"); setSearch(""); }}>Clear filters</Button>} />)}</div>} />
+          <ListPagination {...pager} itemLabel="PPV posts" />
+        </div>
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} PPV posts · click a row to publish/archive</div> : null}
       <PpvDialog open={showCreate} onOpenChange={setShowCreate} title="New PPV post" submitLabel="Create PPV" onSubmit={handleCreate} />
       {editing ? <PpvDialog open={Boolean(editing)} onOpenChange={(v) => !v && setEditing(null)} initial={editing} title={`Edit ${editing.title}`} submitLabel="Save changes" onSubmit={handleSave} /> : null}
     </MainScreenWrapper>

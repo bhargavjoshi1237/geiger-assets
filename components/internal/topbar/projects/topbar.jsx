@@ -1,11 +1,11 @@
 "use client";
 
+import { Kbd, KbdGroup, SidebarTrigger, ThemeToggle } from "@geiger/ui";
 import React from "react";
 import { Search, Bell, HelpCircle, ChevronsUpDown, Plug } from "lucide-react";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
+
 import { useProject } from "@/context/project-context";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import ThemeToggle from "@/components/ui/theme-toggle";
+
 import { NotificationsDropdown } from "../dialogue/notifications_dropdown";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';

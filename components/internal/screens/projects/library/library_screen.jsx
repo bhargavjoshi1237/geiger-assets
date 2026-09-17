@@ -1,5 +1,24 @@
 "use client";
 
+import {
+  ActionMenu,
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from "@geiger/ui";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -27,27 +46,9 @@ import {
   Toolbar,
   Field,
 } from "@/components/internal/shared/screen_kit";
-import { Button } from "@geiger/ui/button";
-import { Badge } from "@geiger/ui/badge";
-import { Input } from "@geiger/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@geiger/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@geiger/ui/select";
-import { ActionMenu } from "@geiger/ui/action-menu";
+
 import FilterDropdown from "@/components/internal/screens/projects/home/filter_dropdown";
-import { cn } from "@/lib/utils";
+
 import {
   TYPE_ICONS,
   FILE_TYPE_COLORS,
@@ -332,6 +333,12 @@ export function LibraryScreen({ projectId }) {
     resetKey: `${search}|${typeFilter}|${statusFilter}`,
   });
 
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+    setStatusFilter("all");
+  };
+
   const stats = useMemo(() => {
     const totalBytes = assets.reduce((sum, a) => sum + (a.sizeBytes || 0), 0);
     const processing = assets.filter((a) => a.status === "processing").length;
@@ -344,13 +351,16 @@ export function LibraryScreen({ projectId }) {
     ];
   }, [assets]);
 
-  const handleDelete = (asset) => {
+  const handleDelete = async (asset) => {
+    if (!asset) return;
     setDeleteTarget(null);
-    setAssets((prev) => prev.filter((a) => a.id !== asset.id));
-    toast.success(`Deleted "${asset.name}".`);
-    softDeleteAsset(asset.id).then((ok) => {
-      if (!ok) toast.error("Couldn't delete the asset on the server.");
-    });
+    const ok = await softDeleteAsset(asset.id);
+    if (ok) {
+      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      toast.success(`Deleted "${asset.name}".`);
+    } else {
+      toast.error("Couldn't delete the asset on the server.");
+    }
   };
 
   const handleDuplicate = async (asset) => {
@@ -509,8 +519,7 @@ export function LibraryScreen({ projectId }) {
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle px-6 py-16 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading assets…
+          <LogoLoading size={40} label="Loading assets" />
         </div>
       ) : (
         <div className="space-y-5">
@@ -520,29 +529,36 @@ export function LibraryScreen({ projectId }) {
             getRowKey={(a) => a.id}
             onRowClick={(a) => openAsset(a.id)}
             empty={
-              <div className="rounded-xl border border-border bg-surface-subtle">
-                <EmptyState
-                  icon={ImageIcon}
-                  title={
-                    assets.length
-                      ? "No assets match your filters"
-                      : "No assets yet"
-                  }
-                  description={
-                    assets.length
-                      ? "Try clearing the search or filters, or upload a new asset to get started."
-                      : "Upload your first asset to start organizing your library."
-                  }
-                  action={
-                    <Button
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                      onClick={() => setShowUpload(true)}
-                    >
-                      <Upload className="h-4 w-4" /> Upload assets
-                    </Button>
-                  }
-                />
-              </div>
+              assets.length === 0 ? (
+                <div className="rounded-xl border border-border bg-surface-subtle">
+                  <EmptyState
+                    icon={ImageIcon}
+                    title="No assets yet"
+                    description="Upload your first asset to start organizing your library."
+                    action={
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        onClick={() => setShowUpload(true)}
+                      >
+                        <Upload className="h-4 w-4" /> Upload assets
+                      </Button>
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-surface-subtle">
+                  <EmptyState
+                    icon={ImageIcon}
+                    title="No matching assets"
+                    description="No assets match the current search and filter."
+                    action={
+                      <Button variant="ghost" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    }
+                  />
+                </div>
+              )
             }
           />
           <ListPagination {...pager} itemLabel="assets" />

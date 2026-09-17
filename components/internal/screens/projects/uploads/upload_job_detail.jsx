@@ -1,8 +1,17 @@
 "use client";
 
+import {
+  Button,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@geiger/ui";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Loader2,
   Save,
   RotateCcw,
@@ -12,25 +21,13 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
 import {
   SectionCard,
-  StatusPill,
   Field,
   EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
-  TYPE_ICONS,
   STATUS_META,
   SOURCE_LABELS,
   TYPE_OPTIONS,
@@ -40,6 +37,7 @@ import {
   formatDate,
 } from "./constants";
 import { getUploadJob, updateUploadJob } from "@/lib/supabase/uploads";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 
 function ProgressBar({ progress }) {
   const pct = Math.max(0, Math.min(100, Number(progress) || 0));
@@ -70,7 +68,176 @@ function TimelineEntry({ icon: Icon, title, timestamp, last }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Editor sections
+// ---------------------------------------------------------------------------
+
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "overview",
+        label: "Overview",
+        icon: File,
+        desc: "Filename, type, source, status, and progress.",
+      },
+    ],
+  },
+  {
+    group: "Manage",
+    items: [
+      {
+        key: "output",
+        label: "Output",
+        icon: Package,
+        desc: "The asset produced by this upload.",
+      },
+      {
+        key: "activity",
+        label: "Activity",
+        icon: Clock,
+        desc: "When this upload was created and last updated.",
+      },
+    ],
+  },
+];
+
+function OverviewSection({ draft, set }) {
+  return (
+    <SectionCard title="Details">
+      <div className="grid gap-4">
+        <Field label="Filename" htmlFor="job-filename">
+          <Input
+            id="job-filename"
+            value={draft.filename}
+            onChange={(e) => set("filename")(e.target.value)}
+            className="border-border bg-surface-card text-foreground"
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="File Type">
+            <Select value={draft.fileType} onValueChange={set("fileType")}>
+              <SelectTrigger className="border-border bg-surface-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-surface-subtle text-foreground">
+                {TYPE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Source">
+            <Select value={draft.source} onValueChange={set("source")}>
+              <SelectTrigger className="border-border bg-surface-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-surface-subtle text-foreground">
+                {SOURCE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Status">
+            <Select value={draft.status} onValueChange={set("status")}>
+              <SelectTrigger className="border-border bg-surface-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-surface-subtle text-foreground">
+                {STATUS_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Size">
+            <div className="flex h-9 items-center rounded-md border border-border bg-surface-card px-3 text-sm text-muted-foreground">
+              {formatBytes(draft.sizeBytes)}
+            </div>
+          </Field>
+        </div>
+        <Field label="Progress">
+          <div className="rounded-md border border-border bg-surface-card px-3 py-3">
+            <ProgressBar progress={draft.progress} />
+          </div>
+        </Field>
+        {draft.error ? (
+          <Field label="Error">
+            <p className="rounded-md border border-red-500/30 bg-red-500/15 px-3 py-2 text-xs text-red-300">
+              {draft.error}
+            </p>
+          </Field>
+        ) : null}
+      </div>
+    </SectionCard>
+  );
+}
+
+function OutputSection({ draft }) {
+  return (
+    <SectionCard title="Output">
+      {draft.assetId ? (
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-card px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-300">
+            <CheckCircle2 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Asset created</p>
+            <p className="truncate font-mono text-[11px] text-text-secondary">
+              {draft.assetId}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <EmptyState
+          icon={Package}
+          title="No asset produced yet"
+          description="Once this upload completes processing, the resulting asset will appear here."
+          className="py-10"
+        />
+      )}
+    </SectionCard>
+  );
+}
+
+function ActivitySection({ draft }) {
+  return (
+    <SectionCard title="Activity">
+      <div className="px-1">
+        <TimelineEntry
+          icon={Clock}
+          title="Upload job created"
+          timestamp={draft.createdAt}
+        />
+        <TimelineEntry
+          icon={CheckCircle2}
+          title="Last updated"
+          timestamp={draft.updatedAt}
+          last
+        />
+      </div>
+    </SectionCard>
+  );
+}
+
+const SECTIONS = {
+  overview: OverviewSection,
+  output: OutputSection,
+  activity: ActivitySection,
+};
+
 export function UploadJobDetailScreen({ id, onBack, onChange }) {
+  const { section: active, setSection: setActive } = useWorkspaceUrl();
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -140,17 +307,31 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
+      <EditorShell
+        back={{ label: "Upload Center", onClick: onBack }}
+        title="Loading upload…"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
         <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
-      </MainScreenWrapper>
+      </EditorShell>
     );
   }
 
   if (!job || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <EditorShell
+        back={{ label: "Upload Center", onClick: onBack }}
+        title="Upload not found"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
         <EmptyState
           icon={File}
           title="Upload not found"
@@ -165,41 +346,20 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
             </Button>
           }
         />
-      </MainScreenWrapper>
+      </EditorShell>
     );
   }
 
-  const TypeIcon = TYPE_ICONS[draft.fileType] || File;
-
   return (
-    <MainScreenWrapper className="dark">
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to upload center"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-            <TypeIcon className="h-5 w-5 text-text-secondary" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              {draft.filename || "Untitled upload"}
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <StatusPill status={draft.status} map={STATUS_META} className="text-[10px]" />
-              <span className="text-xs text-text-secondary">
-                {SOURCE_LABELS[draft.source] || draft.source} · {formatBytes(draft.sizeBytes)}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+    <EditorShell
+      searchable
+      back={{ label: "Upload Center", onClick: onBack }}
+      title={draft.filename || "Untitled upload"}
+      status={draft.status}
+      statusMap={STATUS_META}
+      meta={`${SOURCE_LABELS[draft.source] || draft.source} · ${formatBytes(draft.sizeBytes)}`}
+      actions={
+        <>
           <Button
             variant="outline"
             className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
@@ -220,144 +380,24 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
             )}
             {dirty ? "Save changes" : "Saved"}
           </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="overview" className="gap-4">
-        <TabsList>
-          <TabsTrigger value="overview" className="text-xs">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="output" className="text-xs">
-            Output
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="text-xs">
-            Activity
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          <SectionCard title="Details">
-            <div className="grid gap-4">
-              <Field label="Filename" htmlFor="job-filename">
-                <Input
-                  id="job-filename"
-                  value={draft.filename}
-                  onChange={(e) => set("filename")(e.target.value)}
-                  className="border-border bg-surface-card text-foreground"
-                />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="File Type">
-                  <Select value={draft.fileType} onValueChange={set("fileType")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {TYPE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Source">
-                  <Select value={draft.source} onValueChange={set("source")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {SOURCE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Status">
-                  <Select value={draft.status} onValueChange={set("status")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {STATUS_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Size">
-                  <div className="flex h-9 items-center rounded-md border border-border bg-surface-card px-3 text-sm text-muted-foreground">
-                    {formatBytes(draft.sizeBytes)}
-                  </div>
-                </Field>
-              </div>
-              <Field label="Progress">
-                <div className="rounded-md border border-border bg-surface-card px-3 py-3">
-                  <ProgressBar progress={draft.progress} />
-                </div>
-              </Field>
-              {draft.error ? (
-                <Field label="Error">
-                  <p className="rounded-md border border-red-500/30 bg-red-500/15 px-3 py-2 text-xs text-red-300">
-                    {draft.error}
-                  </p>
-                </Field>
-              ) : null}
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="output">
-          <SectionCard title="Output">
-            {draft.assetId ? (
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-card px-4 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Asset created</p>
-                  <p className="truncate font-mono text-[11px] text-text-secondary">
-                    {draft.assetId}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <EmptyState
-                icon={Package}
-                title="No asset produced yet"
-                description="Once this upload completes processing, the resulting asset will appear here."
-                className="py-10"
-              />
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="activity">
-          <SectionCard title="Activity">
-            <div className="px-1">
-              <TimelineEntry
-                icon={Clock}
-                title="Upload job created"
-                timestamp={draft.createdAt}
-              />
-              <TimelineEntry
-                icon={CheckCircle2}
-                title="Last updated"
-                timestamp={draft.updatedAt}
-                last
-              />
-            </div>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
-    </MainScreenWrapper>
+        </>
+      }
+      nav={NAV_GROUPS}
+      subject={draft}
+      active={active}
+      onActiveChange={setActive}
+    >
+      {({ active: key }) => {
+        const ActiveSection = SECTIONS[key] || SECTIONS.overview;
+        return (
+          <ActiveSection
+            draft={draft}
+            set={set}
+            headerItem={NAV_GROUPS.flatMap((g) => g.items).find((i) => i.key === key)}
+          />
+        );
+      }}
+    </EditorShell>
   );
 }
 

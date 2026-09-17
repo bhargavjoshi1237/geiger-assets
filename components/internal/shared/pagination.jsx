@@ -1,17 +1,16 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-
-import { Button } from "@geiger/ui/button";
 import {
+  Button,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@geiger/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+} from "@geiger/ui";
+import React, { useMemo, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 

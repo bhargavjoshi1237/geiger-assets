@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
-import Image from "next/image";
 import {
+  Button,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -12,9 +11,12 @@ import {
   SidebarMenu,
   SidebarRail,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@geiger/ui";
+import React from "react";
+import Image from "next/image";
+
 import { PanelLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 import { SidebarOption } from "./sidebar_option";
 import { workspaceNav } from "./sidebar_nav";
 

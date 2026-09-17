@@ -1,10 +1,15 @@
 "use client";
 
+import { Button, LogoLoading } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
-import { Loader2, SlidersHorizontal, UserPlus, Users } from "lucide-react";
+import { ArrowUpDown, SlidersHorizontal, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -13,6 +18,15 @@ import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateD
 import { listMembers, createMember, updateMember, deleteMember } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(MEMBER_STATUS_META, "All statuses");
+
+const SORT_OPTIONS = [
+  { value: "recent-desc", label: "Recently active" },
+  { value: "recent-asc", label: "Least recently active" },
+  { value: "name-asc", label: "Name A–Z" },
+  { value: "name-desc", label: "Name Z–A" },
+  { value: "spent-desc", label: "Highest spend" },
+  { value: "spent-asc", label: "Lowest spend" },
+];
 
 function MemberDialog({ open, onOpenChange, initial, onSubmit, title, submitLabel }) {
   const [fanName, setFanName] = useState(initial?.fanName ?? "");
@@ -39,6 +53,7 @@ export function MembersScreen({ projectId }) {
   const [rows, setRows, loading] = useCreatorRows(listMembers, projectId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("recent-desc");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -49,8 +64,20 @@ export function MembersScreen({ projectId }) {
       r = r.filter((m) => m.fanName.toLowerCase().includes(q) || m.fanEmail.toLowerCase().includes(q));
     }
     if (statusFilter !== "all") r = r.filter((m) => m.status === statusFilter);
+    const [field, direction] = sortValue.split("-");
+    r.sort((a, b) => {
+      let cmp = 0;
+      if (field === "recent") cmp = new Date(a.lastSeenAt || a.createdAt) - new Date(b.lastSeenAt || b.createdAt);
+      else if (field === "name") cmp = (a.fanName || "").localeCompare(b.fanName || "");
+      else if (field === "spent") cmp = a.totalSpentCents - b.totalSpentCents;
+      return direction === "desc" ? -cmp : cmp;
+    });
     return r;
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, sortValue]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
 
   const stats = useMemo(() => {
     const active = rows.filter((m) => m.status === "active").length;
@@ -115,23 +142,33 @@ export function MembersScreen({ projectId }) {
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+  };
+
   return (
     <MainScreenWrapper className="dark">
       <ScreenHeader title="Members" description="Fan registry — subscribers, trialing followers, and top spenders with lifetime value." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add member</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search members..." className="w-full sm:w-64" />
+        <div className="flex items-center gap-2">
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
-          {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
+          <FilterDropdown value={sortValue} onValueChange={setSortValue} options={SORT_OPTIONS} placeholder="Sort" icon={ArrowUpDown} />
+          {hasFilters ? <ClearFiltersButton onClick={clearFilters} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search members..." />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
+          <LogoLoading size={40} />
+        </div>
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(m) => m.id} onRowClick={setEditing} empty={<EmptyState icon={Users} title="No members yet" description={hasFilters ? "Try adjusting your filters." : "Members appear here once fans subscribe or follow."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add member</Button>} />} />
+        <div className="space-y-5">
+          <DataTable columns={columns} data={pager.pageItems} getRowKey={(m) => m.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle">{rows.length === 0 ? (<EmptyState icon={Users} title="No members yet" description="Members appear here once fans subscribe or follow." action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add member</Button>} />) : (<EmptyState icon={Users} title="No matching members" description="No members matches the current search and filter." action={<Button variant="ghost" onClick={clearFilters}>Clear filters</Button>} />)}</div>} />
+          <ListPagination {...pager} itemLabel="members" />
+        </div>
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} members</div> : null}
       <MemberDialog open={showCreate} onOpenChange={setShowCreate} title="Add member" submitLabel="Add member" onSubmit={handleCreate} />
       {editing ? <MemberDialog open={Boolean(editing)} onOpenChange={(v) => !v && setEditing(null)} initial={editing} title={`Edit ${editing.fanName || "member"}`} submitLabel="Save changes" onSubmit={handleSave} /> : null}
     </MainScreenWrapper>

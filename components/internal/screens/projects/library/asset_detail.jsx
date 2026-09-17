@@ -1,5 +1,18 @@
 "use client";
 
+import {
+  Badge,
+  Button,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  cn,
+} from "@geiger/ui";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -15,18 +28,7 @@ import {
 } from "lucide-react";
 
 import { EditorShell } from "@/components/internal/shared/editor_shell";
-import { Button } from "@geiger/ui/button";
-import { Badge } from "@geiger/ui/badge";
-import { Input } from "@geiger/ui/input";
-import { Textarea } from "@geiger/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@geiger/ui/select";
-import { cn } from "@/lib/utils";
+
 import {
   EmptyState,
   SectionCard,
@@ -451,7 +453,7 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
         onActiveChange={setActive}
       >
         <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
       </EditorShell>
     );

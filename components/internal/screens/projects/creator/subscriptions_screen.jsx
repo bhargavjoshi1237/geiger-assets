@@ -1,10 +1,15 @@
 "use client";
 
+import { Button, LogoLoading } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
-import { CalendarClock, Loader2, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { ArrowUpDown, CalendarClock, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -13,6 +18,15 @@ import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateD
 import { listSubscriptions, createSubscription, updateSubscription, deleteSubscription, listMembers, listTiers } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(SUB_STATUS_META, "All statuses");
+
+const SORT_OPTIONS = [
+  { value: "created-desc", label: "Newest first" },
+  { value: "created-asc", label: "Oldest first" },
+  { value: "renews-asc", label: "Renews soonest" },
+  { value: "renews-desc", label: "Renews latest" },
+  { value: "member-asc", label: "Member A–Z" },
+  { value: "member-desc", label: "Member Z–A" },
+];
 
 function SubscriptionDialog({ open, onOpenChange, members, tiers, onSubmit }) {
   const [memberId, setMemberId] = useState("all");
@@ -38,6 +52,7 @@ export function SubscriptionsScreen({ projectId }) {
   const [tiers] = useCreatorRows(listTiers, projectId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("created-desc");
   const [showCreate, setShowCreate] = useState(false);
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
@@ -50,8 +65,20 @@ export function SubscriptionsScreen({ projectId }) {
       r = r.filter((s) => (memberById.get(s.memberId)?.fanName ?? "").toLowerCase().includes(q) || (tierById.get(s.tierId)?.name ?? "").toLowerCase().includes(q));
     }
     if (statusFilter !== "all") r = r.filter((s) => s.status === statusFilter);
+    const [field, direction] = sortValue.split("-");
+    r.sort((a, b) => {
+      let cmp = 0;
+      if (field === "created") cmp = new Date(a.createdAt) - new Date(b.createdAt);
+      else if (field === "renews") cmp = new Date(a.currentPeriodEnd) - new Date(b.currentPeriodEnd);
+      else if (field === "member") cmp = (memberById.get(a.memberId)?.fanName || "").localeCompare(memberById.get(b.memberId)?.fanName || "");
+      return direction === "desc" ? -cmp : cmp;
+    });
     return r;
-  }, [rows, search, statusFilter, memberById, tierById]);
+  }, [rows, search, statusFilter, sortValue, memberById, tierById]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
 
   const stats = useMemo(() => {
     const active = rows.filter((s) => s.status === "active").length;
@@ -112,23 +139,33 @@ export function SubscriptionsScreen({ projectId }) {
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+  };
+
   return (
     <MainScreenWrapper className="dark">
       <ScreenHeader title="Subscriptions" description="Recurring billing — trials, renewals, past-due dunning, and cancellations." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="mr-1.5 h-4 w-4" />New subscription</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions..." className="w-full sm:w-64" />
+        <div className="flex items-center gap-2">
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
-          {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
+          <FilterDropdown value={sortValue} onValueChange={setSortValue} options={SORT_OPTIONS} placeholder="Sort" icon={ArrowUpDown} />
+          {hasFilters ? <ClearFiltersButton onClick={clearFilters} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions..." />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
+          <LogoLoading size={40} />
+        </div>
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(s) => s.id} empty={<EmptyState icon={CalendarClock} title="No subscriptions yet" description={hasFilters ? "Try adjusting your filters." : "Create a subscription to start recurring billing."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="mr-1.5 h-4 w-4" />New subscription</Button>} />} />
+        <div className="space-y-5">
+          <DataTable columns={columns} data={pager.pageItems} getRowKey={(s) => s.id} empty={<div className="rounded-xl border border-border bg-surface-subtle">{rows.length === 0 ? (<EmptyState icon={CalendarClock} title="No subscriptions yet" description="Create a subscription to start recurring billing." action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="mr-1.5 h-4 w-4" />New subscription</Button>} />) : (<EmptyState icon={CalendarClock} title="No matching subscriptions" description="No subscriptions matches the current search and filter." action={<Button variant="ghost" onClick={clearFilters}>Clear filters</Button>} />)}</div>} />
+          <ListPagination {...pager} itemLabel="subscriptions" />
+        </div>
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} subscriptions</div> : null}
       <SubscriptionDialog open={showCreate} onOpenChange={setShowCreate} members={members} tiers={tiers} onSubmit={handleCreate} />
     </MainScreenWrapper>
   );

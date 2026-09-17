@@ -8,8 +8,8 @@ import {
   EditorSectionHeader,
   StatusPill,
 } from "@/components/internal/shared/screen_kit";
-import { ExpandableSearch } from "@geiger/ui";
-import { cn } from "@/lib/utils";
+import { cn, ExpandableSearch } from "@geiger/ui";
+
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { useIdleRecenter } from "@/lib/hooks/use-idle-recenter";
 

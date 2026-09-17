@@ -1,15 +1,21 @@
 "use client";
 
+import {
+  Badge,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  LogoLoading,
+  cn,
+} from "@geiger/ui";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   UploadCloud,
-  FolderOpen,
-  Tag,
-  Image,
-  Film,
-  Music,
-  FileText,
-  Boxes,
   File,
   X,
   ChevronDown,
@@ -20,39 +26,22 @@ import {
   Loader2,
   ArrowUpDown,
   SlidersHorizontal,
-  Check,
-  HardDrive,
-  Gauge,
-  Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   ScreenHeader,
   SearchInput,
+  StatsBar,
   StatusPill,
   EmptyState,
   DataTable,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   TYPE_ICONS,
   FILE_TYPE_COLORS,
@@ -73,29 +62,6 @@ import { toast } from "sonner";
 import { FileDropzone } from "@/components/internal/shared/file_dropzone";
 import { uniqueId } from "@/lib/utils";
 import { UploadJobDetailScreen } from "./upload_job_detail";
-
-const FOLDER_OPTIONS = [
-  { value: "root", label: "/ Root" },
-  { value: "campaigns", label: "Campaigns" },
-  { value: "products", label: "Products" },
-  { value: "brand", label: "Brand Assets" },
-  { value: "archive", label: "Archive" },
-];
-
-const QUALITY_OPTIONS = [
-  { value: "original", label: "Original", desc: "Lossless, no compression", icon: HardDrive },
-  { value: "web", label: "Web Optimized", desc: "Balanced size & quality", icon: Gauge },
-  { value: "compressed", label: "Compressed", desc: "Smallest file size", icon: Zap },
-];
-
-const TYPE_CHIPS = [
-  { value: "image", label: "Images", Icon: Image },
-  { value: "video", label: "Video", Icon: Film },
-  { value: "audio", label: "Audio", Icon: Music },
-  { value: "document", label: "Docs", Icon: FileText },
-  { value: "3d", label: "3D", Icon: Boxes },
-  { value: "raw", label: "Raw", Icon: File },
-];
 
 function guessFileType(file) {
   const mime = file.type || "";
@@ -224,13 +190,6 @@ export function UploadCenterScreen({ projectId }) {
   // File bytes for staged/failed jobs, keyed by job id — powers real retry.
   const fileRefs = useRef(new Map());
 
-  const [folder, setFolder] = useState("root");
-  const [tags, setTags] = useState("");
-  const [quality, setQuality] = useState("original");
-  const [allowedTypes, setAllowedTypes] = useState(
-    new Set(["image", "video", "audio", "document", "3d", "raw"]),
-  );
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortValue, setSortValue] = useState("created-desc");
@@ -259,15 +218,6 @@ export function UploadCenterScreen({ projectId }) {
   const removeStaged = (id) => setStaged((prev) => prev.filter((f) => f.id !== id));
   const clearStaged = () => setStaged([]);
 
-  const toggleType = (type) => {
-    setAllowedTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
-  };
-
   const setJobProgress = useCallback(
     (id, progress) =>
       setJobs((rows) => rows.map((j) => (j.id === id ? { ...j, progress } : j))),
@@ -276,19 +226,15 @@ export function UploadCenterScreen({ projectId }) {
 
   const runRealUpload = useCallback(
     async (jobId, file) => {
-      const tagList = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
       setJobs((rows) =>
         rows.map((j) => (j.id === jobId ? { ...j, status: "uploading", progress: 1, error: "" } : j)),
       );
       let failure = null;
       const asset = await uploadAsset(file, {
         projectId,
-        folder,
-        tags: tagList,
-        quality,
+        folder: "root",
+        tags: [],
+        quality: "original",
         onProgress: (progress) => setJobProgress(jobId, progress),
         onError: (code) => {
           failure = code;
@@ -315,7 +261,7 @@ export function UploadCenterScreen({ projectId }) {
       await updateUploadJob(jobId, { status: "failed", error: message });
       return false;
     },
-    [folder, projectId, quality, setJobProgress, tags],
+    [projectId, setJobProgress],
   );
 
   const handleUploadAll = async () => {
@@ -427,16 +373,30 @@ export function UploadCenterScreen({ projectId }) {
     return result;
   }, [jobs, search, statusFilter, sortValue]);
 
-  const queueStats = useMemo(
-    () => ({
-      completed: jobs.filter((j) => j.status === "completed").length,
-      processing: jobs.filter(
-        (j) => j.status === "uploading" || j.status === "processing",
-      ).length,
-      failed: jobs.filter((j) => j.status === "failed").length,
-    }),
-    [jobs],
-  );
+  const stats = useMemo(() => {
+    const completed = jobs.filter(
+      (j) => j.status === "completed" || j.status === "complete",
+    ).length;
+    const inProgress = jobs.filter((j) =>
+      ["queued", "uploading", "processing"].includes(j.status),
+    ).length;
+    const failed = jobs.filter((j) => j.status === "failed").length;
+    return [
+      { label: "Total uploads", value: String(jobs.length), footer: "in this queue" },
+      { label: "Completed", value: String(completed), footer: "Ready in library" },
+      { label: "In progress", value: String(inProgress), footer: "Queued or active" },
+      { label: "Failed", value: String(failed), footer: "Need attention" },
+    ];
+  }, [jobs]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+  };
 
   const columns = [
     {
@@ -521,29 +481,9 @@ export function UploadCenterScreen({ projectId }) {
       <ScreenHeader
         title="Upload Center"
         description="Bring files into the library from your device or connected sources."
-        actions={
-          jobs.length > 0 ? (
-            <div className="flex items-center gap-3 text-xs text-text-secondary">
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                {queueStats.completed} done
-              </span>
-              {queueStats.processing > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
-                  {queueStats.processing} active
-                </span>
-              )}
-              {queueStats.failed > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                  {queueStats.failed} failed
-                </span>
-              )}
-            </div>
-          ) : null
-        }
       />
+
+      <StatsBar stats={stats} />
 
       {/* Drop zone + options panel */}
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
@@ -551,7 +491,7 @@ export function UploadCenterScreen({ projectId }) {
         <FileDropzone
           onFiles={addFiles}
           className={cn(
-            "relative flex min-h-[280px] flex-col rounded-xl border-2 border-dashed transition-colors",
+            "relative flex min-h-[600px] flex-col rounded-xl border-2 border-dashed transition-colors",
             "border-border bg-surface-subtle hover:border-border-strong",
             staged.length === 0 ? "items-center justify-center" : "",
           )}
@@ -646,200 +586,90 @@ export function UploadCenterScreen({ projectId }) {
           )}
         </FileDropzone>
 
-        {/* Options panel */}
-        <div className="flex flex-col gap-3">
-          {/* Destination folder */}
-          <div className="rounded-xl border border-border bg-surface-subtle p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <FolderOpen className="h-3.5 w-3.5 text-text-secondary" />
-              <span className="text-xs font-semibold text-foreground">Destination Folder</span>
-            </div>
-            <Select value={folder} onValueChange={setFolder}>
-              <SelectTrigger className="h-8 border-border bg-surface-card text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="border-border bg-surface-subtle text-foreground">
-                {FOLDER_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value} className="text-xs">
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Tags */}
-          <div className="rounded-xl border border-border bg-surface-subtle p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Tag className="h-3.5 w-3.5 text-text-secondary" />
-              <span className="text-xs font-semibold text-foreground">Tags</span>
-            </div>
-            <Input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="campaign, hero, 2025…"
-              className="h-8 border-border bg-surface-card text-xs text-foreground placeholder:text-text-tertiary"
-            />
-            <p className="mt-1.5 text-[11px] text-text-tertiary">
-              Comma-separated, applied to all files
-            </p>
-          </div>
-
-          {/* Quality preset */}
-          <div className="rounded-xl border border-border bg-surface-subtle p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Gauge className="h-3.5 w-3.5 text-text-secondary" />
-              <span className="text-xs font-semibold text-foreground">Quality Preset</span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {QUALITY_OPTIONS.map((opt) => {
-                const QIcon = opt.icon;
-                const isSelected = quality === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setQuality(opt.value)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                      isSelected
-                        ? "border-primary/40 bg-primary/10 text-foreground"
-                        : "border-border bg-surface-card text-text-secondary hover:bg-surface-hover hover:text-foreground",
-                    )}
-                  >
-                    <QIcon
-                      className={cn(
-                        "h-3.5 w-3.5 shrink-0",
-                        isSelected ? "text-primary" : "",
-                      )}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium">{opt.label}</p>
-                      <p className="text-[11px] text-text-tertiary">{opt.desc}</p>
-                    </div>
-                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Accepted types */}
-          <div className="rounded-xl border border-border bg-surface-subtle p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <File className="h-3.5 w-3.5 text-text-secondary" />
-              <span className="text-xs font-semibold text-foreground">Accept File Types</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {TYPE_CHIPS.map(({ value, label, Icon }) => {
-                const active = allowedTypes.has(value);
-                return (
-                  <button
-                    key={value}
-                    onClick={() => toggleType(value)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      active
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border bg-surface-card text-text-tertiary hover:bg-surface-hover hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="h-2.5 w-2.5" />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        {/* Side panel */}
+        <div className="rounded-xl border border-border bg-surface-subtle p-4 min-h-[600px]" />
       </div>
 
       {/* Upload queue */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">
-            Upload Queue
-            {jobs.length > 0 && (
-              <span className="ml-2 text-xs font-normal text-text-secondary">
-                {jobs.length} total
-              </span>
-            )}
-          </h2>
-          <div className="flex flex-wrap items-center gap-2">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
+          Upload Queue
+        </h2>
+        <Toolbar className="mb-3">
+            <div className="flex items-center gap-2">
+              <FilterDropdown
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+                options={STATUS_FILTER_OPTIONS}
+                placeholder="Status"
+                icon={SlidersHorizontal}
+              />
+              <FilterDropdown
+                value={sortValue}
+                onValueChange={setSortValue}
+                options={SORT_OPTIONS}
+                placeholder="Sort"
+                icon={ArrowUpDown}
+              />
+              {(statusFilter !== "all" || search) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setSearch("");
+                  }}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Clear
+                </Button>
+              )}
+            </div>
             <SearchInput
               value={search}
               onChange={setSearch}
               placeholder="Search files…"
               className="w-44"
             />
-            <FilterDropdown
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-              options={STATUS_FILTER_OPTIONS}
-              placeholder="Status"
-              icon={SlidersHorizontal}
-            />
-            <FilterDropdown
-              value={sortValue}
-              onValueChange={setSortValue}
-              options={SORT_OPTIONS}
-              placeholder="Sort"
-              icon={ArrowUpDown}
-            />
-            {(statusFilter !== "all" || search) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
-                onClick={() => {
-                  setStatusFilter("all");
-                  setSearch("");
-                }}
-              >
-                <X className="mr-1 h-3 w-3" />
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
+        </Toolbar>
 
         {loadingJobs ? (
           <div className="flex h-48 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <LogoLoading size={40} />
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={filtered}
-            getRowKey={(j) => j.id}
-            onRowClick={(j) => setSelected(j.id)}
+          <div className="space-y-5">
+            <DataTable
+              columns={columns}
+              data={pager.pageItems}
+              getRowKey={(j) => j.id}
+              onRowClick={(j) => setSelected(j.id)}
             empty={
-              <EmptyState
-                icon={UploadCloud}
-                title={
-                  search || statusFilter !== "all" ? "No matching uploads" : "Queue is empty"
-                }
-                description={
-                  search || statusFilter !== "all"
-                    ? "Try adjusting your filters."
-                    : "Drop files above to start uploading."
-                }
-                action={
-                  search || statusFilter !== "all" ? (
-                    <Button
-                      variant="outline"
-                      className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                      onClick={() => {
-                        setStatusFilter("all");
-                        setSearch("");
-                      }}
-                    >
-                      Clear filters
-                    </Button>
-                  ) : null
-                }
-              />
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                {jobs.length === 0 ? (
+                  <EmptyState
+                    icon={UploadCloud}
+                    title="Queue is empty"
+                    description="Drop files above to start uploading."
+                  />
+                ) : (
+                  <EmptyState
+                    icon={UploadCloud}
+                    title="No matching uploads"
+                    description="No uploads match the current search and filter."
+                    action={
+                      <Button variant="ghost" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
             }
-          />
+            />
+            <ListPagination {...pager} itemLabel="uploads" />
+          </div>
         )}
       </div>
     </MainScreenWrapper>

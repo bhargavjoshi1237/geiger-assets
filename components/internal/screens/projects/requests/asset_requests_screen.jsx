@@ -1,50 +1,39 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
 import {
-  Plus,
-  ChevronDown,
-  MoreHorizontal,
-  Trash2,
-  Eye,
-  PlayCircle,
-  CheckCircle2,
-  X,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Loader2,
-  Inbox,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import {
+  Badge,
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  cn,
+} from "@geiger/ui";
+import React, { useEffect, useMemo, useState } from "react";
+import { Plus, ChevronDown, MoreHorizontal, Trash2, Eye, PlayCircle, CheckCircle2, X, ArrowUpDown, SlidersHorizontal, Inbox } from "lucide-react";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader,
   StatsBar,
@@ -335,6 +324,10 @@ export function AssetRequestsScreen({ projectId }) {
     return result;
   }, [requests, search, statusFilter, priorityFilter, sortValue]);
 
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${priorityFilter}|${sortValue}`,
+  });
+
   const stats = useMemo(() => {
     const open = requests.filter((r) => r.status === "open").length;
     const inProgress = requests.filter((r) => r.status === "in_progress").length;
@@ -503,13 +496,7 @@ export function AssetRequestsScreen({ projectId }) {
       <StatsBar stats={stats} />
 
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search requests..."
-            className="w-full sm:w-64"
-          />
+        <div className="flex items-center gap-2">
           <FilterDropdown
             value={statusFilter}
             onValueChange={setStatusFilter}
@@ -523,6 +510,13 @@ export function AssetRequestsScreen({ projectId }) {
             options={PRIORITY_FILTER_OPTIONS}
             placeholder="Priority"
           />
+          <FilterDropdown
+            value={sortValue}
+            onValueChange={setSortValue}
+            options={SORT_OPTIONS}
+            placeholder="Sort"
+            icon={ArrowUpDown}
+          />
           {hasActiveFilters ? (
             <Button
               variant="ghost"
@@ -535,63 +529,59 @@ export function AssetRequestsScreen({ projectId }) {
             </Button>
           ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search requests..."
         />
       </Toolbar>
 
       {loading ? (
         <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowKey={(r) => r.id}
-          onRowClick={(r) => setOpenId(r.id)}
-          empty={
-            <EmptyState
-              icon={Inbox}
-              title="No requests found"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : "Create your first request to get started."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
+        <div className="space-y-5">
+          <DataTable
+            columns={columns}
+            data={pager.pageItems}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => setOpenId(r.id)}
+            empty={
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                {requests.length === 0 ? (
+                  <EmptyState
+                    icon={Inbox}
+                    title="No requests yet"
+                    description="Create your first request to get started."
+                    action={
+                      <Button
+                        className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                        onClick={() => setShowCreate(true)}
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        New Request
+                      </Button>
+                    }
+                  />
                 ) : (
-                  <Button
-                    className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowCreate(true)}
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    New Request
-                  </Button>
-                )
-              }
-            />
-          }
-        />
-      )}
-
-      {!loading && filtered.length > 0 ? (
-        <div className="text-xs text-text-secondary">
-          Showing {filtered.length} of {requests.length} requests
+                  <EmptyState
+                    icon={Inbox}
+                    title="No matching requests"
+                    description="No requests match the current search and filter."
+                    action={
+                      <Button variant="ghost" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
+            }
+          />
+          <ListPagination {...pager} itemLabel="requests" />
         </div>
-      ) : null}
+      )}
 
       <CreateRequestDialog
         open={showCreate}

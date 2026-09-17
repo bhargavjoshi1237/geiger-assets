@@ -1,11 +1,11 @@
 "use client";
 
+import { cn } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
 import { File } from "lucide-react";
 
 import { TYPE_ICONS } from "@/components/internal/screens/projects/library/constants";
 import { assetFileUrl } from "@/lib/storage/client";
-import { cn } from "@/lib/utils";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;

@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -9,8 +12,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+  ThemeToggle,
+} from "@geiger/ui";
+import React, { useState, useEffect } from "react";
+
 import {
   CircleUserRound,
   Settings,
@@ -24,8 +29,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { getUser } from "@/lib/supabase/user";
-import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/ui/theme-toggle";
 
 const surfaceStyle = {
   backgroundColor: "var(--surface-dialog)",
@@ -66,7 +69,12 @@ export function ProfileDropdown({ children }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {children || (
-          <Button className="w-8 h-8 rounded-full border border-border hover:border-border-strong overflow-hidden ml-1 transition-colors">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Account menu"
+            className="rounded-full border border-border hover:border-border-strong overflow-hidden ml-1 p-0 transition-colors"
+          >
             <Avatar className="size-full">
               {pfpUrl && <AvatarImage src={pfpUrl} alt={displayName} />}
               <AvatarFallback className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white text-[10px] font-semibold border-0">

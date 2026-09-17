@@ -1,10 +1,15 @@
 "use client";
 
+import { Button, LogoLoading } from "@geiger/ui";
 import React, { useMemo, useState } from "react";
-import { Landmark, Loader2, SlidersHorizontal, Wallet } from "lucide-react";
+import { ArrowUpDown, Landmark, SlidersHorizontal, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
 import {
   ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -13,6 +18,15 @@ import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateD
 import { listPayouts, createPayout, updatePayout, deletePayout, listTips, listPpvPosts, listSubscriptions } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(PAYOUT_STATUS_META, "All statuses");
+
+const SORT_OPTIONS = [
+  { value: "created-desc", label: "Newest first" },
+  { value: "created-asc", label: "Oldest first" },
+  { value: "net-desc", label: "Largest net" },
+  { value: "net-asc", label: "Smallest net" },
+  { value: "gross-desc", label: "Largest gross" },
+  { value: "gross-asc", label: "Smallest gross" },
+];
 
 function PayoutDialog({ open, onOpenChange, onSubmit }) {
   const [destination, setDestination] = useState("");
@@ -33,6 +47,7 @@ export function PayoutsScreen({ projectId }) {
   const [subs] = useCreatorRows(listSubscriptions, projectId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("created-desc");
   const [showCreate, setShowCreate] = useState(false);
 
   const filtered = useMemo(() => {
@@ -42,8 +57,20 @@ export function PayoutsScreen({ projectId }) {
       r = r.filter((p) => p.destination.toLowerCase().includes(q));
     }
     if (statusFilter !== "all") r = r.filter((p) => p.status === statusFilter);
+    const [field, direction] = sortValue.split("-");
+    r.sort((a, b) => {
+      let cmp = 0;
+      if (field === "created") cmp = new Date(a.createdAt) - new Date(b.createdAt);
+      else if (field === "net") cmp = a.netCents - b.netCents;
+      else if (field === "gross") cmp = a.grossCents - b.grossCents;
+      return direction === "desc" ? -cmp : cmp;
+    });
     return r;
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, sortValue]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
 
   const stats = useMemo(() => {
     const grossTips = tips.filter((t) => t.status === "succeeded").reduce((s, t) => s + t.amountCents, 0);
@@ -110,18 +137,23 @@ export function PayoutsScreen({ projectId }) {
       <ScreenHeader title="Payouts" description="Revenue settlement — gross, fees, net, and payout status per period." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="mr-1.5 h-4 w-4" />New payout</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search payouts..." className="w-full sm:w-64" />
+        <div className="flex items-center gap-2">
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
+          <FilterDropdown value={sortValue} onValueChange={setSortValue} options={SORT_OPTIONS} placeholder="Sort" icon={ArrowUpDown} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search payouts..." />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
+          <LogoLoading size={40} />
+        </div>
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={handleMarkPaid} empty={<EmptyState icon={Wallet} title="No payouts yet" description={hasFilters ? "Try adjusting your filters." : "Settle collected revenue to a destination."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="mr-1.5 h-4 w-4" />New payout</Button>} />} />
+        <div className="space-y-5">
+          <DataTable columns={columns} data={pager.pageItems} getRowKey={(p) => p.id} onRowClick={handleMarkPaid} empty={<div className="rounded-xl border border-border bg-surface-subtle">{rows.length === 0 ? (<EmptyState icon={Wallet} title="No payouts yet" description="Settle collected revenue to a destination." action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="mr-1.5 h-4 w-4" />New payout</Button>} />) : (<EmptyState icon={Wallet} title="No matching payouts" description="No payouts matches the current search and filter." action={<Button variant="ghost" onClick={() => { setStatusFilter("all"); setSearch(""); }}>Clear filters</Button>} />)}</div>} />
+          <ListPagination {...pager} itemLabel="payouts" />
+        </div>
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} payouts · click a row to mark paid</div> : null}
       <PayoutDialog open={showCreate} onOpenChange={setShowCreate} onSubmit={handleCreate} />
     </MainScreenWrapper>
   );

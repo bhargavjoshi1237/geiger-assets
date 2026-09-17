@@ -1,20 +1,19 @@
 "use client";
 
-import React from "react";
 import {
-  SidebarMenuItem,
-  SidebarMenuButton,
+  Button,
+  cn,
   SidebarMenuBadge,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
-import {
+  SidebarMenuButton,
+  SidebarMenuItem,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+  useSidebar,
+} from "@geiger/ui";
+import React from "react";
+
+import { ChevronDown } from "lucide-react";
 
 export function SidebarOption({
   title,

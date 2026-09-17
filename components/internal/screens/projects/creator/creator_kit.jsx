@@ -1,17 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { ChevronDown, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -19,9 +15,12 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Input,
+} from "@geiger/ui";
+import React, { useEffect, useState } from "react";
+import { ChevronDown, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+
 import { Field } from "@/components/internal/shared/screen_kit";
-import { Input } from "@/components/ui/input";
 
 export function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
   return (

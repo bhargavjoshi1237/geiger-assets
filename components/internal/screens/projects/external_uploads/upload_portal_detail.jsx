@@ -1,12 +1,22 @@
 "use client";
 
+import {
+  Button,
+  Input,
+  LogoLoading,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from "@geiger/ui";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Loader2,
   Save,
   Link2,
-  FormInput,
+  Settings,
   Inbox,
   Check,
   X,
@@ -14,19 +24,7 @@ import {
   Mail,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
 import {
   SectionCard,
   StatusPill,
@@ -47,13 +45,9 @@ import {
   listSubmissions,
   updateSubmission,
 } from "@/lib/supabase/external_uploads";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 
 const PORTAL_BASE_URL = "https://assets.geiger.studio/u";
-
-function PortalGlyph({ type, className }) {
-  const Icon = type === "form" ? FormInput : Link2;
-  return <Icon className={className} />;
-}
 
 // ---------------------------------------------------------------------------
 // Submissions tab
@@ -156,10 +150,169 @@ function SubmissionsTab({ rows, onApprove, onReject }) {
 }
 
 // ---------------------------------------------------------------------------
+// Editor sections
+// ---------------------------------------------------------------------------
+
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "settings",
+        label: "Settings",
+        icon: Settings,
+        desc: "Control how this portal collects files.",
+      },
+    ],
+  },
+  {
+    group: "Manage",
+    items: [
+      {
+        key: "submissions",
+        label: "Submissions",
+        icon: Inbox,
+        desc: "Review and triage incoming uploads.",
+      },
+      {
+        key: "share",
+        label: "Share",
+        icon: Link2,
+        desc: "Send this link to collect files.",
+      },
+    ],
+  },
+];
+
+function SettingsSection({ draft, set }) {
+  return (
+    <SectionCard title="Portal Settings" description="Control how this portal collects files.">
+      <div className="grid gap-4">
+        <Field label="Name" htmlFor="portal-name">
+          <Input
+            id="portal-name"
+            value={draft.name}
+            onChange={(e) => set("name")(e.target.value)}
+            className="border-border bg-surface-card text-foreground"
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Type">
+            <Select value={draft.type} onValueChange={set("type")}>
+              <SelectTrigger className="border-border bg-surface-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-surface-subtle text-foreground">
+                {TYPE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Status">
+            <Select value={draft.status} onValueChange={set("status")}>
+              <SelectTrigger className="border-border bg-surface-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-surface-subtle text-foreground">
+                {STATUS_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Destination folder" htmlFor="portal-folder">
+            <Input
+              id="portal-folder"
+              value={draft.destinationFolder}
+              onChange={(e) => set("destinationFolder")(e.target.value)}
+              className="border-border bg-surface-card text-foreground"
+            />
+          </Field>
+          <Field label="Expires" htmlFor="portal-expires" hint="Leave blank for no expiry.">
+            <Input
+              id="portal-expires"
+              type="date"
+              value={draft.expiresAt ? draft.expiresAt.slice(0, 10) : ""}
+              onChange={(e) => set("expiresAt")(e.target.value)}
+              className="border-border bg-surface-card text-foreground"
+            />
+          </Field>
+        </div>
+        <div className="flex items-center justify-between rounded-md border border-border bg-surface-card px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Require metadata</p>
+            <p className="text-xs text-text-secondary">
+              Ask submitters for context before they upload.
+            </p>
+          </div>
+          <Switch
+            checked={draft.requireMetadata}
+            onCheckedChange={set("requireMetadata")}
+          />
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function SubmissionsSection({ rows, onApprove, onReject }) {
+  return <SubmissionsTab rows={rows} onApprove={onApprove} onReject={onReject} />;
+}
+
+function ShareSection({ draft, shareUrl, copied, onCopy }) {
+  return (
+    <SectionCard title="Share" description="Send this link to collect files.">
+      <div className="grid gap-4">
+        <Field label="Public upload link">
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={shareUrl}
+              className="border-border bg-surface-card font-mono text-xs text-foreground"
+            />
+            <Button
+              variant="outline"
+              className="h-9 shrink-0 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+              onClick={onCopy}
+            >
+              {copied ? (
+                <Check className="mr-1.5 h-4 w-4 text-emerald-300" />
+              ) : (
+                <Copy className="mr-1.5 h-4 w-4" />
+              )}
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+        </Field>
+        <p className="text-xs text-text-secondary">
+          {draft.requireMetadata
+            ? "Submitters must provide metadata before their files are accepted."
+            : "Submitters can upload files without providing additional metadata."}
+        </p>
+      </div>
+    </SectionCard>
+  );
+}
+
+const SECTIONS = {
+  settings: SettingsSection,
+  submissions: SubmissionsSection,
+  share: ShareSection,
+};
+
+// ---------------------------------------------------------------------------
 // Detail screen
 // ---------------------------------------------------------------------------
 
 export function UploadPortalDetailScreen({ id, onBack, onChange }) {
+  const { section: active, setSection: setActive } = useWorkspaceUrl();
   const [loading, setLoading] = useState(true);
   const [portal, setPortal] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -247,17 +400,31 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
+      <EditorShell
+        back={{ label: "External Uploads", onClick: onBack }}
+        title="Loading portal…"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
         <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <LogoLoading size={40} />
         </div>
-      </MainScreenWrapper>
+      </EditorShell>
     );
   }
 
   if (!portal || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <EditorShell
+        back={{ label: "External Uploads", onClick: onBack }}
+        title="Portal not found"
+        nav={NAV_GROUPS}
+        subject={null}
+        active={active}
+        onActiveChange={setActive}
+      >
         <EmptyState
           icon={Inbox}
           title="Portal not found"
@@ -272,180 +439,54 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
             </Button>
           }
         />
-      </MainScreenWrapper>
+      </EditorShell>
     );
   }
 
   return (
-    <MainScreenWrapper className="dark">
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to external uploads"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card text-text-secondary">
-            <PortalGlyph type={draft.type} className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              {draft.name || "Untitled portal"}
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <StatusPill status={draft.status} map={PORTAL_STATUS_META} className="text-[10px]" />
-              <span className="truncate text-xs text-text-secondary">/u/{draft.slug}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-            onClick={handleSave}
-            disabled={!dirty || saving}
-          >
-            {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-1.5 h-4 w-4" />
-            )}
-            {dirty ? "Save changes" : "Saved"}
-          </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="settings" className="gap-6">
-        <TabsList variant="line" className="border-b border-border">
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="submissions">
-            Submissions
-            {submissions.length ? (
-              <span className="ml-1.5 rounded-full bg-surface-card px-1.5 text-[10px] tabular-nums text-text-secondary">
-                {submissions.length}
-              </span>
-            ) : null}
-          </TabsTrigger>
-          <TabsTrigger value="share">Share</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="settings">
-          <SectionCard title="Portal Settings" description="Control how this portal collects files.">
-            <div className="grid gap-4">
-              <Field label="Name" htmlFor="portal-name">
-                <Input
-                  id="portal-name"
-                  value={draft.name}
-                  onChange={(e) => set("name")(e.target.value)}
-                  className="border-border bg-surface-card text-foreground"
-                />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Type">
-                  <Select value={draft.type} onValueChange={set("type")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {TYPE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Status">
-                  <Select value={draft.status} onValueChange={set("status")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {STATUS_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Destination folder" htmlFor="portal-folder">
-                  <Input
-                    id="portal-folder"
-                    value={draft.destinationFolder}
-                    onChange={(e) => set("destinationFolder")(e.target.value)}
-                    className="border-border bg-surface-card text-foreground"
-                  />
-                </Field>
-                <Field label="Expires" htmlFor="portal-expires" hint="Leave blank for no expiry.">
-                  <Input
-                    id="portal-expires"
-                    type="date"
-                    value={draft.expiresAt ? draft.expiresAt.slice(0, 10) : ""}
-                    onChange={(e) => set("expiresAt")(e.target.value)}
-                    className="border-border bg-surface-card text-foreground"
-                  />
-                </Field>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-border bg-surface-card px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Require metadata</p>
-                  <p className="text-xs text-text-secondary">
-                    Ask submitters for context before they upload.
-                  </p>
-                </div>
-                <Switch
-                  checked={draft.requireMetadata}
-                  onCheckedChange={set("requireMetadata")}
-                />
-              </div>
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="submissions">
-          <SubmissionsTab rows={submissions} onApprove={handleApprove} onReject={handleReject} />
-        </TabsContent>
-
-        <TabsContent value="share">
-          <SectionCard title="Share" description="Send this link to collect files.">
-            <div className="grid gap-4">
-              <Field label="Public upload link">
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={shareUrl}
-                    className="border-border bg-surface-card font-mono text-xs text-foreground"
-                  />
-                  <Button
-                    variant="outline"
-                    className="h-9 shrink-0 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                    onClick={handleCopy}
-                  >
-                    {copied ? (
-                      <Check className="mr-1.5 h-4 w-4 text-emerald-300" />
-                    ) : (
-                      <Copy className="mr-1.5 h-4 w-4" />
-                    )}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-              </Field>
-              <p className="text-xs text-text-secondary">
-                {draft.requireMetadata
-                  ? "Submitters must provide metadata before their files are accepted."
-                  : "Submitters can upload files without providing additional metadata."}
-              </p>
-            </div>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
-    </MainScreenWrapper>
+    <EditorShell
+      searchable
+      back={{ label: "External Uploads", onClick: onBack }}
+      title={draft.name || "Untitled portal"}
+      status={draft.status}
+      statusMap={PORTAL_STATUS_META}
+      meta={`/u/${draft.slug}`}
+      actions={
+        <Button
+          className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+          onClick={handleSave}
+          disabled={!dirty || saving}
+        >
+          {saving ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-1.5 h-4 w-4" />
+          )}
+          {dirty ? "Save changes" : "Saved"}
+        </Button>
+      }
+      nav={NAV_GROUPS}
+      subject={draft}
+      active={active}
+      onActiveChange={setActive}
+    >
+      {({ active: key }) => {
+        const ActiveSection = SECTIONS[key] || SECTIONS.settings;
+        return (
+          <ActiveSection
+            draft={draft}
+            set={set}
+            rows={submissions}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            shareUrl={shareUrl}
+            copied={copied}
+            onCopy={handleCopy}
+            headerItem={NAV_GROUPS.flatMap((g) => g.items).find((i) => i.key === key)}
+          />
+        );
+      }}
+    </EditorShell>
   );
 }
 

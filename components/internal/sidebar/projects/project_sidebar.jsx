@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
 import {
+  Button,
+  Input,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -11,10 +12,11 @@ import {
   SidebarMenu,
   SidebarRail,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@geiger/ui";
+import React, { useMemo, useState } from "react";
+
 import { ChevronLeft, PanelLeft, Search, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { SidebarOption } from "../sidebar_option";
 import { projectNav, settingsNav } from "./sidebar_data";
 
