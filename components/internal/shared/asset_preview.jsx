@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Image from "next/image";
 import { File } from "lucide-react";
 
 import { TYPE_ICONS } from "@/components/internal/screens/projects/library/constants";
-import { assetFileUrl } from "@/lib/storage/client";
+import { assetFileUrl, assetVariantUrl } from "@/lib/storage/client";
 import { cn } from "@/lib/utils";
+
+// The preview frame is ~full width of a detail pane on desktop and edge-to-edge
+// below it; the loader snaps that up to the nearest derived variant.
+const PREVIEW_SIZES = "(min-width: 1024px) 60vw, 100vw";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
@@ -37,6 +42,12 @@ export function AssetPreview({ asset, className }) {
   const [failed, setFailed] = useState(false);
   const fileUrl = useMemo(
     () => (asset?.id ? assetFileUrl(asset.id) : ""),
+    [asset],
+  );
+  // Images render from the derived preview, never the original: an underived
+  // row still resolves because the route streams the original server-side.
+  const previewUrl = useMemo(
+    () => (asset?.id ? assetVariantUrl(asset.id, "preview") : ""),
     [asset],
   );
 
@@ -73,6 +84,9 @@ export function AssetPreview({ asset, className }) {
   }
 
   // Stored file failed to load (deleted object, 404) — fall back to thumbnail/icon.
+  // Deliberately a plain <img>: this is the last rung of the fallback chain, so
+  // it must request the stored thumbnailUrl verbatim rather than let the image
+  // loader snap it back up to the variant that just failed.
   if (failed && thumb) {
     return (
       <div className={frameClass} style={frameStyle}>
@@ -89,17 +103,16 @@ export function AssetPreview({ asset, className }) {
   if (isImage(asset) && hasFile) {
     return (
       <div className={frameClass} style={frameStyle}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={thumb || fileUrl}
-          alt={asset?.name || "Asset preview"}
-          className="aspect-video w-full object-contain"
-          onError={() => {
-            // Thumbnail may be stale; retry against the file proxy once.
-            if (thumb) setFailed(true);
-            else setFailed(true);
-          }}
-        />
+        <div className="relative aspect-video w-full">
+          <Image
+            src={previewUrl}
+            alt={asset?.name || "Asset preview"}
+            fill
+            sizes={PREVIEW_SIZES}
+            className="object-contain"
+            onError={() => setFailed(true)}
+          />
+        </div>
       </div>
     );
   }
@@ -156,13 +169,16 @@ export function AssetPreview({ asset, className }) {
   if (thumb) {
     return (
       <div className={frameClass} style={frameStyle}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={thumb}
-          alt={asset?.name || "Asset thumbnail"}
-          className="aspect-video w-full object-contain"
-          onError={() => setFailed(true)}
-        />
+        <div className="relative aspect-video w-full">
+          <Image
+            src={thumb}
+            alt={asset?.name || "Asset thumbnail"}
+            fill
+            sizes={PREVIEW_SIZES}
+            className="object-contain"
+            onError={() => setFailed(true)}
+          />
+        </div>
       </div>
     );
   }

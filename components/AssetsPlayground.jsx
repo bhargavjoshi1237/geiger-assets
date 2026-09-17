@@ -21,6 +21,7 @@ import { TipsScreen } from "@/components/internal/screens/projects/creator/tips_
 import { PayoutsScreen } from "@/components/internal/screens/projects/creator/payouts_screen";
 import { PromosScreen } from "@/components/internal/screens/projects/creator/promos_screen";
 import { FeatureScreen } from "@/components/internal/screens/projects/features/feature_screen";
+import { StorageBackendsScreen } from "@/components/internal/screens/projects/storage/storage_backends_screen";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import { settingsNav } from "@/components/internal/sidebar/projects/sidebar_data";
@@ -42,6 +43,12 @@ function AssetsPlaygroundContent({ projectId }) {
     const isFeatureTab = featureItemsByTitle.has(currentTab);
 
     if (isSettingsTab) {
+      // Storage Backends is a built settings screen; the remaining settings tabs
+      // are still stubs, so they fall through to the placeholder below.
+      if (currentTab === "Storage Backends") {
+        return <StorageBackendsScreen projectId={projectId} />;
+      }
+
       return (
         <div className="flex h-full items-center justify-center text-sm text-text-tertiary">
           Settings: {currentTab}
