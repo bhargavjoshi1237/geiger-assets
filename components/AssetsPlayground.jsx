@@ -25,7 +25,10 @@ import { TipsScreen } from "@/components/internal/screens/projects/creator/tips_
 import { PayoutsScreen } from "@/components/internal/screens/projects/creator/payouts_screen";
 import { PromosScreen } from "@/components/internal/screens/projects/creator/promos_screen";
 import { FeatureScreen } from "@/components/internal/screens/projects/features/feature_screen";
-import { StorageBackendsScreen } from "@/components/internal/screens/projects/storage/storage_backends_screen";
+import {
+  SCREEN_REGISTRY,
+  SETTINGS_REGISTRY,
+} from "@/components/internal/screens/projects/screen_registry";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import { settingsNav } from "@/components/internal/sidebar/projects/sidebar_data";
 import { featureItemsByTitle } from "@/components/internal/sidebar/projects/feature_registry";
@@ -46,10 +49,9 @@ function AssetsPlaygroundContent({ projectId }) {
     const isFeatureTab = featureItemsByTitle.has(currentTab);
 
     if (isSettingsTab) {
-      // Storage Backends is a built settings screen; the remaining settings tabs
-      // are still stubs, so they fall through to the placeholder below.
-      if (currentTab === "Storage Backends") {
-        return <StorageBackendsScreen projectId={projectId} />;
+      const SettingsScreen = SETTINGS_REGISTRY[currentTab];
+      if (SettingsScreen) {
+        return <SettingsScreen projectId={projectId} />;
       }
 
       return (
@@ -100,7 +102,14 @@ function AssetsPlaygroundContent({ projectId }) {
         return <PayoutsScreen projectId={projectId} />;
       case "Promo Codes & Perks":
         return <PromosScreen projectId={projectId} />;
-      default:
+      default: {
+        // Everything outside the switch resolves through the registry; a title
+        // with no entry still falls through to the FeatureScreen placeholder.
+        const RegisteredScreen = SCREEN_REGISTRY[currentTab];
+        if (RegisteredScreen) {
+          return <RegisteredScreen projectId={projectId} />;
+        }
+
         if (isFeatureTab) {
           return (
             <FeatureScreen
@@ -115,6 +124,7 @@ function AssetsPlaygroundContent({ projectId }) {
             Screen: {currentTab}
           </div>
         );
+      }
     }
   };
 
