@@ -191,6 +191,7 @@ const systemRoles = [
       "assets.membership_tiers.view",
       "assets.members.view",
       "assets.pay_per_view.view",
+      "assets.workflows.view",
       "assets.analytics.view",
       "assets.asset.edit",
     ],
