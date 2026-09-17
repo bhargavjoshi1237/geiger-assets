@@ -4,6 +4,8 @@ import { getAssetRow, proxyStreamResponse, isStorageConfigured } from "@/lib/sto
 import { signGetUrl } from "@/lib/s3/objects";
 import { s3Config } from "@/lib/s3/config";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { throttle } from "@/lib/storage/throttle";
+import { meterVariantDelivery } from "@/lib/storage/meter";
 
 export const runtime = "nodejs";
 
@@ -21,6 +23,9 @@ export async function GET(request, { params }) {
   const access = await requireProjectAccess({ projectId: row.project_id, action: "read" });
   if (access.response) return access.response;
 
+  const limited = throttle("deliver", access.userId);
+  if (limited) return limited;
+
   const { searchParams } = new URL(request.url);
   const download = searchParams.get("download") === "1";
   const filename = row.original_filename || row.name;
@@ -31,6 +36,7 @@ export async function GET(request, { params }) {
     const res = await proxyStreamResponse(row.storage_key, { filename, download, request });
     if (!res) return NextResponse.json({ error: "not_found" }, { status: 404 });
     if (download) await bumpDownloads(id, row.downloads);
+    await meterVariantDelivery(row, "original", res);
     return res;
   }
 
@@ -38,6 +44,12 @@ export async function GET(request, { params }) {
   if (!url) return NextResponse.json({ error: "sign_failed" }, { status: 500 });
 
   if (download) await bumpDownloads(id, row.downloads);
+  // On the presigned path the bytes go gateway->client and never touch this
+  // process, so the object's own size is the only figure available — pass it as
+  // a synthetic content-length rather than leaving the delivery unbilled.
+  await meterVariantDelivery(row, "original", {
+    headers: { get: () => String(row.size_bytes ?? 0) },
+  });
 
   const ttl = s3Config().signedUrlTtl;
   return NextResponse.redirect(url, {

@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { storageAuth } from "@/lib/storage/auth";
 import { batchSign, SIGN_BATCH_LIMIT, isStorageConfigured } from "@/lib/storage/service";
 import { s3Config } from "@/lib/s3/config";
+import { throttle } from "@/lib/storage/throttle";
 
 export const runtime = "nodejs";
 
 export async function POST(request) {
   const auth = await storageAuth();
   if (auth.response) return auth.response;
+
+  const limited = throttle("sign", auth.userId);
+  if (limited) return limited;
 
   if (!isStorageConfigured()) {
     return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });

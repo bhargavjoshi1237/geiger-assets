@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { storageAuth } from "@/lib/storage/auth";
 import { authorizeKey, proxyStreamResponse, isStorageConfigured } from "@/lib/storage/service";
+import { throttle } from "@/lib/storage/throttle";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,9 @@ export const runtime = "nodejs";
 export async function GET(request) {
   const auth = await storageAuth();
   if (auth.response) return auth.response;
+
+  const limited = throttle("deliver", auth.userId);
+  if (limited) return limited;
 
   if (!isStorageConfigured()) {
     return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });

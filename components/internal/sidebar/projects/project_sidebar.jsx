@@ -19,6 +19,8 @@ import { ChevronLeft, PanelLeft, Search, X } from "lucide-react";
 
 import { SidebarOption } from "../sidebar_option";
 import { projectNav, settingsNav } from "./sidebar_data";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
+import { useNavPermissions } from "@/lib/hooks/use-nav-permissions";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -58,6 +60,8 @@ export function ProjectSidebar({
   subMenuMode = "dropdown",
 }) {
   const { toggleSidebar } = useSidebar();
+  const { projectId } = useWorkspaceUrl();
+  const { can } = useNavPermissions(projectId);
   const [activeMenu, setActiveMenu] = useState("main");
   const [expandedItems, setExpandedItems] = useState({});
   const [query, setQuery] = useState("");
@@ -69,13 +73,21 @@ export function ProjectSidebar({
     }));
   };
 
+  // Settings entries may carry a `permission`; one the caller's role does not
+  // hold is hidden. Advisory UI gating only — it hides the entry, it does not
+  // secure anything behind it. An entry with no `permission` is always shown.
+  const visibleSettingsNav = useMemo(
+    () => settingsNav.filter((item) => can(item.permission)),
+    [can],
+  );
+
   const resolveSubItems = (item) => {
     if (item.subItems) {
       return item.subItems;
     }
 
     if (item.hasSubmenu) {
-      return settingsNav;
+      return visibleSettingsNav;
     }
 
     return null;
@@ -119,7 +131,9 @@ export function ProjectSidebar({
         return null;
       })
       .filter(Boolean);
-  }, [query]);
+    // resolveSubItems() reads visibleSettingsNav, so the memo has to follow it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, visibleSettingsNav]);
 
   return (
     <Sidebar
@@ -238,7 +252,7 @@ export function ProjectSidebar({
               <SidebarGroup>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {settingsNav.map((item) => (
+                    {visibleSettingsNav.map((item) => (
                       <SidebarOption
                         key={item.title}
                         title={item.title}
