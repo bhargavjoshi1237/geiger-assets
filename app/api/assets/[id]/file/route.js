@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
 import { getAssetRow, proxyStreamResponse, isStorageConfigured } from "@/lib/storage/service";
-import { signGetUrl } from "@/lib/s3/objects";
+import { backendForRef, refFromAssetRow } from "@/lib/storage/backends/index.js";
 import { s3Config } from "@/lib/s3/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -24,17 +24,28 @@ export async function GET(request, { params }) {
   const { searchParams } = new URL(request.url);
   const download = searchParams.get("download") === "1";
   const filename = row.original_filename || row.name;
+  const ref = refFromAssetRow(row) || { backend: "s3", key: row.storage_key };
+  const backend = backendForRef(ref);
+
+  // Pooled objects always read via the pool gateway, which is stable and
+  // handles private objects. S3 keeps today's presigned/proxy branch.
+  if (ref.backend === "pool") {
+    const url = await backend.signRead(ref, { download, filename });
+    if (!url) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    if (download) await bumpDownloads(id, row.downloads);
+    return NextResponse.redirect(url, { status: 307 });
+  }
 
   // Gateways without presigned GETs stream through the handler instead of
   // redirecting to a URL the gateway would reject.
   if (!s3Config().presignedReads) {
-    const res = await proxyStreamResponse(row.storage_key, { filename, download, request });
+    const res = await proxyStreamResponse(row.storage_key, { filename, download, request, ref });
     if (!res) return NextResponse.json({ error: "not_found" }, { status: 404 });
     if (download) await bumpDownloads(id, row.downloads);
     return res;
   }
 
-  const url = await signGetUrl(row.storage_key, { download, filename });
+  const url = await backend.signRead(ref, { download, filename });
   if (!url) return NextResponse.json({ error: "sign_failed" }, { status: 500 });
 
   if (download) await bumpDownloads(id, row.downloads);

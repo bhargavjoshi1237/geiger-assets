@@ -17,7 +17,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 
-  const { uploadJobId, key, assetId, checksum, name, type, folder, tags } = body ?? {};
+  const { uploadJobId, key, assetId, checksum, name, type, folder, tags, parts, response, providerKey } = body ?? {};
   if (!uploadJobId || !key) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
@@ -29,11 +29,13 @@ export async function POST(request) {
   const access = await requireProjectAccess({ projectId: parsed.projectId, action: "write" });
   if (access.response) return access.response;
 
-  const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, folder, tags });
+  const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, folder, tags, parts, response, providerKey });
   if (result.error === "not_committed") return NextResponse.json({ error: "not_committed" }, { status: 409 });
   if (result.error === "forbidden") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (result.error === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });
+  if (result.error === "storage_full") return NextResponse.json({ error: "storage_full" }, { status: 507 });
+  if (result.error === "storage_unconfigured") return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result);
 }

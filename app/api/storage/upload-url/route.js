@@ -26,8 +26,12 @@ export async function POST(request) {
   if (access.response) return access.response;
 
   const result = await issueUploadUrl({ projectId, assetId, filename, contentType, sizeBytes, uploadJobId });
-  if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });
+  if (result.error === "too_large" || result.error === "storage_full") {
+    const status = result.error === "storage_full" ? 507 : 413;
+    return NextResponse.json({ error: result.error }, { status });
+  }
   if (result.error === "unsupported_type") return NextResponse.json({ error: "unsupported_type" }, { status: 415 });
+  if (result.error === "storage_unconfigured") return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result);
 }
