@@ -35,6 +35,10 @@ const FORMAT_OPTIONS = [
   { value: "png", label: "PNG" },
 ];
 
+// Radix throws on a Select.Item with an empty value, so "no effect" travels
+// through the sentinel the shared kit already uses and maps back to "" here.
+const NONE = "__none__";
+
 const EFFECT_OPTIONS = [
   { value: "", label: "None" },
   { value: "blur", label: "Blur" },
@@ -203,13 +207,13 @@ export function DeliverySection({ asset, saved, onPatch }) {
                 </Field>
               </div>
               <Field label="Effect">
-                <Select value={effect} onValueChange={setEffect}>
+                <Select value={effect || NONE} onValueChange={(v) => setEffect(v === NONE ? "" : v)}>
                   <SelectTrigger className="border-border bg-surface-card">
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent className="border-border bg-surface-subtle text-foreground">
                     {EFFECT_OPTIONS.map((o) => (
-                      <SelectItem key={o.value || "none"} value={o.value} className="text-xs">
+                      <SelectItem key={o.value || NONE} value={o.value || NONE} className="text-xs">
                         {o.label}
                       </SelectItem>
                     ))}
