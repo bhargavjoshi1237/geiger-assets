@@ -1,7 +1,14 @@
-// Lookups, filter options, and formatters for the Upload Center screens.
-// Config only — never row data (that lives in the DB via lib/supabase/uploads.js).
-
-import { Image, Film, Music, FileText, Boxes, File } from "lucide-react";
+import {
+  Image,
+  Film,
+  Music,
+  FileText,
+  Boxes,
+  File,
+  HardDrive,
+  Gauge,
+  Zap,
+} from "lucide-react";
 
 export const TYPE_ICONS = {
   image: Image,
@@ -27,32 +34,38 @@ export const FILE_TYPE_COLORS = {
 
 export const STATUS_META = {
   queued: {
+    variant: "neutral",
     label: "Queued",
     className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
     dotClass: "bg-zinc-400",
   },
   uploading: {
+    variant: "info",
     label: "Uploading",
     className: "bg-blue-500/15 text-blue-300 border-blue-500/30",
     dotClass: "bg-blue-400",
   },
   processing: {
+    variant: "purple",
     label: "Processing",
     className: "bg-violet-500/15 text-violet-300 border-violet-500/30",
     dotClass: "bg-violet-400",
   },
   completed: {
+    variant: "success",
     label: "Completed",
     className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
-  // Alias retained by the widened upload_jobs status check — renders as completed.
+
   complete: {
+    variant: "success",
     label: "Completed",
     className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   failed: {
+    variant: "danger",
     label: "Failed",
     className: "bg-red-500/15 text-red-300 border-red-500/30",
     dotClass: "bg-red-400",
@@ -107,18 +120,10 @@ export const SORT_OPTIONS = [
   { value: "progress-desc", label: "Most Progress" },
 ];
 
-export function formatBytes(bytes) {
-  const n = Number(bytes) || 0;
-  if (n === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
-  const value = n / Math.pow(1024, i);
-  return `${value >= 100 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`;
-}
+export const QUALITY_PRESETS = [
+  { value: "original", label: "Original", icon: HardDrive, desc: "Lossless — files are stored exactly as uploaded." },
+  { value: "web", label: "Web", icon: Gauge, desc: "Re-encodes stills to WebP — balanced size and quality." },
+  { value: "compressed", label: "Compressed", icon: Zap, desc: "Smallest files — AVIF with a WebP fallback." },
+];
 
-export function formatDate(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
+export { formatBytes, formatDate } from "@/lib/format";

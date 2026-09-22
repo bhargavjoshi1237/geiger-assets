@@ -11,25 +11,26 @@ import {
   FileText,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Input } from "@geiger/ui/input";
+import { Textarea } from "@geiger/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@geiger/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
+  Field,
+  LoadingArea,
   SectionCard,
   StatusPill,
-  Field,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
   PRIORITY_META,
@@ -63,7 +64,7 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, projectId]);
 
   const dirty = useMemo(() => {
     if (!request || !draft) return false;
@@ -112,17 +113,15 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!request || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={Inbox}
           title="Request not found"
@@ -130,7 +129,7 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to Requests
@@ -144,7 +143,7 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
   const priorityMeta = PRIORITY_META[draft.priority] || PRIORITY_META.medium;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -170,14 +169,14 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSave}
             disabled={!dirty || saving}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="h-4 w-4" />
             )}
             {dirty ? "Save changes" : "Saved"}
           </Button>
@@ -191,7 +190,6 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
-        {/* Details ------------------------------------------------------- */}
         <TabsContent value="details">
           <SectionCard title="Request Details">
             <div className="grid gap-4">
@@ -297,7 +295,6 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Deliverables ------------------------------------------------- */}
         <TabsContent value="deliverables">
           <SectionCard
             title="Deliverables"
@@ -318,7 +315,7 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
                       return (
                         <Icon
                           className="h-4 w-4"
-                          style={{ color: referenceAsset.color || "#737373" }}
+                          style={{ color: referenceAsset.color || "var(--color-text-secondary)" }}
                         />
                       );
                     })()}
@@ -349,7 +346,6 @@ export function AssetRequestDetailScreen({ id, onBack, onChange, projectId }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Activity ----------------------------------------------------- */}
         <TabsContent value="activity">
           <SectionCard title="Activity" bodyPadding={false}>
             <div className="divide-y divide-border">

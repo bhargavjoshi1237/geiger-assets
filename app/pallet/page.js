@@ -1,5 +1,5 @@
 import React from 'react';
-import { Input } from "@/components/ui/input";
+import { Input } from "@geiger/ui/input";
 
 export default function Pallet() {
   const surfaceColors = [

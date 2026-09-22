@@ -1,7 +1,3 @@
-// Lookups, filter options, and formatters for the collections list + detail
-// screens. Config only — never row data (that lives in the DB via
-// lib/supabase/collections.js).
-
 export const TYPE_META = {
   manual: {
     label: "Manual",
@@ -23,16 +19,19 @@ export const TYPE_META = {
 
 export const VISIBILITY_META = {
   private: {
+    variant: "neutral",
     label: "Private",
     className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
     dotClass: "bg-zinc-400",
   },
   team: {
+    variant: "info",
     label: "Team",
     className: "bg-blue-500/15 text-blue-300 border-blue-500/30",
     dotClass: "bg-blue-400",
   },
   public: {
+    variant: "success",
     label: "Public",
     className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
@@ -72,9 +71,4 @@ export const SORT_OPTIONS = [
   { value: "assets-asc", label: "Fewest Assets" },
 ];
 
-export function formatDate(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
+export { formatDate } from "@/lib/format";

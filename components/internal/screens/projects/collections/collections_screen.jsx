@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Plus,
-  ChevronDown,
-  MoreHorizontal,
   Trash2,
   Star,
   ArrowUpRight,
@@ -15,27 +14,19 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { ActionMenu } from "@geiger/ui/action-menu";
+import { Input } from "@geiger/ui/input";
+import { Textarea } from "@geiger/ui/textarea";
+import { Switch } from "@geiger/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+} from "@geiger/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -43,18 +34,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader,
-  StatsBar,
-  SearchInput,
-  StatusPill,
-  EmptyState,
+  ListPagination,
+  usePagination,
+} from "@/components/internal/shared/pagination";
+import {
   DataTable,
-  Toolbar,
+  EmptyState,
   Field,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import {
   TYPE_META,
@@ -72,7 +68,10 @@ import {
   updateCollection,
   softDeleteCollection,
 } from "@/lib/supabase/collections";
+import { getUser } from "@/lib/supabase/user";
+import { DEFAULT_ASSET_COLOR } from "@/components/internal/shared/asset_meta";
 import { CollectionDetailScreen } from "./collection_detail";
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
 
 const EMPTY_DRAFT = {
   name: "",
@@ -82,90 +81,37 @@ const EMPTY_DRAFT = {
   isFavorite: false,
 };
 
-function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-8 gap-1.5 rounded-md border-border bg-surface-card px-3 text-xs font-medium text-foreground hover:bg-surface-subtle"
-        >
-          {Icon ? <Icon className="h-3.5 w-3.5 text-text-secondary" /> : null}
-          {options.find((o) => o.value === value)?.label || placeholder}
-          <ChevronDown className="h-3 w-3 text-text-secondary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="start">
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.value}
-              value={option.value}
-              className="cursor-pointer text-xs focus:bg-surface-hover focus:text-foreground"
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function CoverSwatch({ color }) {
   return (
     <div
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
       style={{ background: `${color}25`, borderColor: `${color}40` }}
     >
-      <Layers className="h-4 w-4" style={{ color: color || "#737373" }} />
+      <Layers className="h-4 w-4" style={{ color: color || DEFAULT_ASSET_COLOR }} />
     </div>
   );
 }
 
 function RowActions({ collection, onOpen, onToggleFavorite, onDelete }) {
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Collection actions"
-            className="h-7 w-7 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="end">
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onOpen(collection)}
-          >
-            <ArrowUpRight className="mr-2 h-3.5 w-3.5" /> Open
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onToggleFavorite(collection)}
-          >
-            <Star
-              className={cn(
-                "mr-2 h-3.5 w-3.5",
-                collection.isFavorite && "fill-amber-400 text-amber-400",
-              )}
-            />
-            {collection.isFavorite ? "Unfavorite" : "Favorite"}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-surface-hover" />
-          <DropdownMenuItem
-            className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-            onClick={() => onDelete(collection)}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <ActionMenu
+      label="Collection actions"
+      items={[
+        { icon: ArrowUpRight, label: "Open", onSelect: () => onOpen(collection) },
+        {
+          icon: Star,
+          label: collection.isFavorite ? "Unfavorite" : "Favorite",
+          onSelect: () => onToggleFavorite(collection),
+        },
+        { separator: true },
+        {
+          icon: Trash2,
+          label: "Delete",
+          destructive: true,
+          onSelect: () => onDelete(collection),
+        },
+      ]}
+    />
   );
 }
 
@@ -252,17 +198,17 @@ function CreateDialog({ open, onOpenChange, onCreate }) {
         <DialogFooter>
           <Button
             variant="outline"
-            className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
             onClick={() => onOpenChange(false)}
           >
             Cancel
           </Button>
           <Button
-            className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={submit}
             disabled={saving || !draft.name.trim()}
           >
-            {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Create Collection
           </Button>
         </DialogFooter>
@@ -282,11 +228,16 @@ export function CollectionsScreen({ projectId }) {
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     listCollections(projectId).then((rows) => {
+      if (!alive) return;
       setCollections(rows ?? []);
       setLoading(false);
     });
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   const filtered = useMemo(() => {
     let result = [...collections];
@@ -313,6 +264,10 @@ export function CollectionsScreen({ projectId }) {
     return result;
   }, [collections, search, typeFilter, visibilityFilter, sortValue]);
 
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${typeFilter}|${visibilityFilter}|${sortValue}`,
+  });
+
   const stats = useMemo(() => {
     const smart = collections.filter((c) => c.type === "smart").length;
     const favorites = collections.filter((c) => c.isFavorite).length;
@@ -337,34 +292,28 @@ export function CollectionsScreen({ projectId }) {
   const handleCreate = async (draft) => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const optimistic = {
+    const user = await getUser();
+    const payload = {
       id,
+      projectId,
+      createdBy: user?.id || null,
       name: draft.name.trim(),
       description: draft.description.trim(),
       type: draft.type,
-      coverColor: "#737373",
+      coverColor: DEFAULT_ASSET_COLOR,
       status: "active",
       isFavorite: draft.isFavorite,
       visibility: draft.visibility,
-      createdAt: now,
-      updatedAt: now,
-      assetCount: 0,
     };
+    const optimistic = { ...payload, createdAt: now, updatedAt: now, assetCount: 0 };
     setCollections((rows) => [optimistic, ...rows]);
-    const created = await createCollection({
-      id,
-      name: optimistic.name,
-      description: optimistic.description,
-      type: optimistic.type,
-      coverColor: optimistic.coverColor,
-      status: "active",
-      isFavorite: optimistic.isFavorite,
-      visibility: optimistic.visibility,
-    });
+    const created = await createCollection(payload);
     if (created) {
       setCollections((rows) => rows.map((c) => (c.id === id ? { ...created, assetCount: 0 } : c)));
+      toast.success(`Collection "${created.name}" created.`);
     } else {
       setCollections((rows) => rows.filter((c) => c.id !== id));
+      toast.error("Couldn't create the collection.");
     }
   };
 
@@ -472,16 +421,16 @@ export function CollectionsScreen({ projectId }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader
         title="Collections"
         description="Curate assets without changing their library location."
         actions={
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => setShowCreate(true)}
           >
-            <Plus className="mr-1.5 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             New Collection
           </Button>
         }
@@ -491,12 +440,6 @@ export function CollectionsScreen({ projectId }) {
 
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search collections..."
-            className="w-full sm:w-64"
-          />
           <FilterDropdown
             value={typeFilter}
             onValueChange={setTypeFilter}
@@ -511,6 +454,13 @@ export function CollectionsScreen({ projectId }) {
             placeholder="Visibility"
             icon={Eye}
           />
+          <FilterDropdown
+            value={sortValue}
+            onValueChange={setSortValue}
+            options={SORT_OPTIONS}
+            placeholder="Sort"
+            icon={ArrowUpDown}
+          />
           {hasActiveFilters ? (
             <Button
               variant="ghost"
@@ -523,63 +473,59 @@ export function CollectionsScreen({ projectId }) {
             </Button>
           ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search collections..."
+          className="w-full sm:w-64"
         />
       </Toolbar>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+        <LoadingArea panel size={56} />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowKey={(c) => c.id}
-          onRowClick={(c) => setOpenId(c.id)}
-          empty={
-            <EmptyState
-              icon={Layers}
-              title="No collections found"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : "Create your first collection to start curating assets."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                ) : (
-                  <Button
-                    className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowCreate(true)}
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    New Collection
-                  </Button>
-                )
-              }
-            />
-          }
-        />
-      )}
-
-      {!loading && filtered.length > 0 ? (
-        <div className="text-xs text-text-secondary">
-          Showing {filtered.length} of {collections.length} collections
+        <div className="space-y-5">
+          <DataTable
+            columns={columns}
+            data={pager.pageItems}
+            getRowKey={(c) => c.id}
+            onRowClick={(c) => setOpenId(c.id)}
+            empty={
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                <EmptyState
+                  icon={Layers}
+                  title={hasActiveFilters ? "No matching collections" : "No collections yet"}
+                  description={
+                    hasActiveFilters
+                      ? "Try adjusting your filters or search query."
+                      : "Create your first collection to start curating assets."
+                  }
+                  action={
+                    hasActiveFilters ? (
+                      <Button
+                        variant="outline"
+                        className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                        onClick={clearFilters}
+                      >
+                        Clear filters
+                      </Button>
+                    ) : (
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        onClick={() => setShowCreate(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        New Collection
+                      </Button>
+                    )
+                  }
+                />
+              </div>
+            }
+          />
+          <ListPagination {...pager} itemLabel="collections" />
         </div>
-      ) : null}
+      )}
 
       <CreateDialog open={showCreate} onOpenChange={setShowCreate} onCreate={handleCreate} />
     </MainScreenWrapper>

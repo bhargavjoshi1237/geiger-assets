@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-  ArrowDownRight,
   ArrowUpRight,
   Activity,
   ChevronRight,
@@ -29,34 +28,37 @@ import {
   XAxis,
 } from "recharts";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@geiger/ui/button";
+import { Card, CardContent } from "@geiger/ui/card";
+import { Progress } from "@geiger/ui/progress";
+import { Skeleton } from "@geiger/ui/skeleton";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+} from "@geiger/ui/chart";
 import { useProject } from "@/context/project-context";
 import { cn } from "@/lib/utils";
+import {
+  DataTable,
+  RollingNumber,
+  StatsBar,
+  StatusPill,
+} from "@/components/internal/shared/screen_kit";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
-import FilterDropdown from "./filter_dropdown";
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
 
 const CHART_COLORS = {
-  primary: "#ffffff",
-  background: "#161616",
+  ink: "var(--color-foreground)",
+  grid: "var(--color-border)",
+  axis: "var(--color-text-secondary)",
+  track: "var(--color-surface-active)",
+  separator: "var(--color-surface-subtle)",
 };
 
-const SERIES = ["#ffffff", "#d4d4d4", "#a3a3a3", "#737373", "#525252"];
+// One ink at descending opacity rather than five fixed greys, so the ramp keeps
+// its contrast when the theme flips instead of going white-on-white.
+const SERIES_OPACITY = [1, 0.76, 0.56, 0.38, 0.24];
 
 const WORKSPACE_SUMMARY = [
   { label: "Assets", value: "2,847" },
@@ -92,11 +94,15 @@ const FILE_TYPES = [
 ];
 
 const SERVER_TRAFFIC = [
-  { location: "us-east-2", requests: 1840000, share: 96, fill: SERIES[0] },
-  { location: "us-west-1", requests: 1460000, share: 91, fill: SERIES[1] },
-  { location: "eu-west-1", requests: 1180000, share: 86, fill: SERIES[2] },
-  { location: "ap-south-1", requests: 940000, share: 79, fill: SERIES[3] },
-];
+  { location: "us-east-2", requests: 1840000, share: 96 },
+  { location: "us-west-1", requests: 1460000, share: 91 },
+  { location: "eu-west-1", requests: 1180000, share: 86 },
+  { location: "ap-south-1", requests: 940000, share: 79 },
+].map((row, index) => ({
+  ...row,
+  fill: CHART_COLORS.ink,
+  fillOpacity: SERIES_OPACITY[index % SERIES_OPACITY.length],
+}));
 
 const CDN_HIT_RATIO = { value: 94, hits: "1.15M", requests: "1.22M" };
 const BANDWIDTH = { value: 68, used: 6.8, capacity: 10 };
@@ -109,10 +115,10 @@ const TOP_COLLECTIONS = [
   { name: "Q1 Archive", description: "Retired campaign assets retained for reference", status: "Archived", assets: 540, activity: 92, bandwidth: 12 },
 ];
 
-const COLLECTION_STATUS = {
-  Active: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
-  Shared: "border-sky-500/20 bg-sky-500/10 text-sky-400",
-  Archived: "border-border bg-surface-card text-muted-foreground",
+const COLLECTION_STATUS_META = {
+  Active: { label: "Active", variant: "success", dotClass: "bg-emerald-400" },
+  Shared: { label: "Shared", variant: "info", dotClass: "bg-sky-400" },
+  Archived: { label: "Archived", variant: "neutral", dotClass: "bg-zinc-400" },
 };
 
 const ATTENTION_ITEMS = [
@@ -126,61 +132,6 @@ const ATTENTION_ITEMS = [
 
 const URGENCY_ORDER = ["urgent", "soon", "routine"];
 const URGENCY_LABELS = { urgent: "Urgent", soon: "Soon", routine: "Routine" };
-
-const ROLL_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-function RollingDigit({ digit, active, delay }) {
-  return (
-    <span className="relative inline-block h-[1em] w-[1ch] overflow-hidden align-baseline">
-      <span
-        className="absolute inset-x-0 top-0 flex flex-col transition-transform duration-[900ms] ease-out"
-        style={{
-          transform: `translateY(-${(active ? digit : 0) * 10}%)`,
-          transitionDelay: `${delay}ms`,
-        }}
-      >
-        {ROLL_DIGITS.map((number) => (
-          <span key={number} className="flex h-[1em] items-center justify-center leading-none">
-            {number}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}
-
-function RollingNumber({ value, className }) {
-  const [active, setActive] = useState(false);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setActive(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  const characters = String(value).split("");
-  const digitCountBefore = characters.map((_, index) =>
-    characters.slice(0, index).filter((character) => /\d/.test(character)).length,
-  );
-
-  return (
-    <span className={cn("inline-flex items-center tabular-nums", className)}>
-      {characters.map((character, index) => {
-          if (/\d/.test(character)) {
-            return (
-              <RollingDigit
-                key={index}
-                digit={Number(character)}
-                active={active}
-                delay={digitCountBefore[index] * 70}
-              />
-            );
-          }
-
-          return <span key={index}>{character}</span>;
-        })}
-    </span>
-  );
-}
 
 function WidgetShell({ children, className, contentClassName }) {
   return (
@@ -204,48 +155,6 @@ function WidgetHeader({ title, subtitle, action }) {
       </div>
       {action}
     </div>
-  );
-}
-
-function StatsBar() {
-  return (
-    <Card className="gap-0 overflow-hidden rounded-xl border-border bg-surface-subtle py-0 text-foreground shadow-none">
-      <CardContent className="p-0">
-        <div className="grid grid-cols-2 md:grid-cols-4">
-          {STATS.map((stat, index) => {
-            const up = stat.trend === "up";
-            const TrendIcon = up ? ArrowUpRight : ArrowDownRight;
-
-            return (
-              <div
-                key={stat.label}
-                className={cn(
-                  "p-4",
-                  index % 2 !== 0 && "border-l border-border",
-                  index >= 2 && "border-t border-border",
-                  "md:border-l md:border-t-0",
-                  index === 0 && "md:border-l-0",
-                )}
-              >
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                  {stat.label}
-                </span>
-                <div className="mt-1 flex items-end gap-2">
-                  <RollingNumber value={stat.value} className="text-2xl font-bold leading-none text-white" />
-                  <span
-                    className="mb-0.5 inline-flex items-center gap-0.5 text-xs font-medium text-emerald-400"
-                  >
-                    <TrendIcon className="h-3 w-3" />
-                    {stat.delta}
-                  </span>
-                </div>
-                <span className="mt-1 block text-[11px] text-text-tertiary">{stat.footer}</span>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -274,17 +183,17 @@ function ActivityTrendWidget() {
       />
       <div className="mt-3 min-h-0 flex-1">
         <ChartContainer
-          config={{ value: { label: selected.label, color: CHART_COLORS.primary } }}
+          config={{ value: { label: selected.label, color: CHART_COLORS.ink } }}
           className="h-full w-full"
         >
           <LineChart data={data} margin={{ top: 24, right: 16, left: 12, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="#2a2a2a" strokeDasharray="3 3" />
+            <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} strokeDasharray="3 3" />
             <XAxis
               dataKey="month"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tick={{ fill: "#737373", fontSize: 11 }}
+              tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
             />
             <ChartTooltip
               cursor={false}
@@ -293,9 +202,9 @@ function ActivityTrendWidget() {
             <Line
               dataKey="value"
               type="monotone"
-              stroke={CHART_COLORS.primary}
+              stroke={CHART_COLORS.ink}
               strokeWidth={2}
-              dot={{ fill: CHART_COLORS.primary, r: 3 }}
+              dot={{ fill: CHART_COLORS.ink, r: 3 }}
               activeDot={{ r: 5 }}
               isAnimationActive
             >
@@ -303,7 +212,7 @@ function ActivityTrendWidget() {
                 dataKey="value"
                 position="top"
                 offset={10}
-                className="fill-[#ededed]"
+                className="fill-foreground"
                 fontSize={11}
                 formatter={(value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value)}
               />
@@ -320,7 +229,8 @@ function FileMixWidget() {
   const total = FILE_TYPES.reduce((sum, item) => sum + item.value, 0);
   const data = FILE_TYPES.map((item, index) => ({
     ...item,
-    fill: SERIES[index % SERIES.length],
+    fill: CHART_COLORS.ink,
+    fillOpacity: SERIES_OPACITY[index % SERIES_OPACITY.length],
   }));
   const selectedIndex = Math.max(data.findIndex((item) => item.key === selectedType), 0);
   const selectedItem = data[selectedIndex];
@@ -344,14 +254,14 @@ function FileMixWidget() {
               activeIndex={selectedIndex}
               activeShape={{ outerRadius: 88 }}
               onMouseEnter={(_, index) => setSelectedType(data[index]?.key || selectedType)}
-              stroke={CHART_COLORS.background}
+              stroke={CHART_COLORS.separator}
               strokeWidth={2}
               isAnimationActive
             />
           </PieChart>
         </ChartContainer>
         <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-          <span className="text-3xl font-bold leading-none text-white">{selectedItem.value}</span>
+          <span className="text-3xl font-bold leading-none text-foreground">{selectedItem.value}</span>
           <span className="mt-1 text-xs font-medium text-muted-foreground">{selectedItem.label}</span>
         </div>
       </div>
@@ -364,7 +274,10 @@ function FileMixWidget() {
             className="flex items-center justify-between gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             <span className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.fill }} />
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: item.fill, opacity: item.fillOpacity }}
+              />
               {item.label}
             </span>
             <span className="tabular-nums">{Math.round((item.value / total) * 100)}%</span>
@@ -384,7 +297,7 @@ function ServerTrafficWidget() {
         subtitle="Requests served by edge location."
         action={
           <div className="text-right">
-            <p className="text-2xl font-bold leading-none text-white">
+            <p className="text-2xl font-bold leading-none text-foreground">
               {(total / 1000000).toFixed(2)}M
             </p>
             <p className="mt-1 text-[11px] text-text-secondary">requests</p>
@@ -393,7 +306,7 @@ function ServerTrafficWidget() {
       />
       <div className="mt-4 min-h-0 flex-1">
         <ChartContainer
-          config={{ share: { label: "Relative traffic", color: CHART_COLORS.primary } }}
+          config={{ share: { label: "Relative traffic", color: CHART_COLORS.ink } }}
           className="mx-auto aspect-square h-full max-h-[175px]"
         >
           <RadialBarChart
@@ -422,13 +335,13 @@ function ServerTrafficWidget() {
             <PolarGrid
               gridType="circle"
               radialLines={false}
-              stroke="#333333"
+              stroke={CHART_COLORS.grid}
               strokeOpacity={0.65}
             />
             <RadialBar
               dataKey="share"
               nameKey="location"
-              background={{ fill: "#242424" }}
+              background={{ fill: CHART_COLORS.track }}
               cornerRadius={8}
               isAnimationActive
             />
@@ -439,7 +352,10 @@ function ServerTrafficWidget() {
         {SERVER_TRAFFIC.map((item) => (
           <div key={item.location} className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.fill }} />
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: item.fill, opacity: item.fillOpacity }}
+              />
               <span className="truncate">{item.location}</span>
             </span>
             <span className="font-medium tabular-nums text-foreground">
@@ -471,11 +387,11 @@ function GaugeWidget({ title, subtitle, value, caption, footnote, icon: Icon }) 
       />
       <div className="mt-1 flex min-h-0 flex-1 items-center justify-center">
         <ChartContainer
-          config={{ value: { label: caption, color: CHART_COLORS.primary } }}
+          config={{ value: { label: caption, color: CHART_COLORS.ink } }}
           className="mx-auto aspect-square h-full max-h-[190px]"
         >
           <RadialBarChart
-            data={[{ name: caption, value: clamped, fill: CHART_COLORS.primary }]}
+            data={[{ name: caption, value: clamped, fill: CHART_COLORS.ink }]}
             startAngle={90}
             endAngle={endAngle}
             innerRadius={72}
@@ -486,7 +402,7 @@ function GaugeWidget({ title, subtitle, value, caption, footnote, icon: Icon }) 
               radialLines={false}
               stroke="none"
               polarRadius={[78, 66]}
-              className="first:fill-[#202020] last:fill-[#1a1a1a]"
+              className="first:fill-surface-card last:fill-surface-subtle"
             />
             <RadialBar dataKey="value" cornerRadius={8} isAnimationActive />
             <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
@@ -495,7 +411,7 @@ function GaugeWidget({ title, subtitle, value, caption, footnote, icon: Icon }) 
                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                     return (
                       <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-white text-3xl font-bold">
+                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl font-bold">
                           {clamped}%
                         </tspan>
                         <tspan
@@ -521,85 +437,80 @@ function GaugeWidget({ title, subtitle, value, caption, footnote, icon: Icon }) 
   );
 }
 
+const TOP_COLLECTION_COLUMNS = [
+  {
+    key: "name",
+    header: "Collection",
+    render: (collection) => (
+      <div className="flex flex-col gap-1">
+        <span className="font-medium text-foreground">{collection.name}</span>
+        <p className="line-clamp-1 text-xs text-text-secondary">
+          {collection.description}
+        </p>
+      </div>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (collection) => (
+      <StatusPill status={collection.status} map={COLLECTION_STATUS_META} />
+    ),
+  },
+  {
+    key: "assets",
+    header: "Assets",
+    className: "tabular-nums text-muted-foreground",
+    render: (collection) => collection.assets.toLocaleString(),
+  },
+  {
+    key: "activity",
+    header: "Activity",
+    className: "tabular-nums text-muted-foreground",
+    render: (collection) => `${collection.activity.toLocaleString()} requests`,
+  },
+  {
+    key: "bandwidth",
+    header: "Bandwidth",
+    render: (collection) => (
+      <div className="w-[130px] space-y-1.5">
+        <Progress
+          value={collection.bandwidth}
+          className="h-1.5 bg-surface-hover [&_[data-slot=progress-indicator]]:bg-primary"
+        />
+        <p className="text-xs text-text-secondary">{collection.bandwidth}%</p>
+      </div>
+    ),
+  },
+  {
+    key: "open",
+    header: "",
+    align: "right",
+    render: () => (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label="Open collection"
+        className="text-muted-foreground hover:bg-surface-active hover:text-foreground"
+      >
+        <ArrowUpRight className="h-4 w-4" />
+      </Button>
+    ),
+  },
+];
+
 function TopCollectionsTable() {
   return (
     <div className="flex flex-col gap-4">
       <div>
         <WidgetHeader title="Top Collections" subtitle="Ranked by recent library activity." />
       </div>
-      <div className="bg-surface-card border border-border rounded-2xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-surface-subtle border-border">
-              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                Collection
-              </TableHead>
-              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                Status
-              </TableHead>
-              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                Assets
-              </TableHead>
-              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                Activity
-              </TableHead>
-              <TableHead className="h-12 px-6 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                Bandwidth
-              </TableHead>
-              <TableHead className="h-12 px-6 text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {TOP_COLLECTIONS.map((collection) => (
-                <TableRow key={collection.name} className="border-border hover:bg-surface-active">
-                  <TableCell className="px-6 py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-foreground font-medium">{collection.name}</span>
-                      <p className="text-xs text-text-secondary line-clamp-1">
-                        {collection.description}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <Badge
-                      className={cn(
-                        "min-w-[86px] justify-center whitespace-nowrap rounded-md border px-2",
-                        COLLECTION_STATUS[collection.status],
-                      )}
-                    >
-                      {collection.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 tabular-nums text-muted-foreground">
-                    {collection.assets.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="px-6 py-4 tabular-nums text-muted-foreground">
-                    {collection.activity.toLocaleString()} requests
-                  </TableCell>
-                  <TableCell className="px-6 py-4">
-                    <div className="w-[130px] space-y-1.5">
-                      <Progress
-                        value={collection.bandwidth}
-                        className="h-1.5 bg-surface-hover [&_[data-slot=progress-indicator]]:bg-primary"
-                      />
-                      <p className="text-xs text-text-secondary">{collection.bandwidth}%</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                    >
-                      <ArrowUpRight className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={TOP_COLLECTION_COLUMNS}
+        data={TOP_COLLECTIONS}
+        getRowKey={(collection) => collection.name}
+      />
     </div>
   );
 }
@@ -642,7 +553,7 @@ function WorkflowAttention() {
                 </div>
                 <p className="mt-0.5 truncate text-xs text-text-secondary">{item.hint}</p>
               </div>
-              <span className="shrink-0 text-xl font-bold tabular-nums text-white">{item.value}</span>
+              <span className="shrink-0 text-xl font-bold tabular-nums text-foreground">{item.value}</span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-secondary transition-colors group-hover:text-foreground" />
             </button>
           );
@@ -657,15 +568,15 @@ export function HomeScreen() {
   const projectName = project?.name && !loading ? project.name : null;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="mt-2">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <div className="flex w-full items-center justify-center gap-3 text-center md:w-auto md:justify-start md:text-left">
               {loading ? (
-                <div className="h-7 w-56 animate-pulse rounded-md bg-surface-hover" />
+                <Skeleton className="h-7 w-56" />
               ) : (
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
                   Assets Overview
                 </h1>
               )}
@@ -693,7 +604,7 @@ export function HomeScreen() {
                   <span className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
                     {stat.label}
                   </span>
-                  <RollingNumber value={stat.value} className="mt-0.5 text-2xl font-bold text-white" />
+                  <RollingNumber value={stat.value} className="mt-0.5 text-2xl font-bold leading-none text-foreground" />
                 </div>
               ))}
             </div>
@@ -701,7 +612,7 @@ export function HomeScreen() {
         </div>
       </div>
 
-      <StatsBar />
+      <StatsBar stats={STATS} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="h-[390px] lg:col-span-2">

@@ -3,12 +3,10 @@ import { storageAuth } from "@/lib/storage/auth";
 import { authorizeKey, proxyStreamResponse, isStorageConfigured } from "@/lib/storage/service";
 import { refFromAssetRow } from "@/lib/storage/backends/index.js";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { logFileDelivery } from "@/lib/storage/delivery_log";
 
 export const runtime = "nodejs";
 
-// Same-origin read proxy: streams bytes for an authorized key. This is the
-// read path for gateways without presigned GETs (Appwrite answers those with
-// 501), and the target batchSign() points at when presigned reads are off.
 export async function GET(request) {
   const auth = await storageAuth();
   if (auth.response) return auth.response;
@@ -43,5 +41,7 @@ export async function GET(request) {
     ref,
   });
   if (!res) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  // Logged after the response is built so the insert never blocks the stream.
+  logFileDelivery({ request, response: res, projectId: parsed.projectId, assetId: parsed.assetId });
   return res;
 }

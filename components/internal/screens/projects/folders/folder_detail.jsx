@@ -12,23 +12,24 @@ import {
   Cloud,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@geiger/ui/button";
+import { Input } from "@geiger/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@geiger/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
+  Field,
+  LoadingArea,
   SectionCard,
   StatusPill,
-  Field,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
   STORAGE_META,
@@ -46,8 +47,6 @@ const STORAGE_ICONS = {
   "cloud-gcs": Cloud,
 };
 
-// Collect a folder's own id plus every descendant so the parent Select never
-// offers a choice that would create a cycle.
 function collectInvalidParents(id, allFolders) {
   const invalid = new Set([id]);
   let added = true;
@@ -82,7 +81,7 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, projectId]);
 
   const dirty = useMemo(() => {
     if (!folder || !draft) return false;
@@ -128,17 +127,15 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!folder || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={FolderIcon}
           title="Folder not found"
@@ -146,7 +143,7 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to Folders
@@ -160,7 +157,7 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
   const StorageIcon = STORAGE_ICONS[draft.storageLocation] || HardDrive;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -176,7 +173,7 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
             style={{ background: `${draft.color}15`, borderColor: `${draft.color}25` }}
           >
-            <FolderOpen className="h-5 w-5" style={{ color: draft.color || "#737373" }} />
+            <FolderOpen className="h-5 w-5" style={{ color: draft.color || "var(--color-text-secondary)" }} />
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
@@ -192,14 +189,14 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSave}
             disabled={!dirty || saving}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="h-4 w-4" />
             )}
             {dirty ? "Save changes" : "Saved"}
           </Button>
@@ -213,7 +210,6 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
           <TabsTrigger value="storage">Storage</TabsTrigger>
         </TabsList>
 
-        {/* Contents */}
         <TabsContent value="contents" className="mt-4">
           <SectionCard
             title="Subfolders"
@@ -235,7 +231,7 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
                       style={{ background: `${c.color}15`, borderColor: `${c.color}25` }}
                     >
-                      <FolderIcon className="h-4 w-4" style={{ color: c.color || "#737373" }} />
+                      <FolderIcon className="h-4 w-4" style={{ color: c.color || "var(--color-text-secondary)" }} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
@@ -252,7 +248,6 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
           </p>
         </TabsContent>
 
-        {/* Settings */}
         <TabsContent value="settings" className="mt-4">
           <SectionCard title="Folder Settings" description="Rename, move, and re-tier this folder.">
             <div className="grid gap-4">
@@ -325,12 +320,11 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Storage */}
         <TabsContent value="storage" className="mt-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <SectionCard title="Usage">
               <div className="flex items-end gap-2">
-                <span className="text-3xl font-bold leading-none text-white tabular-nums">
+                <span className="text-3xl font-bold leading-none text-foreground tabular-nums">
                   {formatBytes(draft.sizeBytes)}
                 </span>
               </div>
@@ -340,7 +334,7 @@ export function FolderDetailScreen({ id, onBack, onChange, projectId }) {
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(100, Math.round((draft.sizeBytes / (1024 * 1024 * 1024)) * 100))}%`,
-                    background: draft.color || "#737373",
+                    background: draft.color || "var(--color-text-secondary)",
                   }}
                 />
               </div>

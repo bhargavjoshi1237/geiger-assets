@@ -18,7 +18,7 @@ export default function LandingAssetShowcase({ backgroundImage, ctaHref, ctaLabe
               Explore the full Geiger Assets project workspace.
             </h3>
 
-            <p className="max-w-sm text-foreground0">
+            <p className="max-w-sm text-muted-foreground">
               This playground runs the Assets project interface locally on the
               homepage with the project sidebar, topbar, overview dashboard, and
               asset management controls.
@@ -36,6 +36,7 @@ export default function LandingAssetShowcase({ backgroundImage, ctaHref, ctaLabe
 
         <div className="relative z-10 rounded-2xl border border-border-strong/80 bg-[#191919]/70 p-2 shadow-2xl backdrop-blur-md sm:p-3">
           <div className="h-[520px] overflow-hidden rounded-xl border border-border bg-background sm:h-[620px] lg:h-[760px]">
+
             <ClientAssetsPlayground />
           </div>
         </div>

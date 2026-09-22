@@ -1,6 +1,3 @@
-// Lookups, filter options, and formatters for the asset-requests screens.
-// Config only — never row data (that lives in the DB via lib/supabase/requests.js).
-
 export const PRIORITY_META = {
   low: {
     label: "Low",
@@ -22,26 +19,31 @@ export const PRIORITY_META = {
 
 export const STATUS_META = {
   open: {
+    variant: "neutral",
     label: "Open",
     className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
     dotClass: "bg-zinc-400",
   },
   in_progress: {
+    variant: "info",
     label: "In Progress",
     className: "bg-blue-500/15 text-blue-300 border-blue-500/30",
     dotClass: "bg-blue-400",
   },
   submitted: {
+    variant: "purple",
     label: "Submitted",
     className: "bg-violet-500/15 text-violet-300 border-violet-500/30",
     dotClass: "bg-violet-400",
   },
   approved: {
+    variant: "success",
     label: "Approved",
     className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   closed: {
+    variant: "neutral",
     label: "Closed",
     className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
     dotClass: "bg-zinc-500",
@@ -81,15 +83,6 @@ export const SORT_OPTIONS = [
   { value: "title-desc", label: "Title Z–A" },
 ];
 
-export function formatDate(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
-// A request is overdue when its due date is in the past and it isn't yet
-// resolved (approved/closed).
 export function isOverdue(dueDate, status) {
   if (!dueDate) return false;
   if (status === "approved" || status === "closed") return false;
@@ -99,3 +92,5 @@ export function isOverdue(dueDate, status) {
   today.setHours(0, 0, 0, 0);
   return due < today;
 }
+
+export { formatDate } from "@/lib/format";

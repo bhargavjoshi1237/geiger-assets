@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { BadgePlus, Layers, Loader2, SlidersHorizontal } from "lucide-react";
+import { BadgePlus, Layers, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { TIER_STATUS_META, INTERVAL_OPTIONS, statusFilterOptions, formatMoney, formatDate, parseDollarsToCents } from "./constants";
 import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
@@ -121,20 +128,20 @@ export function TiersScreen({ projectId }) {
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
-      <ScreenHeader title="Membership Tiers" description="Patreon-style recurring tiers — free funnel entry plus paid plans with perks." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="mr-1.5 h-4 w-4" />New tier</Button>} />
+    <MainScreenWrapper>
+      <ScreenHeader title="Membership Tiers" description="Patreon-style recurring tiers — free funnel entry plus paid plans with perks." actions={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="h-4 w-4" />New tier</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search tiers..." className="w-full sm:w-64" />
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search tiers..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(t) => t.id} onRowClick={setEditing} empty={<EmptyState icon={Layers} title="No tiers yet" description={hasFilters ? "Try adjusting your filters." : "Create your first membership tier to start recurring revenue."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="mr-1.5 h-4 w-4" />New tier</Button>} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(t) => t.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={Layers} title="No tiers yet" description={hasFilters ? "Try adjusting your filters." : "Create your first membership tier to start recurring revenue."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><BadgePlus className="h-4 w-4" />New tier</Button>} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} tiers</div> : null}
       <TierDialog open={showCreate} onOpenChange={setShowCreate} title="New tier" submitLabel="Create tier" onSubmit={handleCreate} />

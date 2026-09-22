@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Loader2, MessagesSquare, Send, SlidersHorizontal } from "lucide-react";
+import { LockOpen, MessagesSquare, Send, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { MSG_STATUS_META, statusFilterOptions, formatMoney, formatDate, parseDollarsToCents } from "./constants";
 import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
@@ -104,26 +111,26 @@ export function MessagesScreen({ projectId }) {
     { key: "price", header: "Lock", className: "tabular-nums text-xs", render: (m) => formatMoney(m.priceCents, m.currency) },
     { key: "status", header: "Status", render: (m) => <StatusPill status={m.status} map={MSG_STATUS_META} className="text-[10px]" /> },
     { key: "sent", header: "Sent", className: "hidden text-xs text-text-secondary lg:table-cell", headClassName: "hidden lg:table-cell", render: (m) => formatDate(m.sentAt) },
-    { key: "actions", header: "", align: "right", render: (m) => <RowActions onEdit={() => handleMarkUnlocked(m)} onDelete={() => handleDelete(m)} /> },
+    { key: "actions", header: "", align: "right", render: (m) => <RowActions onEdit={() => handleMarkUnlocked(m)} editLabel="Mark Unlocked" editIcon={LockOpen} onDelete={() => handleDelete(m)} /> },
   ];
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
-      <ScreenHeader title="Paid Messages" description="PPV in the inbox — mass drops and 1:1 locked DMs with unlock tracking." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Send className="mr-1.5 h-4 w-4" />New message</Button>} />
+    <MainScreenWrapper>
+      <ScreenHeader title="Paid Messages" description="PPV in the inbox — mass drops and 1:1 locked DMs with unlock tracking." actions={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Send className="h-4 w-4" />New message</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search messages..." className="w-full sm:w-64" />
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search messages..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(m) => m.id} onRowClick={handleMarkUnlocked} empty={<EmptyState icon={MessagesSquare} title="No paid messages yet" description={hasFilters ? "Try adjusting your filters." : "Send a mass PPV drop to turn your inbox into revenue."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Send className="mr-1.5 h-4 w-4" />New message</Button>} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(m) => m.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={MessagesSquare} title="No paid messages yet" description={hasFilters ? "Try adjusting your filters." : "Send a mass PPV drop to turn your inbox into revenue."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Send className="h-4 w-4" />New message</Button>} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} messages · click a row to mark unlocked</div> : null}
       <MessageDialog open={showCreate} onOpenChange={setShowCreate} members={members} onSubmit={handleCreate} />

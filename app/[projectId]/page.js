@@ -1,14 +1,13 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { tabToSlug, slugToTab } from "@/lib/workspace/tabs";
+import { isReservedSegment } from "@/lib/workspace/reserved";
 
 const DEFAULT_TAB = "Overview";
 
-// Legacy route — redirects to the canonical suite URL (/project/<id>/<tab-slug>)
-// so /assets/<id>?tab=… bookmarks keep working. Query-only state (open asset,
-// editor section) is preserved.
 export default async function AssetsProjectLegacyPage({ params, searchParams }) {
   const { projectId } = await params;
+  if (isReservedSegment(projectId)) notFound();
   const query = await searchParams;
 
   const rawTab = Array.isArray(query?.tab) ? query.tab[0] : query?.tab;

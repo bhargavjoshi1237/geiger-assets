@@ -1,97 +1,136 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
-
-const ProjectContext = createContext();
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/supabase/components/assets-client";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ProjectContext = createContext(undefined);
 
-function normalizeProjectId(rawId) {
-  if (typeof rawId !== "string") {
-    return "";
-  }
+const LAST_PROJECT_KEY = "geiger-assets:last-project";
 
-  let value = rawId.trim();
-  try {
-    value = decodeURIComponent(value);
-  } catch {
-    // Keep the original value if it is not URI-encoded.
-  }
+const PROJECT_COLUMNS =
+  "id, name, slug, description, organization_id, created_by, dam_project_id";
 
-  return value.replace(/^['"]+|['"]+$/g, "").trim();
+export function resolveWorkspaceProject(projects, segment) {
+  if (!segment || !projects?.length) return null;
+  return (
+    projects.find((p) => p.id === segment) ||
+    projects.find((p) => p.dam_project_id === segment) ||
+    null
+  );
 }
 
-export function ProjectProvider({ children }) {
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchProjectInfo = useCallback(async (id) => {
-    const normalizedId = normalizeProjectId(id);
-    console.log(
-      "[project-context] fetchProjectInfo triggered for:",
-      id,
-      "normalized:",
-      normalizedId
-    );
-    setLoading(true);
-    try {
-      if (!normalizedId) {
-        console.warn("[project-context] missing project id, skipping fetch");
-        setProject(null);
-        return;
-      }
-
-      if (!UUID_REGEX.test(normalizedId)) {
-        console.warn("[project-context] invalid UUID format, skipping fetch:", normalizedId);
-        setProject({
-          id: normalizedId,
-          name: normalizedId.charAt(0).toUpperCase() + normalizedId.slice(1).replace(/-/g, " "),
-          status: "UNKNOWN",
-        });
-        return;
-      }
-
-      const supabase = createClient();
-      const { data: foundProject, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("id", normalizedId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[project-context] fetch error:", error.message || error, error.code);
-      }
-
-      if (foundProject) {
-        console.log("[project-context] project found:", foundProject.name);
-        setProject(foundProject);
-      } else {
-        console.log("[project-context] project not found, using fallback for:", normalizedId);
-        setProject({
-          id: normalizedId,
-          name: normalizedId.charAt(0).toUpperCase() + normalizedId.slice(1).replace(/-/g, " "),
-          status: "UNKNOWN",
-        });
-      }
-    } finally {
-      setLoading(false);
+export function pickDefaultProjectId(projects) {
+  if (!projects || projects.length === 0) return null;
+  try {
+    const remembered = window.localStorage.getItem(LAST_PROJECT_KEY);
+    if (remembered && projects.some((p) => p.id === remembered)) {
+      return remembered;
     }
-  }, []);
+  } catch {
+  }
+  return projects[0].id;
+}
+
+export const PREVIEW_PROJECT = { id: "assets-preview", name: "Brand Assets" };
+
+export function ProjectProvider({ children, preview = false }) {
+  const { projectId, setProject } = useWorkspaceUrl();
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(!preview);
+
+  const fetchProjects = useCallback(async () => {
+    if (preview || !isSupabaseConfigured()) return [];
+    try {
+      const sb = createClient();
+      const { data, error } = await sb
+        .from("projects")
+        .select(PROJECT_COLUMNS)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+      if (error) {
+        console.error("[project-context] load", error.message);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.error("[project-context] load", e);
+      return [];
+    }
+  }, [preview]);
+
+  const refresh = useCallback(async () => {
+    const rows = await fetchProjects();
+    setProjects(rows);
+    setLoading(false);
+    return rows;
+  }, [fetchProjects]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchProjects().then((rows) => {
+      if (!alive) return;
+      setProjects(rows);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [fetchProjects]);
+
+  useEffect(() => {
+    if (loading || !projectId) return;
+    const open = resolveWorkspaceProject(projects, projectId);
+    if (!open) return;
+    try {
+      window.localStorage.setItem(LAST_PROJECT_KEY, open.id);
+    } catch {
+    }
+  }, [loading, projects, projectId]);
+
+  const project = useMemo(
+    () =>
+      preview ? PREVIEW_PROJECT : resolveWorkspaceProject(projects, projectId),
+    [preview, projects, projectId],
+  );
+
+  const value = useMemo(
+    () => ({
+      project,
+
+      projectId: project?.id || null,
+
+      urlProjectId: projectId || null,
+      projects,
+      loading,
+      setActiveProject: setProject,
+      refresh,
+    }),
+    [project, projectId, projects, loading, setProject, refresh],
+  );
 
   return (
-    <ProjectContext.Provider value={{ project, setProject, fetchProjectInfo, loading }}>
-      {children}
-    </ProjectContext.Provider>
+    <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
   );
 }
 
 export function useProject() {
-  const context = useContext(ProjectContext);
-  if (context === undefined) {
+  const ctx = useContext(ProjectContext);
+  if (ctx === undefined) {
     throw new Error("useProject must be used within a ProjectProvider");
   }
-  return context;
+  return ctx;
+}
+
+export function useOptionalProject() {
+  return useContext(ProjectContext) ?? null;
 }

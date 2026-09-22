@@ -12,9 +12,9 @@ import {
   Activity,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -22,14 +22,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
+  Field,
+  LoadingArea,
   SectionCard,
   StatusPill,
-  Field,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
   TYPE_ICONS,
@@ -46,10 +47,12 @@ import {
   purgeAsset,
 } from "@/lib/supabase/archive";
 import { AssetPreview } from "@/components/internal/shared/asset_preview";
+import { toast } from "sonner";
+import { deleteAssetFile } from "@/lib/storage/client";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
-  return <Icon className={className} style={{ color: color || "#737373" }} />;
+  return <Icon className={className} style={{ color: color || "var(--color-text-secondary)" }} />;
 }
 
 function ReadField({ label, value }) {
@@ -120,25 +123,26 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
 
   const handlePurge = async () => {
     setBusy(true);
+
+    await deleteAssetFile(id);
     const ok = await purgeAsset(id);
     setBusy(false);
     setConfirmPurge(false);
     if (ok) finish();
+    else toast.error("Couldn't delete that asset.");
   };
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!asset) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={File}
           title="Asset not found"
@@ -146,7 +150,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to Archive
@@ -160,7 +164,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
   const retentionDate = isTrash ? asset.deletedAt : asset.updatedAt;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -188,6 +192,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
                 map={{
                   ...STATUS_META,
                   trashed: {
+                    variant: "danger",
                     label: "In Trash",
                     className: "bg-red-500/15 text-red-300 border-red-500/30",
                     dotClass: "bg-red-400",
@@ -204,14 +209,14 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
         <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="outline"
-            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
             onClick={handleRestore}
             disabled={busy}
           >
             {busy ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <RotateCcw className="mr-1.5 h-4 w-4" />
+              <RotateCcw className="h-4 w-4" />
             )}
             Restore
           </Button>
@@ -221,7 +226,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
               onClick={() => setConfirmPurge(true)}
               disabled={busy}
             >
-              <Trash2 className="mr-1.5 h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
               Delete permanently
             </Button>
           ) : (
@@ -231,7 +236,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
               onClick={handleTrash}
               disabled={busy}
             >
-              <Trash2 className="mr-1.5 h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
               Move to Trash
             </Button>
           )}
@@ -366,7 +371,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
           <DialogFooter>
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={() => setConfirmPurge(false)}
               disabled={busy}
             >
@@ -377,7 +382,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
               onClick={handlePurge}
               disabled={busy}
             >
-              {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Delete permanently
             </Button>
           </DialogFooter>

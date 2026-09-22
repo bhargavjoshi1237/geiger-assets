@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Eye, Loader2, Lock, SlidersHorizontal } from "lucide-react";
+import { Archive, Eye, Lock, SlidersHorizontal, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { PPV_STATUS_META, statusFilterOptions, formatMoney, formatDate, parseDollarsToCents } from "./constants";
 import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
@@ -124,26 +131,26 @@ export function PpvScreen({ projectId }) {
     { key: "unlocks", header: "Unlocks", className: "tabular-nums text-xs", render: (p) => `${p.unlockCount} · ${formatMoney(p.revenueCents)}` },
     { key: "status", header: "Status", render: (p) => <StatusPill status={p.status} map={PPV_STATUS_META} className="text-[10px]" /> },
     { key: "date", header: "Updated", className: "hidden text-xs text-text-secondary lg:table-cell", headClassName: "hidden lg:table-cell", render: (p) => formatDate(p.updatedAt) },
-    { key: "actions", header: "", align: "right", render: (p) => <RowActions onEdit={() => setEditing(p)} onDelete={() => handleDelete(p)} extra={null} /> },
+    { key: "actions", header: "", align: "right", render: (p) => <RowActions extra={[{ icon: p.status === "published" ? Archive : Upload, label: p.status === "published" ? "Archive" : "Publish", onSelect: () => handlePublish(p) }]} onEdit={() => setEditing(p)} onDelete={() => handleDelete(p)} /> },
   ];
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
-      <ScreenHeader title="Pay-Per-View" description="OnlyFans-style locked posts — free teaser, paid unlock, per-post revenue." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="mr-1.5 h-4 w-4" />New PPV</Button>} />
+    <MainScreenWrapper>
+      <ScreenHeader title="Pay-Per-View" description="OnlyFans-style locked posts — free teaser, paid unlock, per-post revenue." actions={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="h-4 w-4" />New PPV</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search PPV posts..." className="w-full sm:w-64" />
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search PPV posts..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={(p) => handlePublish(p)} empty={<EmptyState icon={Eye} title="No PPV posts yet" description={hasFilters ? "Try adjusting your filters." : "Lock your best content behind a pay-per-view price."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="mr-1.5 h-4 w-4" />New PPV</Button>} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={Eye} title="No PPV posts yet" description={hasFilters ? "Try adjusting your filters." : "Lock your best content behind a pay-per-view price."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Lock className="h-4 w-4" />New PPV</Button>} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} PPV posts · click a row to publish/archive</div> : null}
       <PpvDialog open={showCreate} onOpenChange={setShowCreate} title="New PPV post" submitLabel="Create PPV" onSubmit={handleCreate} />

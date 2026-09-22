@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { CalendarClock, Loader2, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Ban, CalendarClock, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { SUB_STATUS_META, statusFilterOptions, formatDate } from "./constants";
 import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog } from "./creator_kit";
@@ -107,26 +114,26 @@ export function SubscriptionsScreen({ projectId }) {
     { key: "tier", header: "Tier", className: "text-xs", render: (s) => tierById.get(s.tierId)?.name || "—" },
     { key: "status", header: "Status", render: (s) => <StatusPill status={s.status} map={SUB_STATUS_META} className="text-[10px]" /> },
     { key: "period", header: "Renews", className: "hidden text-xs text-text-secondary lg:table-cell", headClassName: "hidden lg:table-cell", render: (s) => formatDate(s.currentPeriodEnd) },
-    { key: "actions", header: "", align: "right", render: (s) => <RowActions onEdit={() => handleCancel(s)} onDelete={() => handleDelete(s)} /> },
+    { key: "actions", header: "", align: "right", render: (s) => <RowActions onEdit={() => handleCancel(s)} editLabel="Cancel Subscription" editIcon={Ban} onDelete={() => handleDelete(s)} /> },
   ];
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
-      <ScreenHeader title="Subscriptions" description="Recurring billing — trials, renewals, past-due dunning, and cancellations." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="mr-1.5 h-4 w-4" />New subscription</Button>} />
+    <MainScreenWrapper>
+      <ScreenHeader title="Subscriptions" description="Recurring billing — trials, renewals, past-due dunning, and cancellations." actions={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="h-4 w-4" />New subscription</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions..." className="w-full sm:w-64" />
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(s) => s.id} empty={<EmptyState icon={CalendarClock} title="No subscriptions yet" description={hasFilters ? "Try adjusting your filters." : "Create a subscription to start recurring billing."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="mr-1.5 h-4 w-4" />New subscription</Button>} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(s) => s.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={CalendarClock} title="No subscriptions yet" description={hasFilters ? "Try adjusting your filters." : "Create a subscription to start recurring billing."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><RefreshCw className="h-4 w-4" />New subscription</Button>} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} subscriptions</div> : null}
       <SubscriptionDialog open={showCreate} onOpenChange={setShowCreate} members={members} tiers={tiers} onSubmit={handleCreate} />

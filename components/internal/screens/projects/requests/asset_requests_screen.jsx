@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Plus,
-  ChevronDown,
-  MoreHorizontal,
   Trash2,
   Eye,
   PlayCircle,
@@ -12,29 +11,20 @@ import {
   X,
   ArrowUpDown,
   SlidersHorizontal,
-  Loader2,
   Inbox,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@geiger/ui/button";
+import { Input } from "@geiger/ui/input";
+import { Textarea } from "@geiger/ui/textarea";
+import { Badge } from "@geiger/ui/badge";
+import { ActionMenu } from "@geiger/ui/action-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+} from "@geiger/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -42,18 +32,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader,
-  StatsBar,
-  SearchInput,
-  StatusPill,
-  EmptyState,
   DataTable,
-  Toolbar,
+  EmptyState,
   Field,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import {
   PRIORITY_META,
@@ -72,7 +63,9 @@ import {
   updateRequest,
   softDeleteRequest,
 } from "@/lib/supabase/requests";
+import { getUser } from "@/lib/supabase/user";
 import { AssetRequestDetailScreen } from "./asset_request_detail";
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
 
 const EMPTY_DRAFT = {
   title: "",
@@ -84,79 +77,31 @@ const EMPTY_DRAFT = {
   dueDate: "",
 };
 
-function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-8 gap-1.5 rounded-md border-border bg-surface-card px-3 text-xs font-medium text-foreground hover:bg-surface-subtle"
-        >
-          {Icon ? <Icon className="h-3.5 w-3.5 text-text-secondary" /> : null}
-          {options.find((o) => o.value === value)?.label || placeholder}
-          <ChevronDown className="h-3 w-3 text-text-secondary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="start">
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.value}
-              value={option.value}
-              className="cursor-pointer text-xs focus:bg-surface-hover focus:text-foreground"
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function RowActions({ request, onOpen, onStatus, onDelete }) {
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Request actions"
-            className="h-7 w-7 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="end">
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onOpen(request)}
-          >
-            <Eye className="mr-2 h-3.5 w-3.5" /> Open
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onStatus(request, "in_progress")}
-          >
-            <PlayCircle className="mr-2 h-3.5 w-3.5" /> Mark In Progress
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onStatus(request, "approved")}
-          >
-            <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Mark Approved
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-surface-hover" />
-          <DropdownMenuItem
-            className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-            onClick={() => onDelete(request)}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <ActionMenu
+      label="Request actions"
+      items={[
+        { icon: Eye, label: "Open", onSelect: () => onOpen(request) },
+        {
+          icon: PlayCircle,
+          label: "Mark In Progress",
+          onSelect: () => onStatus(request, "in_progress"),
+        },
+        {
+          icon: CheckCircle2,
+          label: "Mark Approved",
+          onSelect: () => onStatus(request, "approved"),
+        },
+        { separator: true },
+        {
+          icon: Trash2,
+          label: "Delete",
+          destructive: true,
+          onSelect: () => onDelete(request),
+        },
+      ]}
+    />
   );
 }
 
@@ -276,13 +221,13 @@ function CreateRequestDialog({ open, onOpenChange, onCreate }) {
         <DialogFooter>
           <Button
             variant="outline"
-            className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
             onClick={() => close(false)}
           >
             Cancel
           </Button>
           <Button
-            className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={submit}
           >
             Create Request
@@ -304,11 +249,16 @@ export function AssetRequestsScreen({ projectId }) {
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     listRequests(projectId).then((rows) => {
+      if (!alive) return;
       setRequests(rows ?? []);
       setLoading(false);
     });
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   const filtered = useMemo(() => {
     let result = [...requests];
@@ -360,21 +310,22 @@ export function AssetRequestsScreen({ projectId }) {
   const handleCreate = async (draft) => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
+    const user = await getUser();
+    const payload = { id, ...draft, projectId, createdBy: user?.id || null };
     const optimistic = {
-      id,
-      projectId: null,
       referenceAssetId: null,
-      createdBy: null,
       createdAt: now,
       updatedAt: now,
-      ...draft,
+      ...payload,
     };
     setRequests((rows) => [optimistic, ...rows]);
-    const created = await createRequest({ id, ...draft });
+    const created = await createRequest(payload);
     if (created) {
       setRequests((rows) => rows.map((r) => (r.id === id ? created : r)));
+      toast.success(`Request "${created.title}" created.`);
     } else {
       setRequests((rows) => rows.filter((r) => r.id !== id));
+      toast.error("Couldn't create the request.");
     }
   };
 
@@ -485,16 +436,16 @@ export function AssetRequestsScreen({ projectId }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader
         title="Asset Requests"
         description="Request missing creative work and track delivery."
         actions={
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => setShowCreate(true)}
           >
-            <Plus className="mr-1.5 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             New Request
           </Button>
         }
@@ -504,12 +455,6 @@ export function AssetRequestsScreen({ projectId }) {
 
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search requests..."
-            className="w-full sm:w-64"
-          />
           <FilterDropdown
             value={statusFilter}
             onValueChange={setStatusFilter}
@@ -523,6 +468,13 @@ export function AssetRequestsScreen({ projectId }) {
             options={PRIORITY_FILTER_OPTIONS}
             placeholder="Priority"
           />
+          <FilterDropdown
+            value={sortValue}
+            onValueChange={setSortValue}
+            options={SORT_OPTIONS}
+            placeholder="Sort"
+            icon={ArrowUpDown}
+          />
           {hasActiveFilters ? (
             <Button
               variant="ghost"
@@ -535,19 +487,16 @@ export function AssetRequestsScreen({ projectId }) {
             </Button>
           ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search requests..."
+          className="w-full sm:w-64"
         />
       </Toolbar>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
         <DataTable
           columns={columns}
@@ -555,34 +504,36 @@ export function AssetRequestsScreen({ projectId }) {
           getRowKey={(r) => r.id}
           onRowClick={(r) => setOpenId(r.id)}
           empty={
-            <EmptyState
-              icon={Inbox}
-              title="No requests found"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : "Create your first request to get started."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                ) : (
-                  <Button
-                    className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowCreate(true)}
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    New Request
-                  </Button>
-                )
-              }
-            />
+            <div className="rounded-xl border border-border bg-surface-subtle">
+              <EmptyState
+                icon={Inbox}
+                title="No requests found"
+                description={
+                  hasActiveFilters
+                    ? "Try adjusting your filters or search query."
+                    : "Create your first request to get started."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button
+                      variant="outline"
+                      className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <Button
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={() => setShowCreate(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      New Request
+                    </Button>
+                  )
+                }
+              />
+            </div>
           }
         />
       )}

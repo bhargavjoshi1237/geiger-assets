@@ -2,8 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
-  MoreHorizontal,
   Eye,
   RotateCcw,
   Trash2,
@@ -11,20 +9,11 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
   Archive as ArchiveIcon,
-  Loader2,
   File,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { ActionMenu } from "@geiger/ui/action-menu";
 import {
   Dialog,
   DialogContent,
@@ -32,15 +21,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader,
-  StatsBar,
-  SearchInput,
-  EmptyState,
   DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import {
@@ -60,41 +50,14 @@ import {
   purgeAsset,
 } from "@/lib/supabase/archive";
 import { ArchiveDetailScreen } from "./archive_detail";
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { toast } from "sonner";
+import { deleteAssetFile } from "@/lib/storage/client";
 
 const VIEWS = [
   { value: "archived", label: "Archived" },
   { value: "trash", label: "Trash" },
 ];
-
-function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-8 gap-1.5 rounded-md border-border bg-surface-card px-3 text-xs font-medium text-foreground hover:bg-surface-subtle"
-        >
-          {Icon ? <Icon className="h-3.5 w-3.5 text-text-secondary" /> : null}
-          {options.find((o) => o.value === value)?.label || placeholder}
-          <ChevronDown className="h-3 w-3 text-text-secondary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="start">
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.value}
-              value={option.value}
-              className="cursor-pointer text-xs focus:bg-surface-hover focus:text-foreground"
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 function AssetThumb({ asset }) {
   const Icon = TYPE_ICONS[asset.type] || File;
@@ -103,57 +66,34 @@ function AssetThumb({ asset }) {
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
       style={{ background: `${asset.color}15`, borderColor: `${asset.color}25` }}
     >
-      <Icon className="h-4 w-4" style={{ color: asset.color || "#737373" }} />
+      <Icon className="h-4 w-4" style={{ color: asset.color || "var(--color-text-secondary)" }} />
     </div>
   );
 }
 
 function RowActions({ asset, isTrash, onView, onRestore, onTrash, onPurge }) {
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Asset actions"
-            className="h-7 w-7 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="end">
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onView(asset)}
-          >
-            <Eye className="mr-2 h-3.5 w-3.5" /> View
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onRestore(asset)}
-          >
-            <RotateCcw className="mr-2 h-3.5 w-3.5" /> Restore
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-surface-hover" />
-          {isTrash ? (
-            <DropdownMenuItem
-              className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-              onClick={() => onPurge(asset)}
-            >
-              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete permanently
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-              onClick={() => onTrash(asset)}
-            >
-              <Trash2 className="mr-2 h-3.5 w-3.5" /> Move to Trash
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <ActionMenu
+      label={`Actions for ${asset.name}`}
+      items={[
+        { icon: Eye, label: "View", onSelect: () => onView(asset) },
+        { icon: RotateCcw, label: "Restore", onSelect: () => onRestore(asset) },
+        { separator: true },
+        isTrash
+          ? {
+              icon: Trash2,
+              label: "Delete permanently",
+              destructive: true,
+              onSelect: () => onPurge(asset),
+            }
+          : {
+              icon: Trash2,
+              label: "Move to Trash",
+              destructive: true,
+              onSelect: () => onTrash(asset),
+            },
+      ]}
+    />
   );
 }
 
@@ -194,12 +134,17 @@ export function ArchiveTrashScreen({ projectId }) {
   const isTrash = view === "trash";
 
   useEffect(() => {
+    let alive = true;
     Promise.all([listArchived(projectId), listTrashed(projectId)]).then(([a, t]) => {
+      if (!alive) return;
       setArchived(a ?? []);
       setTrashed(t ?? []);
       setLoading(false);
     });
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   const activeRows = isTrash ? trashed : archived;
 
@@ -229,7 +174,7 @@ export function ArchiveTrashScreen({ projectId }) {
   }, [activeRows, search, typeFilter, sortValue, isTrash]);
 
   const stats = useMemo(() => {
-    const trashBytes = trashed.reduce((sum, a) => sum + a.sizeBytes, 0);
+    const trashBytes = trashed.reduce((sum, a) => sum + (Number(a.sizeBytes) || 0), 0);
     return [
       { label: "Archived", value: String(archived.length), footer: "retired from library" },
       { label: "In Trash", value: String(trashed.length), footer: "pending deletion" },
@@ -255,7 +200,6 @@ export function ArchiveTrashScreen({ projectId }) {
     setSortValue("date-desc");
   };
 
-  // Re-fetch a single row after a detail-screen action changed its state.
   const syncRow = async () => {
     const [a, t] = await Promise.all([listArchived(projectId), listTrashed(projectId)]);
     setArchived(a ?? []);
@@ -294,8 +238,13 @@ export function ArchiveTrashScreen({ projectId }) {
     const id = purgeTarget.id;
     setTrashed((rows) => rows.filter((a) => a.id !== id));
     setPurgeTarget(null);
+
+    await deleteAssetFile(id);
     const ok = await purgeAsset(id);
-    if (!ok) setTrashed(prev);
+    if (!ok) {
+      setTrashed(prev);
+      toast.error("Couldn't delete that asset.");
+    }
   };
 
   const columns = [
@@ -377,7 +326,7 @@ export function ArchiveTrashScreen({ projectId }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader
         title="Archive & Trash"
         description="Retire content without immediately losing it."
@@ -394,18 +343,19 @@ export function ArchiveTrashScreen({ projectId }) {
 
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search assets..."
-            className="w-full sm:w-64"
-          />
           <FilterDropdown
             value={typeFilter}
             onValueChange={setTypeFilter}
             options={TYPE_FILTER_OPTIONS}
             placeholder="Type"
             icon={SlidersHorizontal}
+          />
+          <FilterDropdown
+            value={sortValue}
+            onValueChange={setSortValue}
+            options={SORT_OPTIONS}
+            placeholder="Sort"
+            icon={ArrowUpDown}
           />
           {hasActiveFilters ? (
             <Button
@@ -419,19 +369,16 @@ export function ArchiveTrashScreen({ projectId }) {
             </Button>
           ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search assets..."
+          className="w-full sm:w-64"
         />
       </Toolbar>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
         <DataTable
           columns={columns}
@@ -439,34 +386,36 @@ export function ArchiveTrashScreen({ projectId }) {
           getRowKey={(a) => a.id}
           onRowClick={(a) => setSelectedId(a.id)}
           empty={
-            <EmptyState
-              icon={isTrash ? Trash2 : ArchiveIcon}
-              title={
-                hasActiveFilters
-                  ? "No results"
-                  : isTrash
-                    ? "Trash is empty"
-                    : "Nothing archived"
-              }
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : isTrash
-                    ? "Deleted assets will appear here until you permanently remove them."
-                    : "Archived assets will appear here, ready to restore at any time."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                ) : null
-              }
-            />
+            <div className="rounded-xl border border-border bg-surface-subtle">
+              <EmptyState
+                icon={isTrash ? Trash2 : ArchiveIcon}
+                title={
+                  hasActiveFilters
+                    ? "No results"
+                    : isTrash
+                      ? "Trash is empty"
+                      : "Nothing archived"
+                }
+                description={
+                  hasActiveFilters
+                    ? "Try adjusting your filters or search query."
+                    : isTrash
+                      ? "Deleted assets will appear here until you permanently remove them."
+                      : "Archived assets will appear here, ready to restore at any time."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button
+                      variant="outline"
+                      className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null
+                }
+              />
+            </div>
           }
         />
       )}
@@ -491,7 +440,7 @@ export function ArchiveTrashScreen({ projectId }) {
           <DialogFooter>
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={() => setPurgeTarget(null)}
             >
               Cancel

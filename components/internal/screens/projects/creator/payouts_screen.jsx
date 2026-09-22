@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Landmark, Loader2, SlidersHorizontal, Wallet } from "lucide-react";
+import { CheckCircle2, Landmark, SlidersHorizontal, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { PAYOUT_STATUS_META, statusFilterOptions, formatMoney, formatDate } from "./constants";
 import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
@@ -100,26 +107,26 @@ export function PayoutsScreen({ projectId }) {
     { key: "gross", header: "Gross", align: "right", className: "tabular-nums text-xs", render: (p) => formatMoney(p.grossCents) },
     { key: "net", header: "Net", align: "right", className: "tabular-nums text-xs", render: (p) => formatMoney(p.netCents) },
     { key: "status", header: "Status", render: (p) => <StatusPill status={p.status} map={PAYOUT_STATUS_META} className="text-[10px]" /> },
-    { key: "actions", header: "", align: "right", render: (p) => <RowActions onEdit={() => handleMarkPaid(p)} onDelete={() => handleDelete(p)} /> },
+    { key: "actions", header: "", align: "right", render: (p) => <RowActions onEdit={() => handleMarkPaid(p)} editLabel="Mark Paid" editIcon={CheckCircle2} onDelete={() => handleDelete(p)} /> },
   ];
 
   const hasFilters = statusFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
-      <ScreenHeader title="Payouts" description="Revenue settlement — gross, fees, net, and payout status per period." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="mr-1.5 h-4 w-4" />New payout</Button>} />
+    <MainScreenWrapper>
+      <ScreenHeader title="Payouts" description="Revenue settlement — gross, fees, net, and payout status per period." actions={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="h-4 w-4" />New payout</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search payouts..." className="w-full sm:w-64" />
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search payouts..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={handleMarkPaid} empty={<EmptyState icon={Wallet} title="No payouts yet" description={hasFilters ? "Try adjusting your filters." : "Settle collected revenue to a destination."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="mr-1.5 h-4 w-4" />New payout</Button>} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={Wallet} title="No payouts yet" description={hasFilters ? "Try adjusting your filters." : "Settle collected revenue to a destination."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="h-4 w-4" />New payout</Button>} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} payouts · click a row to mark paid</div> : null}
       <PayoutDialog open={showCreate} onOpenChange={setShowCreate} onSubmit={handleCreate} />

@@ -1,8 +1,10 @@
 import {
   LayoutDashboard,
+  Rocket,
   SquarePen,
   Share2,
   History,
+  Wrench,
 } from "lucide-react";
 
 export const NAV_GROUPS = [
@@ -31,12 +33,26 @@ export const NAV_GROUPS = [
         label: "Relationships",
         icon: Share2,
         desc: "Originals, derivatives, variants, and related records.",
+
+        ownHeader: true,
       },
       {
         key: "versions",
         label: "Versions",
         icon: History,
         desc: "An inspectable history of every revision.",
+      },
+      {
+        key: "delivery",
+        label: "Delivery",
+        icon: Rocket,
+        desc: "Opt into dynamic delivery and preview transforms.",
+      },
+      {
+        key: "technical",
+        label: "Technical",
+        icon: Wrench,
+        desc: "File, storage, and integrity details for this asset.",
       },
     ],
   },

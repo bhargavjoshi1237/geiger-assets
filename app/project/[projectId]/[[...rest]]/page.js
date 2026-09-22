@@ -1,39 +1,48 @@
-import ClientAssetsPlayground from "@/components/ClientAssetsPlayground";
-import { createServerSupabase } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+"use client";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-const dashOrigin = (process.env.NEXT_PUBLIC_DASH_ORIGIN || "").replace(/\/$/, "");
+import React, { useEffect } from "react";
+import { notFound, useParams, useRouter } from "next/navigation";
+import { LoadingArea } from "@geiger/ui";
 
-// Only enforce the auth guard when the suite is actually wired up — a configured
-// parent login (DASH_ORIGIN) and Supabase env. Standalone/local dev (no suite)
-// renders normally instead of redirect-looping to a login that isn't there.
-const guardEnabled = Boolean(
-  dashOrigin &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+import { WorkspaceScreen } from "@/components/internal/workspace/workspace_screen";
+import { useProject, pickDefaultProjectId } from "@/context/project-context";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
+import { goToSuiteLogin } from "@/lib/workspace/suite_session";
+import { isReservedSegment } from "@/lib/workspace/reserved";
 
-export default async function AssetsProjectWorkspacePage({ params }) {
-  const { projectId } = await params;
+function ScreenArea() {
+  const router = useRouter();
+  const { tab, setTab } = useWorkspaceUrl();
+  const { project, projects, loading, urlProjectId } = useProject();
 
-  if (guardEnabled) {
-    // Read the running session from the shared parent cookie. getUser() validates
-    // the JWT against the auth server, so it's a trustworthy gate (unlike getSession).
-    const supabase = await createServerSupabase();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      const nextPath = `${basePath}/project/${projectId}`;
-      redirect(`${dashOrigin}/login?next=${encodeURIComponent(nextPath)}`);
+  useEffect(() => {
+    if (loading) return;
+    if (projects.length === 0) {
+      goToSuiteLogin();
+      return;
     }
-  }
+    if (!project) {
+      const fallback = pickDefaultProjectId(projects);
+      if (fallback) router.replace(`/project/${fallback}`);
+      return;
+    }
+    if (project.id !== urlProjectId) router.replace(`/project/${project.id}`);
+  }, [loading, project, projects, urlProjectId, router]);
+
+  if (loading || !project) return <LoadingArea size={72} label="Loading workspace" />;
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-background">
-      <ClientAssetsPlayground projectId={projectId} />
+    <div key={project.id} className="h-full">
+      <WorkspaceScreen tab={tab} projectId={project.id} onNavigate={setTab} />
     </div>
   );
+}
+
+export default function AssetsProjectWorkspacePage() {
+  const params = useParams();
+  const projectId = params?.projectId;
+
+  if (isReservedSegment(projectId)) notFound();
+
+  return <ScreenArea />;
 }

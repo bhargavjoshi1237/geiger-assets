@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Loader2, SlidersHorizontal, TicketPercent } from "lucide-react";
+import { Power, PowerOff, SlidersHorizontal, TicketPercent } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { PROMO_KIND_META, statusFilterOptions, formatDate } from "./constants";
 import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
@@ -125,26 +132,26 @@ export function PromosScreen({ projectId }) {
     { key: "redeemed", header: "Claimed", className: "tabular-nums text-xs", render: (p) => `${p.redeemedCount}${p.maxRedemptions ? ` / ${p.maxRedemptions}` : ""}` },
     { key: "status", header: "Status", className: "text-xs", render: (p) => (p.isActive ? "Active" : "Paused") },
     { key: "date", header: "Updated", className: "hidden text-xs text-text-secondary lg:table-cell", headClassName: "hidden lg:table-cell", render: (p) => formatDate(p.updatedAt) },
-    { key: "actions", header: "", align: "right", render: (p) => <RowActions onEdit={() => setEditing(p)} onDelete={() => handleDelete(p)} /> },
+    { key: "actions", header: "", align: "right", render: (p) => <RowActions extra={[{ icon: p.isActive ? PowerOff : Power, label: p.isActive ? "Pause" : "Activate", onSelect: () => handleToggle(p) }]} onEdit={() => setEditing(p)} onDelete={() => handleDelete(p)} /> },
   ];
 
   const hasFilters = kindFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
-      <ScreenHeader title="Promo Codes & Perks" description="Discounts, trials, and gifted months — autopilot acquisition and win-backs." actions={<Button className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="mr-1.5 h-4 w-4" />New promo</Button>} />
+    <MainScreenWrapper>
+      <ScreenHeader title="Promo Codes & Perks" description="Discounts, trials, and gifted months — autopilot acquisition and win-backs." actions={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="h-4 w-4" />New promo</Button>} />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search codes..." className="w-full sm:w-64" />
           <FilterDropdown value={kindFilter} onValueChange={setKindFilter} options={KIND_FILTERS} placeholder="Kind" icon={SlidersHorizontal} />
           {hasFilters ? <ClearFiltersButton onClick={() => { setKindFilter("all"); setSearch(""); }} /> : null}
         </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search codes..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={handleToggle} empty={<EmptyState icon={TicketPercent} title="No promo codes yet" description={hasFilters ? "Try adjusting your filters." : "Create a trial or discount to grow the funnel."} action={<Button className="bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="mr-1.5 h-4 w-4" />New promo</Button>} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={TicketPercent} title="No promo codes yet" description={hasFilters ? "Try adjusting your filters." : "Create a trial or discount to grow the funnel."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="h-4 w-4" />New promo</Button>} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} promos · click a row to pause/resume</div> : null}
       <PromoDialog open={showCreate} onOpenChange={setShowCreate} title="New promo code" submitLabel="Create promo" onSubmit={handleCreate} />

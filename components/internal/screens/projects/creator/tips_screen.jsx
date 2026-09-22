@@ -1,11 +1,18 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { HandCoins, Loader2, SlidersHorizontal } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { HandCoins, SlidersHorizontal } from "lucide-react";
+import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader, StatsBar, SearchInput, StatusPill, EmptyState, DataTable, Toolbar,
+  DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { TIP_STATUS_META, statusFilterOptions, formatMoney, formatDate } from "./constants";
 import { FilterDropdown, ClearFiltersButton, useCreatorRows } from "./creator_kit";
@@ -71,22 +78,22 @@ export function TipsScreen({ projectId }) {
   const hasFilters = statusFilter !== "all" || targetFilter !== "all" || Boolean(search);
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader title="Tips" description="Gratitude revenue — tips on posts, messages, streams, and profiles with top-fan signals." />
       <StatsBar stats={stats} />
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search tips..." className="w-full sm:w-64" />
           <FilterDropdown value={statusFilter} onValueChange={setStatusFilter} options={STATUS_FILTERS} placeholder="Status" icon={SlidersHorizontal} />
           <FilterDropdown value={targetFilter} onValueChange={setTargetFilter} options={TARGET_FILTERS} placeholder="Target" />
           {hasFilters ? <ClearFiltersButton onClick={() => { setStatusFilter("all"); setTargetFilter("all"); setSearch(""); }} /> : null}
+          {topTippers.length > 0 ? <div className="text-xs text-text-tertiary">Top tipper: {memberById.get(topTippers[0][0])?.fanName || "—"} · {formatMoney(topTippers[0][1])}</div> : null}
         </div>
-        {topTippers.length > 0 ? <div className="text-xs text-text-tertiary">Top tipper: {memberById.get(topTippers[0][0])?.fanName || "—"} · {formatMoney(topTippers[0][1])}</div> : null}
+        <SearchInput value={search} onChange={setSearch} placeholder="Search tips..." className="w-full sm:w-64" />
       </Toolbar>
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(t) => t.id} empty={<EmptyState icon={HandCoins} title="No tips yet" description={hasFilters ? "Try adjusting your filters." : "Tips from fans will land here with top-fan signals."} />} />
+        <DataTable columns={columns} data={filtered} getRowKey={(t) => t.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={HandCoins} title="No tips yet" description={hasFilters ? "Try adjusting your filters." : "Tips from fans will land here with top-fan signals."} /></div>} />
       )}
       {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} tips · tips are read-only (created at checkout)</div> : null}
     </MainScreenWrapper>

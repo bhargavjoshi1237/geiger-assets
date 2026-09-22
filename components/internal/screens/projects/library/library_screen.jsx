@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Upload,
   Copy,
+  Link2,
   Pencil,
   Trash2,
   Loader2,
@@ -20,12 +21,13 @@ import {
 import {
   DataTable,
   EmptyState,
+  Field,
+  LoadingArea,
   ScreenHeader,
   SearchInput,
   StatsBar,
   StatusPill,
   Toolbar,
-  Field,
 } from "@/components/internal/shared/screen_kit";
 import { Button } from "@geiger/ui/button";
 import { Badge } from "@geiger/ui/badge";
@@ -46,7 +48,7 @@ import {
   SelectValue,
 } from "@geiger/ui/select";
 import { ActionMenu } from "@geiger/ui/action-menu";
-import FilterDropdown from "@/components/internal/screens/projects/home/filter_dropdown";
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
 import { cn } from "@/lib/utils";
 import {
   TYPE_ICONS,
@@ -57,16 +59,25 @@ import {
   formatBytes,
   formatDate,
 } from "./constants";
-import { listAssets, softDeleteAsset, createAsset } from "@/lib/supabase/assets";
-import { uploadAsset, UPLOAD_PHASE_LABELS, UPLOAD_ERROR_MESSAGES } from "@/lib/storage/client";
+import { listAssets, createAsset } from "@/lib/supabase/assets";
+import { getUser } from "@/lib/supabase/user";
+import {
+  uploadAsset,
+  deleteAssetFile,
+  UPLOAD_PHASE_LABELS,
+  UPLOAD_ERROR_MESSAGES,
+} from "@/lib/storage/client";
 import { FileDropzone } from "@/components/internal/shared/file_dropzone";
+import { FolderPicker, folderPath } from "@/components/internal/shared/folder_explorer";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { AssetEditScreen } from "./asset_detail";
+import { AssetQuickViewSheet } from "./asset_quick_view";
 
 const EMPTY_DRAFT = {
   name: "",
   type: "image",
-  folder: "root",
+
+  folder: null,
   status: "draft",
 };
 
@@ -83,7 +94,9 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     const next = (files || []).find((f) => f instanceof Blob);
     if (!next) return;
     setFile(next);
-    setDraft((d) => (d.name.trim() ? d : { ...d, name: next.name || "" }));
+
+    const suggestion = (next.name || "").replace(/\.[^.]+$/, "").trim();
+    setDraft((d) => (d.name.trim() ? d : { ...d, name: suggestion }));
   };
 
   const close = () => {
@@ -107,7 +120,10 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     let failure = null;
     const asset = await uploadAsset(file, {
       projectId,
-      folder: draft.folder || "root",
+      name: draft.name.trim(),
+      type: draft.type,
+      status: draft.status,
+      folder: draft.folder ? folderPath(draft.folder) : "root",
       onProgress: setProgress,
       onPhase: (p) => setPhaseLabel(UPLOAD_PHASE_LABELS[p] || ""),
       onError: (code) => {
@@ -153,6 +169,14 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
               }}
               placeholder="e.g. Hero banner Q3"
               autoFocus
+            />
+          </Field>
+
+          <Field label="Destination folder">
+            <FolderPicker
+              projectId={projectId}
+              value={draft.folder}
+              onChange={set("folder")}
             />
           </Field>
 
@@ -291,6 +315,8 @@ export function LibraryScreen({ projectId }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showUpload, setShowUpload] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const [previewId, setPreviewId] = useState(null);
   const { assetId: openAssetId, openAsset, closeAsset } = useWorkspaceUrl();
 
   useEffect(() => {
@@ -344,13 +370,18 @@ export function LibraryScreen({ projectId }) {
     ];
   }, [assets]);
 
-  const handleDelete = (asset) => {
+  const handleDelete = async (asset) => {
     setDeleteTarget(null);
-    setAssets((prev) => prev.filter((a) => a.id !== asset.id));
-    toast.success(`Deleted "${asset.name}".`);
-    softDeleteAsset(asset.id).then((ok) => {
-      if (!ok) toast.error("Couldn't delete the asset on the server.");
-    });
+    if (previewId === asset.id) setPreviewId(null);
+    const previous = assets;
+    setAssets((rows) => rows.filter((a) => a.id !== asset.id));
+    const ok = await deleteAssetFile(asset.id);
+    if (ok) {
+      toast.success(`Deleted "${asset.name}".`);
+    } else {
+      setAssets(previous);
+      toast.error("Couldn't delete the asset on the server.");
+    }
   };
 
   const handleDuplicate = async (asset) => {
@@ -363,9 +394,11 @@ export function LibraryScreen({ projectId }) {
       downloads: 0,
     };
     setAssets((prev) => [copy, ...prev]);
-    toast.success(`Duplicated "${asset.name}".`);
+    const user = await getUser();
     const created = await createAsset({
       id,
+      projectId,
+      createdBy: user?.id || null,
       name: copy.name,
       type: copy.type,
       format: copy.format,
@@ -378,13 +411,31 @@ export function LibraryScreen({ projectId }) {
     });
     if (created) {
       setAssets((prev) => prev.map((a) => (a.id === id ? created : a)));
+      toast.success(`Duplicated "${asset.name}".`);
     } else {
+      setAssets((prev) => prev.filter((a) => a.id !== id));
       toast.error("Couldn't save the copy to the server.");
     }
   };
 
   const syncAsset = (updated) =>
     setAssets((rows) => rows.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
+
+  const previewAsset = useMemo(
+    () => (previewId ? assets.find((a) => a.id === previewId) ?? null : null),
+    [assets, previewId],
+  );
+
+  const handleCopyLink = (asset) => {
+    const { origin, pathname } = window.location;
+    navigator.clipboard?.writeText(`${origin}${pathname}?asset=${asset.id}`);
+    toast.success("Link copied.");
+  };
+
+  const editFromSheet = (asset) => {
+    setPreviewId(null);
+    openAsset(asset.id);
+  };
 
   const columns = [
     {
@@ -444,6 +495,7 @@ export function LibraryScreen({ projectId }) {
           items={[
             { icon: Pencil, label: "Edit", onSelect: () => openAsset(a.id) },
             { icon: Copy, label: "Duplicate", onSelect: () => handleDuplicate(a) },
+            { icon: Link2, label: "Copy link", onSelect: () => handleCopyLink(a) },
             { separator: true },
             {
               icon: Trash2,
@@ -463,7 +515,7 @@ export function LibraryScreen({ projectId }) {
         key={openAssetId}
         assetId={openAssetId}
         onBack={closeAsset}
-        onChange={syncAsset}
+        onUpdate={syncAsset}
       />
     );
   }
@@ -508,17 +560,14 @@ export function LibraryScreen({ projectId }) {
       </Toolbar>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle px-6 py-16 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading assets…
-        </div>
+        <LoadingArea panel size={56} />
       ) : (
         <div className="space-y-5">
           <DataTable
             columns={columns}
             data={pager.pageItems}
             getRowKey={(a) => a.id}
-            onRowClick={(a) => openAsset(a.id)}
+            onRowClick={(a) => setPreviewId(a.id)}
             empty={
               <div className="rounded-xl border border-border bg-surface-subtle">
                 <EmptyState
@@ -548,6 +597,16 @@ export function LibraryScreen({ projectId }) {
           <ListPagination {...pager} itemLabel="assets" />
         </div>
       )}
+
+      <AssetQuickViewSheet
+        asset={previewAsset}
+        open={!!previewAsset}
+        onOpenChange={(open) => !open && setPreviewId(null)}
+        onEdit={editFromSheet}
+        onDuplicate={handleDuplicate}
+        onDelete={setDeleteTarget}
+        onUpdate={syncAsset}
+      />
 
       <UploadDialog
         open={showUpload}

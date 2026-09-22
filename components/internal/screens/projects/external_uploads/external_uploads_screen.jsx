@@ -1,699 +1,506 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Plus,
-  ChevronDown,
-  MoreHorizontal,
   Link2,
-  Pause,
-  Play,
+  Plus,
+  X,
+  FileSpreadsheet,
+  Loader2,
+  RotateCcw,
   Copy,
   Trash2,
   Eye,
-  X,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Inbox,
-  Loader2,
-  FormInput,
-  Zap,
-  Bell,
-  Shield,
-  FolderOpen,
-  AlertCircle,
+  Globe,
+  Blocks,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Textarea } from "@geiger/ui/textarea";
+import { ActionMenu } from "@geiger/ui/action-menu";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  DataTable,
+  EmptyState,
+  Field,
+  LoadingArea,
   ScreenHeader,
   SearchInput,
+  SectionCard,
+  SegmentedTabs,
   StatusPill,
-  EmptyState,
-  DataTable,
-  Field,
+  Toolbar,
 } from "@/components/internal/shared/screen_kit";
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
+import { FolderPicker, folderPath } from "@/components/internal/shared/folder_explorer";
+import { TagInput } from "@/components/internal/screens/projects/library/tag_input";
 import {
-  PORTAL_STATUS_META,
-  TYPE_LABELS,
-  TYPE_BADGE_COLORS,
-  TYPE_OPTIONS,
-  STATUS_FILTER_OPTIONS,
-  TYPE_FILTER_OPTIONS,
-  SORT_OPTIONS,
+  TYPE_ICONS,
+  FILE_TYPE_COLORS,
+  STATUS_META,
+  QUALITY_PRESETS,
+  formatBytes,
   formatDate,
-  slugify,
-} from "./constants";
+} from "@/components/internal/screens/projects/uploads/constants";
+import { UploadJobDetailScreen } from "@/components/internal/screens/projects/uploads/upload_job_detail";
 import {
-  listPortals,
-  listAllSubmissions,
-  createPortal,
-  updatePortal,
-  deletePortal,
-} from "@/lib/supabase/external_uploads";
+  listUploadJobs,
+  createUploadJob,
+  updateUploadJob,
+  deleteUploadJob,
+} from "@/lib/supabase/uploads";
+import {
+  importAssetFromUrl,
+  REMOTE_IMPORT_MAX_BYTES,
+  UPLOAD_ERROR_MESSAGES,
+} from "@/lib/storage/client";
+import {
+  REMOTE_STATUS_FILTER_OPTIONS,
+  REMOTE_SORT_OPTIONS,
+  splitLinkText,
+  looksLikeLink,
+  normalizeLink,
+  hostFromLink,
+  filenameFromLink,
+  typeFromLink,
+} from "./constants";
+import { ExternalSourcesSheet } from "./external_sources_sheet";
+import { CsvLinkDialog } from "./csv_link_dialog";
 import { UploadPortalDetailScreen } from "./upload_portal_detail";
 
-const PORTAL_BASE_URL = "https://assets.geiger.studio/u";
+const IMPORT_CONCURRENCY = 2;
 
-const PROVIDERS = [
-  {
-    id: "google-drive",
-    name: "Google Drive",
-    desc: "Import assets from Drive folders and shared drives",
-    color: "#4285F4",
-    letter: "G",
-    category: "cloud",
-  },
-  {
-    id: "dropbox",
-    name: "Dropbox",
-    desc: "Sync files from Dropbox folders and shared spaces",
-    color: "#0061FF",
-    letter: "Db",
-    category: "cloud",
-  },
-  {
-    id: "onedrive",
-    name: "OneDrive",
-    desc: "Connect to Microsoft OneDrive and SharePoint",
-    color: "#0078D4",
-    letter: "Od",
-    category: "cloud",
-  },
-  {
-    id: "box",
-    name: "Box",
-    desc: "Pull assets from Box enterprise content management",
-    color: "#0061D5",
-    letter: "Bx",
-    category: "cloud",
-  },
-  {
-    id: "s3",
-    name: "Amazon S3",
-    desc: "Connect an S3 bucket to import or sync assets",
-    color: "#FF9900",
-    letter: "S3",
-    category: "storage",
-  },
-  {
-    id: "r2",
-    name: "Cloudflare R2",
-    desc: "Import from Cloudflare R2 object storage",
-    color: "#F38020",
-    letter: "R2",
-    category: "storage",
-  },
-  {
-    id: "ftp",
-    name: "FTP / SFTP",
-    desc: "Import from FTP and SFTP servers",
-    color: "#64748b",
-    letter: "FTP",
-    category: "storage",
-  },
-  {
-    id: "unsplash",
-    name: "Unsplash",
-    desc: "Search and import from 3M+ free high-res photos",
-    color: "#111111",
-    letter: "Un",
-    category: "stock",
-  },
-  {
-    id: "pexels",
-    name: "Pexels",
-    desc: "Free stock photos, videos and music",
-    color: "#05A081",
-    letter: "Px",
-    category: "stock",
-  },
-  {
-    id: "shutterstock",
-    name: "Shutterstock",
-    desc: "Licensed stock imagery and footage",
-    color: "#EE2E24",
-    letter: "Ss",
-    category: "stock",
-  },
-  {
-    id: "getty",
-    name: "Getty Images",
-    desc: "Premium stock content and editorial media",
-    color: "#CC0000",
-    letter: "Gi",
-    category: "stock",
-  },
-  {
-    id: "adobe-stock",
-    name: "Adobe Stock",
-    desc: "Creative assets from Adobe's stock library",
-    color: "#FF0000",
-    letter: "As",
-    category: "stock",
-  },
-];
+const PLACEHOLDER = `https://images.example.com/hero-shot.jpg
+https://cdn.example.com/brand/logo.svg
+https://files.example.com/deck.pdf`;
 
-const SIZE_LIMIT_OPTIONS = [
-  { value: "10mb", label: "10 MB" },
-  { value: "50mb", label: "50 MB" },
-  { value: "100mb", label: "100 MB" },
-  { value: "500mb", label: "500 MB" },
-  { value: "none", label: "No limit" },
-];
-
-const FILE_TYPE_CHIPS = [
-  { value: "image", label: "Images" },
-  { value: "video", label: "Video" },
-  { value: "audio", label: "Audio" },
-  { value: "document", label: "Documents" },
-  { value: "3d", label: "3D Models" },
-  { value: "raw", label: "Raw Files" },
-];
-
-const FOLDER_OPTIONS = [
-  { value: "root", label: "/ Root" },
-  { value: "campaigns", label: "Campaigns" },
-  { value: "products", label: "Products" },
-  { value: "brand", label: "Brand Assets" },
-  { value: "external", label: "External / Inbox" },
-];
-
-const EMPTY_DRAFT = {
-  name: "",
-  type: "link",
-  destinationFolder: "root",
-  requireMetadata: false,
-  expiresAt: "",
-};
-
-function ProviderIcon({ provider }) {
-  return (
-    <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold tracking-tight text-white"
-      style={{ background: provider.color }}
-    >
-      {provider.letter}
-    </div>
-  );
-}
-
-function ProviderCard({ provider, connected, onConnect, onDisconnect }) {
+function StagedLinkRow({ item, onRemove }) {
+  const Icon = TYPE_ICONS[item.fileType] || Link2;
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-xl border bg-surface-subtle p-4 transition-colors",
-        connected
-          ? "border-emerald-500/30"
-          : "border-border hover:border-border-strong",
+        "group flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
+        item.valid && !item.duplicate
+          ? "border-border bg-surface-card"
+          : "border-amber-500/30 bg-amber-500/5",
       )}
     >
-      <div className="flex items-start justify-between">
-        <ProviderIcon provider={provider} />
-        {connected ? (
-          <Badge className="border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-300">
-            Connected
-          </Badge>
-        ) : null}
-      </div>
+      {item.valid ? (
+        <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
+      ) : (
+        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+      )}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{provider.name}</p>
-        <p className="mt-0.5 text-xs text-text-secondary">{provider.desc}</p>
+        <p className="truncate text-sm text-foreground">{item.filename}</p>
+        <p className="truncate text-xs text-text-tertiary">{item.host || item.url}</p>
       </div>
+      {!item.valid ? (
+        <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+          Invalid link
+        </Badge>
+      ) : item.duplicate ? (
+        <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+          Already imported
+        </Badge>
+      ) : null}
       <Button
-        variant="outline"
-        size="sm"
-        className={cn(
-          "h-7 w-full text-xs",
-          connected
-            ? "border-border text-text-secondary hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-            : "border-border bg-surface-card text-foreground hover:bg-surface-hover",
-        )}
-        onClick={() =>
-          connected ? onDisconnect(provider.id) : onConnect(provider.id)
-        }
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Remove ${item.filename}`}
+        className="shrink-0 text-text-tertiary opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+        onClick={() => onRemove(item.id)}
       >
-        {connected ? "Disconnect" : "Connect"}
+        <X className="h-4 w-4" />
       </Button>
     </div>
   );
 }
 
-function ProviderSection({ title, providers, connected, onConnect, onDisconnect }) {
-  return (
-    <div>
-      <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {providers.map((provider) => (
-          <ProviderCard
-            key={provider.id}
-            provider={provider}
-            connected={connected.has(provider.id)}
-            onConnect={onConnect}
-            onDisconnect={onDisconnect}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-8 gap-1.5 rounded-md border-border bg-surface-card px-3 text-xs font-medium text-foreground hover:bg-surface-subtle"
-        >
-          {Icon ? <Icon className="h-3.5 w-3.5 text-text-secondary" /> : null}
-          {options.find((o) => o.value === value)?.label || placeholder}
-          <ChevronDown className="h-3 w-3 text-text-secondary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="border-border bg-surface-subtle text-foreground"
-        align="start"
-      >
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.value}
-              value={option.value}
-              className="cursor-pointer text-xs focus:bg-surface-hover focus:text-foreground"
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function PortalGlyph({ type }) {
-  const Icon = type === "form" ? FormInput : Link2;
-  const tone = type === "form" ? "#a78bfa" : "#38bdf8";
-  return (
-    <div
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-      style={{ background: `${tone}15`, borderColor: `${tone}25` }}
-    >
-      <Icon className="h-4 w-4" style={{ color: tone }} />
-    </div>
-  );
-}
-
-function PortalRowActions({ portal, onView, onToggle, onCopyLink, onDelete }) {
-  const paused = portal.status === "paused";
-  return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Portal actions"
-            className="h-7 w-7 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          className="border-border bg-surface-subtle text-foreground"
-          align="end"
-        >
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onView(portal)}
-          >
-            <Eye className="mr-2 h-3.5 w-3.5" /> View
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onToggle(portal)}
-          >
-            {paused ? (
-              <>
-                <Play className="mr-2 h-3.5 w-3.5" /> Activate
-              </>
-            ) : (
-              <>
-                <Pause className="mr-2 h-3.5 w-3.5" /> Pause
-              </>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onCopyLink(portal)}
-          >
-            <Copy className="mr-2 h-3.5 w-3.5" /> Copy link
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-surface-hover" />
-          <DropdownMenuItem
-            className="cursor-pointer text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400"
-            onClick={() => onDelete(portal)}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-function CreatePortalDialog({ open, onOpenChange, onCreate }) {
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
-  const [error, setError] = useState("");
-  const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
-
-  const close = () => {
-    setDraft(EMPTY_DRAFT);
-    setError("");
-    onOpenChange(false);
-  };
-
-  const submit = () => {
-    if (!draft.name.trim()) {
-      setError("A portal name is required.");
-      return;
-    }
-    onCreate(draft);
-    close();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : close())}>
-      <DialogContent className="max-w-lg border-border bg-surface-subtle text-foreground">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">New Portal</DialogTitle>
-          <DialogDescription className="text-sm text-text-secondary">
-            Create a link or form to collect files from outside your workspace.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <Field
-            label="Name"
-            htmlFor="portal-name"
-            hint={draft.name ? `/u/${slugify(draft.name)}` : undefined}
-          >
-            <Input
-              id="portal-name"
-              value={draft.name}
-              onChange={(e) => {
-                set("name")(e.target.value);
-                if (error) setError("");
-              }}
-              placeholder="Client photo drop"
-              className="border-border bg-surface-card text-foreground"
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Type">
-              <Select value={draft.type} onValueChange={set("type")}>
-                <SelectTrigger className="border-border bg-surface-card">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-border bg-surface-subtle text-foreground">
-                  {TYPE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Destination folder" htmlFor="portal-folder">
-              <Input
-                id="portal-folder"
-                value={draft.destinationFolder}
-                onChange={(e) => set("destinationFolder")(e.target.value)}
-                className="border-border bg-surface-card text-foreground"
-              />
-            </Field>
-          </div>
-          <Field label="Expires" htmlFor="portal-expires" hint="Leave blank for no expiry.">
-            <Input
-              id="portal-expires"
-              type="date"
-              value={draft.expiresAt}
-              onChange={(e) => set("expiresAt")(e.target.value)}
-              className="border-border bg-surface-card text-foreground"
-            />
-          </Field>
-          <div className="flex items-center justify-between rounded-md border border-border bg-surface-card px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Require metadata</p>
-              <p className="text-xs text-text-secondary">
-                Ask submitters for context before they upload.
-              </p>
-            </div>
-            <Switch checked={draft.requireMetadata} onCheckedChange={set("requireMetadata")} />
-          </div>
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-            onClick={close}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-            onClick={submit}
-          >
-            Create Portal
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function ExternalUploadsScreen({ projectId }) {
-  const [portals, setPortals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+
+  const [text, setText] = useState("");
+  const [staged, setStaged] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  const [folder, setFolder] = useState(null);
+  const [tags, setTags] = useState([]);
+  const [quality, setQuality] = useState("original");
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [sortValue, setSortValue] = useState("updated-desc");
+  const [sortValue, setSortValue] = useState("created-desc");
+
+  const [showSources, setShowSources] = useState(false);
+  const [showCsv, setShowCsv] = useState(false);
+  const [openJobId, setOpenJobId] = useState(null);
   const [openPortalId, setOpenPortalId] = useState(null);
-  const [showCreate, setShowCreate] = useState(false);
 
-  const [connected, setConnected] = useState(new Set());
-
-  const [autoApprove, setAutoApprove] = useState(false);
-  const [defaultFolder, setDefaultFolder] = useState("external");
-  const [sizeLimit, setSizeLimit] = useState("100mb");
-  const [allowedTypes, setAllowedTypes] = useState(
-    new Set(FILE_TYPE_CHIPS.map((c) => c.value)),
-  );
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [notificationEmail, setNotificationEmail] = useState("");
+  const [portalsVersion, setPortalsVersion] = useState(0);
 
   useEffect(() => {
-    listPortals(projectId).then((rows) => {
-      setPortals(rows ?? []);
-      setLoading(false);
+    listUploadJobs(projectId).then((rows) => {
+      setJobs((rows ?? []).filter((j) => j.source === "url"));
+      setLoadingJobs(false);
     });
-    listAllSubmissions().then((rows) => {
-      // pendingCount available via rows if needed
-    });
-  }, []);
+  }, [projectId]);
 
-  const handleConnect = (id) => setConnected((prev) => new Set([...prev, id]));
-  const handleDisconnect = (id) =>
-    setConnected((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+  const importedUrls = useMemo(
+    () => new Set(jobs.map((j) => j.sourceUrl).filter(Boolean)),
+    [jobs],
+  );
 
-  const toggleAllowedType = (value) => {
-    setAllowedTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
+  const addLinks = useCallback(
+    (candidates) => {
+      if (!candidates.length) return;
+      setStaged((prev) => {
+        const seen = new Set(prev.map((s) => s.url));
+        const next = [...prev];
+        for (const candidate of candidates) {
+          const url = normalizeLink(candidate);
+          if (!url || seen.has(url)) continue;
+          seen.add(url);
+          next.push({
+            id: crypto.randomUUID(),
+            url,
+            filename: filenameFromLink(url),
+            host: hostFromLink(url),
+            fileType: typeFromLink(url),
+            valid: looksLikeLink(url),
+            duplicate: importedUrls.has(url),
+          });
+        }
+        const added = next.length - prev.length;
+        if (added === 0) toast.info("Those links are already in the list.");
+        return next;
+      });
+    },
+    [importedUrls],
+  );
+
+  const addFromText = () => {
+    const candidates = splitLinkText(text);
+    if (!candidates.length) {
+      toast.error("Paste one or more links first.");
+      return;
+    }
+    addLinks(candidates);
+    setText("");
   };
 
-  const hasPortalFilters = statusFilter !== "all" || typeFilter !== "all" || Boolean(search);
+  const removeStaged = (id) => setStaged((prev) => prev.filter((s) => s.id !== id));
+  const clearStaged = () => setStaged([]);
+
+  const ready = useMemo(() => staged.filter((s) => s.valid && !s.duplicate), [staged]);
+  const detected = useMemo(() => (text.trim() ? splitLinkText(text).length : 0), [text]);
+  const invalidCount = staged.length - ready.length;
+
+  const runImport = useCallback(
+    async ({ id, url, filename, fileType, destination }) => {
+      let failure = null;
+      const asset = await importAssetFromUrl(url, {
+        projectId,
+        uploadJobId: id,
+        folder: destination,
+        tags,
+        quality,
+        onError: (code) => {
+          failure = code;
+        },
+      });
+
+      if (asset) {
+        setJobs((rows) =>
+          rows.map((j) =>
+            j.id === id
+              ? {
+                  ...j,
+                  status: "completed",
+                  progress: 100,
+                  error: "",
+                  assetId: asset.id,
+                  filename: asset.name || filename,
+                  fileType: asset.type || fileType,
+                  sizeBytes: asset.sizeBytes ?? 0,
+                }
+              : j,
+          ),
+        );
+        return true;
+      }
+
+      const message = UPLOAD_ERROR_MESSAGES[failure] || "Import failed";
+      setJobs((rows) =>
+        rows.map((j) => (j.id === id ? { ...j, status: "failed", progress: 0, error: message } : j)),
+      );
+
+      await updateUploadJob(id, { status: "failed", progress: 0, error: message });
+      return false;
+    },
+    [projectId, quality, tags],
+  );
+
+  const handleImportAll = async () => {
+    if (!ready.length || importing) return;
+    if (!projectId) {
+      toast.error("Open a project before importing links.");
+      return;
+    }
+
+    const destination = folder ? folderPath(folder) : "root";
+    const batch = ready.map((item) => ({
+      id: crypto.randomUUID(),
+      url: item.url,
+      filename: item.filename,
+      fileType: item.fileType,
+      destination,
+    }));
+
+    setImporting(true);
+    setProgress({ done: 0, total: batch.length });
+    setStaged((prev) => prev.filter((s) => !s.valid || s.duplicate));
+
+    let done = 0;
+    let failed = 0;
+    for (let i = 0; i < batch.length; i += IMPORT_CONCURRENCY) {
+      const slice = batch.slice(i, i + IMPORT_CONCURRENCY);
+      const results = await Promise.all(
+        slice.map(async (item) => {
+          const optimistic = {
+            id: item.id,
+            projectId: projectId ?? null,
+            filename: item.filename,
+            fileType: item.fileType,
+            sizeBytes: 0,
+            status: "uploading",
+            progress: 0,
+            source: "url",
+            error: "",
+            assetId: null,
+            sourceUrl: item.url,
+            destination: item.destination,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setJobs((rows) => [optimistic, ...rows]);
+          const created = await createUploadJob({
+            id: item.id,
+            projectId: projectId ?? null,
+            filename: item.filename,
+            fileType: item.fileType,
+            sizeBytes: 0,
+            status: "uploading",
+            progress: 0,
+            source: "url",
+            metadata: { sourceUrl: item.url, destination: item.destination },
+          });
+          if (!created) {
+            setJobs((rows) => rows.filter((j) => j.id !== item.id));
+            return false;
+          }
+          return runImport(item);
+        }),
+      );
+      for (const ok of results) {
+        if (ok) done += 1;
+        else failed += 1;
+      }
+      setProgress({ done: done + failed, total: batch.length });
+    }
+
+    setImporting(false);
+    setProgress({ done: 0, total: 0 });
+    if (done > 0 && failed === 0) toast.success(`${done} link${done !== 1 ? "s" : ""} imported`);
+    else if (done > 0) toast.warning(`${done} imported, ${failed} failed`);
+    else toast.error("Couldn't import those links.");
+  };
+
+  const handleRetry = async (job) => {
+    if (!job.sourceUrl) {
+      toast.error("That job has no source link to retry.");
+      return;
+    }
+    setJobs((rows) =>
+      rows.map((j) => (j.id === job.id ? { ...j, status: "uploading", progress: 0, error: "" } : j)),
+    );
+    await updateUploadJob(job.id, { status: "uploading", progress: 0, error: "" });
+    const ok = await runImport({
+      id: job.id,
+      url: job.sourceUrl,
+      filename: job.filename,
+      fileType: job.fileType,
+      destination: job.destination || "root",
+    });
+    if (ok) toast.success("Import finished.");
+  };
+
+  const handleCopyLink = async (job) => {
+    try {
+      await navigator.clipboard.writeText(job.sourceUrl || "");
+      toast.success("Link copied.");
+    } catch {
+      toast.error("Couldn't copy to the clipboard.");
+    }
+  };
+
+  const handleRemoveJob = async (job) => {
+    const prev = jobs;
+    setJobs((rows) => rows.filter((j) => j.id !== job.id));
+    const ok = await deleteUploadJob(job.id);
+    if (!ok) {
+      setJobs(prev);
+      toast.error("Couldn't remove that row.");
+      return;
+    }
+    toast.success("Removed from the queue.");
+  };
+
+  const syncJob = (updated) =>
+    setJobs((rows) => rows.map((j) => (j.id === updated.id ? { ...j, ...updated } : j)));
+
+  const filtersActive = statusFilter !== "all" || Boolean(search);
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+  };
 
   const filtered = useMemo(() => {
-    let result = [...portals];
+    let result = [...jobs];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q),
+        (j) =>
+          j.filename.toLowerCase().includes(q) ||
+          String(j.sourceUrl || "").toLowerCase().includes(q),
       );
     }
-    if (statusFilter !== "all") result = result.filter((p) => p.status === statusFilter);
-    if (typeFilter !== "all") result = result.filter((p) => p.type === typeFilter);
+    if (statusFilter !== "all") {
+      result = result.filter((j) =>
+        statusFilter === "completed"
+          ? j.status === "completed" || j.status === "complete"
+          : j.status === statusFilter,
+      );
+    }
     const [field, direction] = sortValue.split("-");
     result.sort((a, b) => {
       let cmp = 0;
-      if (field === "updated") cmp = new Date(a.updatedAt) - new Date(b.updatedAt);
-      else if (field === "name") cmp = a.name.localeCompare(b.name);
-      else if (field === "submissions") cmp = a.submissionCount - b.submissionCount;
+      if (field === "created") cmp = new Date(a.createdAt) - new Date(b.createdAt);
+      else if (field === "name") cmp = a.filename.localeCompare(b.filename);
+      else if (field === "size") cmp = a.sizeBytes - b.sizeBytes;
       return direction === "desc" ? -cmp : cmp;
     });
     return result;
-  }, [portals, search, statusFilter, typeFilter, sortValue]);
+  }, [jobs, search, statusFilter, sortValue]);
 
-  const handleCreate = async (draft) => {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const optimistic = {
-      id,
-      name: draft.name.trim(),
-      type: draft.type,
-      slug: slugify(draft.name),
-      status: "active",
-      requireMetadata: draft.requireMetadata,
-      destinationFolder: draft.destinationFolder || "root",
-      expiresAt: draft.expiresAt || "",
-      submissionCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setPortals((rows) => [optimistic, ...rows]);
-    const created = await createPortal({
-      id,
-      name: optimistic.name,
-      type: optimistic.type,
-      slug: optimistic.slug,
-      status: "active",
-      requireMetadata: optimistic.requireMetadata,
-      destinationFolder: optimistic.destinationFolder,
-      expiresAt: optimistic.expiresAt,
-    });
-    if (created) {
-      setPortals((rows) => rows.map((p) => (p.id === id ? created : p)));
-    } else {
-      setPortals((rows) => rows.filter((p) => p.id !== id));
-    }
-  };
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${statusFilter}|${sortValue}`,
+  });
 
-  const handleToggle = async (portal) => {
-    const next = portal.status === "paused" ? "active" : "paused";
-    const prev = portals;
-    setPortals((rows) =>
-      rows.map((p) => (p.id === portal.id ? { ...p, status: next } : p)),
-    );
-    const updated = await updatePortal(portal.id, { status: next });
-    if (!updated) setPortals(prev);
-  };
-
-  const handleCopyLink = (portal) => {
-    const url = `${PORTAL_BASE_URL}/${portal.slug}`;
-    if (navigator?.clipboard?.writeText) navigator.clipboard.writeText(url).catch(() => {});
-  };
-
-  const handleDelete = async (portal) => {
-    const prev = portals;
-    setPortals((rows) => rows.filter((p) => p.id !== portal.id));
-    const ok = await deletePortal(portal.id);
-    if (!ok) setPortals(prev);
-  };
-
-  const syncPortal = (updated) =>
-    setPortals((rows) => rows.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+  const qualityHint = QUALITY_PRESETS.find((q) => q.value === quality)?.desc || "";
 
   const columns = [
     {
-      key: "name",
-      header: "Name",
-      render: (p) => (
-        <div className="flex items-center gap-3">
-          <PortalGlyph type={p.type} />
-          <div className="min-w-0">
-            <p className="max-w-[260px] truncate text-sm font-medium text-foreground">
-              {p.name}
-            </p>
-            <p className="mt-0.5 truncate text-[11px] text-text-tertiary">/u/{p.slug}</p>
+      key: "filename",
+      header: "File",
+      render: (j) => {
+        const Icon = TYPE_ICONS[j.fileType] || Link2;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
+              <Icon className="h-4 w-4 text-text-secondary" />
+            </div>
+            <div className="min-w-0">
+              <p className="max-w-[280px] truncate text-sm font-medium text-foreground">
+                {j.filename || "Untitled"}
+              </p>
+              <p className="mt-0.5 max-w-[280px] truncate text-[11px] text-text-tertiary">
+                {j.sourceUrl || "—"}
+              </p>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "type",
       header: "Type",
-      render: (p) => (
-        <Badge className={cn("border px-1.5 py-0 text-[10px]", TYPE_BADGE_COLORS[p.type])}>
-          {TYPE_LABELS[p.type] || p.type}
+      render: (j) => (
+        <Badge className={cn("border px-1.5 py-0 text-[10px]", FILE_TYPE_COLORS[j.fileType])}>
+          {j.fileType}
         </Badge>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (p) => (
-        <StatusPill status={p.status} map={PORTAL_STATUS_META} className="text-[10px]" />
+      render: (j) => (
+        <div className="flex items-center gap-2">
+          <StatusPill status={j.status} map={STATUS_META} />
+          {j.status === "uploading" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-text-tertiary" />
+          ) : null}
+          {j.status === "failed" && j.error ? (
+            <span className="max-w-[160px] truncate text-[11px] text-red-400">{j.error}</span>
+          ) : null}
+        </div>
       ),
     },
     {
-      key: "submissions",
-      header: "Submissions",
+      key: "size",
+      header: "Size",
       align: "right",
       className: "tabular-nums text-xs text-text-secondary",
-      render: (p) => p.submissionCount.toLocaleString(),
+      render: (j) => (j.sizeBytes ? formatBytes(j.sizeBytes) : "—"),
     },
     {
-      key: "expires",
-      header: "Expires",
-      className: "text-xs text-text-secondary hidden lg:table-cell",
-      headClassName: "hidden lg:table-cell",
-      render: (p) => (p.expiresAt ? formatDate(p.expiresAt) : "Never"),
-    },
-    {
-      key: "updated",
-      header: "Updated",
+      key: "created",
+      header: "Added",
       className: "text-xs text-text-secondary hidden md:table-cell",
       headClassName: "hidden md:table-cell",
-      render: (p) => formatDate(p.updatedAt),
+      render: (j) => formatDate(j.createdAt),
     },
     {
       key: "actions",
       header: "",
       align: "right",
-      render: (p) => (
-        <PortalRowActions
-          portal={p}
-          onView={(x) => setOpenPortalId(x.id)}
-          onToggle={handleToggle}
-          onCopyLink={handleCopyLink}
-          onDelete={handleDelete}
+      render: (j) => (
+        <ActionMenu
+          label={`Actions for ${j.filename || "this import"}`}
+          contentClassName="border-border bg-surface-subtle text-foreground"
+          items={[
+            { icon: Eye, label: "View details", onSelect: () => setOpenJobId(j.id) },
+            j.status === "failed" && {
+              icon: RotateCcw,
+              label: "Retry import",
+              onSelect: () => handleRetry(j),
+            },
+            j.sourceUrl && {
+              icon: Copy,
+              label: "Copy link",
+              onSelect: () => handleCopyLink(j),
+            },
+            j.sourceUrl && {
+              icon: ExternalLink,
+              label: "Open source",
+              href: j.sourceUrl,
+            },
+            { separator: true },
+            {
+              icon: Trash2,
+              label: "Remove",
+              variant: "destructive",
+              onSelect: () => handleRemoveJob(j),
+            },
+          ]}
         />
       ),
     },
@@ -705,305 +512,255 @@ export function ExternalUploadsScreen({ projectId }) {
         key={openPortalId}
         id={openPortalId}
         onBack={() => setOpenPortalId(null)}
-        onChange={syncPortal}
+        onChange={() => setPortalsVersion((v) => v + 1)}
       />
     );
   }
 
-  const cloudProviders = PROVIDERS.filter((p) => p.category === "cloud");
-  const storageProviders = PROVIDERS.filter((p) => p.category === "storage");
-  const stockProviders = PROVIDERS.filter((p) => p.category === "stock");
+  if (openJobId) {
+    return (
+      <UploadJobDetailScreen
+        key={openJobId}
+        id={openJobId}
+        onBack={() => setOpenJobId(null)}
+        onChange={syncJob}
+      />
+    );
+  }
 
   return (
     <MainScreenWrapper>
       <ScreenHeader
         title="External Uploads"
-        description="Connect cloud providers, collect files via portals, and configure import settings."
+        description="Pull files into the library straight from a public link — paste a batch, or bring a column of URLs in from a CSV."
         actions={
-          connected.size > 0 ? (
-            <Badge className="border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300">
-              {connected.size} provider{connected.size !== 1 ? "s" : ""} connected
-            </Badge>
-          ) : null
+          <Button
+            variant="outline"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={() => setShowSources(true)}
+          >
+            <Blocks className="h-4 w-4" />
+            Sources &amp; Portals
+          </Button>
         }
       />
 
-      {/* Provider connections */}
-      <div className="flex flex-col gap-6">
-        <ProviderSection
-          title="Cloud Storage"
-          providers={cloudProviders}
-          connected={connected}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-        <ProviderSection
-          title="Object Storage & FTP"
-          providers={storageProviders}
-          connected={connected}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-        <ProviderSection
-          title="Stock Libraries"
-          providers={stockProviders}
-          connected={connected}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-      </div>
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
 
-      {/* Upload portals */}
-      <div>
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Upload Portals</h2>
-            <p className="mt-0.5 text-xs text-text-secondary">
-              Shareable links and forms for external contributors to submit files
-            </p>
-          </div>
-          <Button
-            className="h-8 shrink-0 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-            onClick={() => setShowCreate(true)}
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New Portal
-          </Button>
-        </div>
-
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search portals…"
-            className="w-44"
-          />
-          <FilterDropdown
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            options={STATUS_FILTER_OPTIONS}
-            placeholder="Status"
-            icon={SlidersHorizontal}
-          />
-          <FilterDropdown
-            value={typeFilter}
-            onValueChange={setTypeFilter}
-            options={TYPE_FILTER_OPTIONS}
-            placeholder="Type"
-          />
-          <FilterDropdown
-            value={sortValue}
-            onValueChange={setSortValue}
-            options={SORT_OPTIONS}
-            placeholder="Sort"
-            icon={ArrowUpDown}
-          />
-          {hasPortalFilters && (
+        <div className="flex min-h-[320px] flex-col rounded-xl border border-border bg-surface-subtle p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
+                <Globe className="h-3.5 w-3.5 text-text-secondary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Import from links</p>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  One link per line — up to {formatBytes(REMOTE_IMPORT_MAX_BYTES)} per file.
+                </p>
+              </div>
+            </div>
             <Button
               variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
-              onClick={() => {
-                setStatusFilter("all");
-                setTypeFilter("all");
-                setSearch("");
-              }}
+              size="icon-sm"
+              aria-label="Import links from CSV"
+              title="Import links from CSV"
+              className="shrink-0 text-text-tertiary hover:bg-surface-active hover:text-foreground"
+              onClick={() => setShowCsv(true)}
             >
-              <X className="mr-1 h-3 w-3" />
-              Clear
+              <FileSpreadsheet className="h-4 w-4" />
             </Button>
-          )}
+          </div>
+
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                addFromText();
+              }
+            }}
+            placeholder={PLACEHOLDER}
+            spellCheck={false}
+            className={cn(
+              "resize-none bg-surface-card text-sm leading-6",
+              staged.length ? "min-h-[112px]" : "min-h-[140px] flex-1",
+            )}
+          />
+
+          <div className="mt-2.5 flex items-center justify-between gap-2">
+            <p className="text-xs text-text-tertiary">
+              {detected
+                ? `${detected} link${detected !== 1 ? "s" : ""} detected`
+                : "Paste links, then add them to the queue."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border bg-surface-card text-foreground hover:bg-surface-hover"
+              onClick={addFromText}
+              disabled={!text.trim()}
+            >
+              <Plus className="h-4 w-4" />
+              Add links
+            </Button>
+          </div>
+
+          {staged.length ? (
+            <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-border pt-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-foreground">
+                  {ready.length} ready
+                  {invalidCount > 0 ? (
+                    <span className="ml-2 text-xs font-normal text-amber-400">
+                      {invalidCount} skipped
+                    </span>
+                  ) : null}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-text-secondary hover:text-foreground"
+                  onClick={clearStaged}
+                >
+                  Clear all
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1 [max-height:15rem]">
+                {staged.map((item) => (
+                  <StagedLinkRow key={item.id} item={item} onRemove={removeStaged} />
+                ))}
+              </div>
+              <Button
+                className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={handleImportAll}
+                disabled={importing || !ready.length}
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importing {progress.done}/{progress.total}…
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4" />
+                    Import {ready.length} link{ready.length !== 1 ? "s" : ""}
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
-        {loading ? (
-          <div className="flex h-48 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={filtered}
-            getRowKey={(p) => p.id}
-            onRowClick={(p) => setOpenPortalId(p.id)}
-            empty={
-              <EmptyState
-                icon={Inbox}
-                title="No portals found"
-                description={
-                  hasPortalFilters
-                    ? "Try adjusting your filters or search query."
-                    : "Create your first upload portal to start collecting files."
-                }
-                action={
-                  hasPortalFilters ? (
-                    <Button
-                      variant="outline"
-                      className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                      onClick={() => {
-                        setStatusFilter("all");
-                        setTypeFilter("all");
-                        setSearch("");
-                      }}
-                    >
-                      Clear filters
-                    </Button>
-                  ) : (
-                    <Button
-                      className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                      onClick={() => setShowCreate(true)}
-                    >
-                      <Plus className="mr-1.5 h-4 w-4" />
-                      New Portal
-                    </Button>
-                  )
-                }
+        <SectionCard title="Import options" description="Applied to every link in this batch.">
+          <div className="grid gap-5">
+            <Field
+              label="Destination folder"
+              hint="Browse the project's folders to pick where these land."
+            >
+              <FolderPicker projectId={projectId} value={folder} onChange={setFolder} />
+            </Field>
+
+            <Field label="Tags" hint="Press Enter or comma to add a tag.">
+              <TagInput value={tags} onChange={setTags} placeholder="campaign, hero, 2025…" />
+            </Field>
+
+            <Field label="Quality preset" hint={qualityHint}>
+              <SegmentedTabs
+                fullWidth
+                tabs={QUALITY_PRESETS.map((q) => ({
+                  value: q.value,
+                  label: q.label,
+                  icon: q.icon,
+                }))}
+                value={quality}
+                onChange={setQuality}
               />
-            }
-          />
+            </Field>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="space-y-4">
+        <Toolbar>
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterDropdown
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              options={REMOTE_STATUS_FILTER_OPTIONS}
+              height="h-9"
+            />
+            <FilterDropdown
+              value={sortValue}
+              onValueChange={setSortValue}
+              options={REMOTE_SORT_OPTIONS}
+              height="h-9"
+            />
+            {filtersActive ? (
+              <Button
+                variant="ghost"
+                className="text-text-secondary hover:bg-surface-active hover:text-foreground"
+                onClick={clearFilters}
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            ) : null}
+          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search imports…" />
+        </Toolbar>
+
+        {loadingJobs ? (
+          <LoadingArea panel size={56} />
+        ) : (
+          <div className="space-y-5">
+            <DataTable
+              columns={columns}
+              data={pager.pageItems}
+              getRowKey={(j) => j.id}
+              onRowClick={(j) => setOpenJobId(j.id)}
+              empty={
+                <div className="rounded-xl border border-border bg-surface-subtle">
+                  <EmptyState
+                    icon={Link2}
+                    title={filtersActive ? "No matching imports" : "No remote imports yet"}
+                    description={
+                      filtersActive
+                        ? "Try adjusting your filters."
+                        : "Paste a link above to pull your first file in from the web."
+                    }
+                    action={
+                      filtersActive ? (
+                        <Button
+                          variant="outline"
+                          className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </Button>
+                      ) : null
+                    }
+                  />
+                </div>
+              }
+            />
+            <ListPagination {...pager} itemLabel="imports" />
+          </div>
         )}
       </div>
 
-      {/* Import settings */}
-      <div>
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Import Settings</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {/* Left column */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between rounded-xl border border-border bg-surface-subtle px-4 py-3.5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-                  <Zap className="h-3.5 w-3.5 text-text-secondary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Auto-approve files</p>
-                  <p className="text-xs text-text-secondary">
-                    Skip the review queue for incoming submissions
-                  </p>
-                </div>
-              </div>
-              <Switch checked={autoApprove} onCheckedChange={setAutoApprove} />
-            </div>
+      <CsvLinkDialog open={showCsv} onOpenChange={setShowCsv} onAddLinks={addLinks} />
 
-            <div className="rounded-xl border border-border bg-surface-subtle p-4">
-              <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-                  <FolderOpen className="h-3.5 w-3.5 text-text-secondary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Default destination</p>
-                  <p className="text-xs text-text-secondary">Where incoming files land by default</p>
-                </div>
-              </div>
-              <Select value={defaultFolder} onValueChange={setDefaultFolder}>
-                <SelectTrigger className="h-8 border-border bg-surface-card text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-border bg-surface-subtle text-foreground">
-                  {FOLDER_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="rounded-xl border border-border bg-surface-subtle p-4">
-              <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-                  <AlertCircle className="h-3.5 w-3.5 text-text-secondary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">File size limit</p>
-                  <p className="text-xs text-text-secondary">Maximum size for incoming uploads</p>
-                </div>
-              </div>
-              <Select value={sizeLimit} onValueChange={setSizeLimit}>
-                <SelectTrigger className="h-8 border-border bg-surface-card text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-border bg-surface-subtle text-foreground">
-                  {SIZE_LIMIT_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Right column */}
-          <div className="flex flex-col gap-3">
-            <div className="rounded-xl border border-border bg-surface-subtle p-4">
-              <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-                  <Shield className="h-3.5 w-3.5 text-text-secondary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Allowed file types</p>
-                  <p className="text-xs text-text-secondary">
-                    Files not matching will be rejected
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {FILE_TYPE_CHIPS.map(({ value, label }) => {
-                  const active = allowedTypes.has(value);
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => toggleAllowedType(value)}
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                        active
-                          ? "border-primary/40 bg-primary/10 text-primary"
-                          : "border-border bg-surface-card text-text-tertiary hover:bg-surface-hover hover:text-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-surface-subtle p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-                    <Bell className="h-3.5 w-3.5 text-text-secondary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Email notifications</p>
-                    <p className="text-xs text-text-secondary">
-                      Get notified when new files are submitted
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
-                />
-              </div>
-              {emailNotifications && (
-                <Input
-                  value={notificationEmail}
-                  onChange={(e) => setNotificationEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  type="email"
-                  className="h-8 border-border bg-surface-card text-xs text-foreground placeholder:text-text-tertiary"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <CreatePortalDialog
-        open={showCreate}
-        onOpenChange={setShowCreate}
-        onCreate={handleCreate}
+      <ExternalSourcesSheet
+        projectId={projectId}
+        open={showSources}
+        onOpenChange={setShowSources}
+        reloadKey={portalsVersion}
+        onOpenPortal={(id) => {
+          setShowSources(false);
+          setOpenPortalId(id);
+        }}
       />
     </MainScreenWrapper>
   );

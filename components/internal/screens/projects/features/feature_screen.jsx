@@ -9,8 +9,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Button } from "@geiger/ui/button";
 import {
   ScreenHeader,
   SectionCard,
@@ -39,7 +39,7 @@ export function FeatureScreen({ title, onNavigate }) {
   const Icon = item.icon;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader
         title={item.title}
         description={item.description}
@@ -59,14 +59,14 @@ export function FeatureScreen({ title, onNavigate }) {
           variant="outline"
           className="rounded-md border-border bg-surface-card px-2.5 py-1 text-text-secondary"
         >
-          <Layers3 className="h-3.5 w-3" />
+          <Layers3 className="h-3.5 w-3.5" />
           {item.domain}
         </Badge>
         <Badge
           variant="outline"
           className="rounded-md border-border bg-surface-card px-2.5 py-1 text-text-secondary"
         >
-          <Sparkles className="h-3.5 w-3" />
+          <Sparkles className="h-3.5 w-3.5" />
           Competitor researched
         </Badge>
       </div>

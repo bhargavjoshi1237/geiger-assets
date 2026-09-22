@@ -50,7 +50,6 @@ export function FileDropzone({
     try {
       e.dataTransfer.dropEffect = "copy";
     } catch {
-      /* non-file drags may not expose dataTransfer */
     }
   }, [disabled]);
 

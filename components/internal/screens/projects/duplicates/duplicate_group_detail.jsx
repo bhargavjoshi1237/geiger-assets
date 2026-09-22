@@ -13,30 +13,32 @@ import {
   File,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Textarea } from "@geiger/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@geiger/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
+  Field,
+  LoadingArea,
   SectionCard,
   StatusPill,
-  Field,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
+  DEFAULT_ASSET_COLOR,
   TYPE_ICONS,
-  FILE_TYPE_COLORS,
-  formatBytes,
-} from "@/components/internal/screens/projects/library/constants";
+} from "@/components/internal/shared/asset_meta";
+import { STATUS_META as ASSET_STATUS_META } from "@/components/internal/screens/projects/library/constants";
+import { formatBytes } from "@/lib/format";
 import { MATCH_META, STATUS_META, STATUS_OPTIONS, formatDate } from "./constants";
 import {
   getGroup,
@@ -50,7 +52,7 @@ import {
 function MemberCard({ member, onMakeKeeper }) {
   const asset = member.asset;
   const Icon = TYPE_ICONS[asset?.type] || File;
-  const color = asset?.color || "#737373";
+  const color = asset?.color || DEFAULT_ASSET_COLOR;
   return (
     <div
       className={cn(
@@ -86,9 +88,7 @@ function MemberCard({ member, onMakeKeeper }) {
 
       <div className="flex items-center justify-between gap-2">
         {asset ? (
-          <Badge className={cn("border px-1.5 py-0 text-[10px]", FILE_TYPE_COLORS[asset.type])}>
-            {asset.status}
-          </Badge>
+          <StatusPill status={asset.status} map={ASSET_STATUS_META} className="text-[10px]" />
         ) : (
           <span />
         )}
@@ -203,17 +203,15 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!group) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={CopyCheck}
           title="Duplicate group not found"
@@ -221,7 +219,7 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to Duplicate Review
@@ -235,7 +233,7 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
   const matchMeta = MATCH_META[group.matchType] || MATCH_META.exact;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -271,22 +269,22 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
         <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="outline"
-            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
             onClick={handleIgnore}
             disabled={busy || group.status === "ignored"}
           >
-            <EyeOff className="mr-1.5 h-4 w-4" />
+            <EyeOff className="h-4 w-4" />
             Ignore
           </Button>
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleResolve}
             disabled={busy || group.status === "resolved"}
           >
             {busy ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <CheckCircle2 className="mr-1.5 h-4 w-4" />
+              <CheckCircle2 className="h-4 w-4" />
             )}
             Resolve
           </Button>
@@ -300,7 +298,6 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
 
-        {/* Members */}
         <TabsContent value="members">
           <SectionCard
             title="Duplicate assets"
@@ -327,7 +324,6 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Resolution */}
         <TabsContent value="resolution">
           <SectionCard title="Resolution">
             <div className="grid gap-4">
@@ -355,33 +351,33 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
               </Field>
               <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
                 <Button
-                  className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
                   onClick={handleSave}
                   disabled={!dirty || saving}
                 >
                   {saving ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Save className="mr-1.5 h-4 w-4" />
+                    <Save className="h-4 w-4" />
                   )}
                   {dirty ? "Save changes" : "Saved"}
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                  className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
                   onClick={handleResolve}
                   disabled={busy || group.status === "resolved"}
                 >
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                  <CheckCircle2 className="h-4 w-4" />
                   Resolve
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                  className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
                   onClick={handleIgnore}
                   disabled={busy || group.status === "ignored"}
                 >
-                  <EyeOff className="mr-1.5 h-4 w-4" />
+                  <EyeOff className="h-4 w-4" />
                   Ignore
                 </Button>
               </div>
@@ -389,7 +385,6 @@ export function DuplicateGroupDetailScreen({ id, onBack, onChange }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Details */}
         <TabsContent value="details">
           <SectionCard title="Details">
             <dl className="grid gap-4 sm:grid-cols-2">

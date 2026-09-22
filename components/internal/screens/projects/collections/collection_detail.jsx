@@ -15,34 +15,35 @@ import {
   File,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { Input } from "@geiger/ui/input";
+import { Textarea } from "@geiger/ui/textarea";
+import { Switch } from "@geiger/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@geiger/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
+  Field,
+  LoadingArea,
+  SearchInput,
   SectionCard,
   StatusPill,
-  Field,
-  SearchInput,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
   TYPE_ICONS,
@@ -64,15 +65,13 @@ import {
   removeCollectionAsset,
 } from "@/lib/supabase/collections";
 import { listAssets } from "@/lib/supabase/assets";
+import { useCopied } from "@/lib/use-copied";
+import { collectionShareUrl } from "@/lib/share";
 
 function AssetGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
-  return <Icon className={className} style={{ color: color || "#737373" }} />;
+  return <Icon className={className} style={{ color: color || "var(--color-text-secondary)" }} />;
 }
-
-// ---------------------------------------------------------------------------
-// Add-assets dialog — pulls every library asset and adds on click.
-// ---------------------------------------------------------------------------
 
 function AddAssetsDialog({ open, onOpenChange, existingIds, onAdd, projectId }) {
   const [assets, setAssets] = useState([]);
@@ -90,7 +89,7 @@ function AddAssetsDialog({ open, onOpenChange, existingIds, onAdd, projectId }) 
     return () => {
       alive = false;
     };
-  }, []);
+  }, [projectId]);
 
   const filtered = useMemo(() => {
     const available = assets.filter((a) => !existingIds.has(a.id));
@@ -119,9 +118,7 @@ function AddAssetsDialog({ open, onOpenChange, existingIds, onAdd, projectId }) 
         <SearchInput value={search} onChange={setSearch} placeholder="Search library..." />
         <div className="max-h-80 overflow-y-auto rounded-md border border-border bg-surface-card">
           {loading ? (
-            <div className="flex h-32 items-center justify-center text-text-tertiary">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
+            <LoadingArea className="h-32 py-0" />
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={ImagePlus}
@@ -168,10 +165,6 @@ function AddAssetsDialog({ open, onOpenChange, existingIds, onAdd, projectId }) 
   );
 }
 
-// ---------------------------------------------------------------------------
-// Detail screen
-// ---------------------------------------------------------------------------
-
 export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
   const [loading, setLoading] = useState(true);
   const [collection, setCollection] = useState(null);
@@ -179,7 +172,7 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
   const [members, setMembers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, flashCopied] = useCopied();
 
   useEffect(() => {
     let alive = true;
@@ -278,13 +271,12 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
     }
   };
 
-  const shareLink = `https://assets.geiger.studio/c/${id}`;
+  const shareLink = collectionShareUrl(id);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(shareLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      flashCopied();
     } catch (e) {
       console.error("[collections.copyLink]", e);
     }
@@ -292,17 +284,15 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!collection || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={Layers}
           title="Collection not found"
@@ -310,7 +300,7 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to Collections
@@ -322,7 +312,7 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -341,7 +331,7 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
               borderColor: `${draft.coverColor}40`,
             }}
           >
-            <Layers className="h-5 w-5" style={{ color: draft.coverColor || "#737373" }} />
+            <Layers className="h-5 w-5" style={{ color: draft.coverColor || "var(--color-text-secondary)" }} />
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
@@ -358,14 +348,14 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSave}
             disabled={!dirty || saving}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="h-4 w-4" />
             )}
             {dirty ? "Save changes" : "Saved"}
           </Button>
@@ -379,7 +369,6 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
           <TabsTrigger value="sharing">Sharing</TabsTrigger>
         </TabsList>
 
-        {/* Assets tab */}
         <TabsContent value="assets">
           <SectionCard
             title="Assets"
@@ -404,10 +393,10 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
                 description="Add assets from your library to start building this collection."
                 action={
                   <Button
-                    className="bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
                     onClick={() => setShowAdd(true)}
                   >
-                    <Plus className="mr-1.5 h-4 w-4" />
+                    <Plus className="h-4 w-4" />
                     Add assets
                   </Button>
                 }
@@ -460,7 +449,6 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Settings tab */}
         <TabsContent value="settings">
           <SectionCard title="Details">
             <div className="grid gap-4">
@@ -536,7 +524,6 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
           </SectionCard>
         </TabsContent>
 
-        {/* Sharing tab */}
         <TabsContent value="sharing">
           <SectionCard
             title="Sharing"
@@ -569,13 +556,13 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
                   </div>
                   <Button
                     variant="outline"
-                    className="h-9 shrink-0 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                    className="shrink-0 border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
                     onClick={handleCopy}
                   >
                     {copied ? (
-                      <Check className="mr-1.5 h-4 w-4 text-emerald-400" />
+                      <Check className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <Copy className="mr-1.5 h-4 w-4" />
+                      <Copy className="h-4 w-4" />
                     )}
                     {copied ? "Copied" : "Copy"}
                   </Button>

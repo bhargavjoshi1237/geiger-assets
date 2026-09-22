@@ -2,8 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
-  MoreHorizontal,
   Eye,
   CheckCircle2,
   EyeOff,
@@ -11,30 +9,22 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
   CopyCheck,
-  Loader2,
   RadarIcon,
-  ScanSearch,
+  RefreshCw,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+import { Button } from "@geiger/ui/button";
+import { Badge } from "@geiger/ui/badge";
+import { ActionMenu } from "@geiger/ui/action-menu";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  ScreenHeader,
-  StatsBar,
-  SearchInput,
-  StatusPill,
-  EmptyState,
   DataTable,
+  EmptyState,
+  LoadingArea,
+  ScreenHeader,
+  SearchInput,
+  StatsBar,
+  StatusPill,
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import {
@@ -47,74 +37,19 @@ import {
 } from "./constants";
 import { listGroups, resolveGroup, ignoreGroup } from "@/lib/supabase/duplicates";
 import { DuplicateGroupDetailScreen } from "./duplicate_group_detail";
-
-function FilterDropdown({ value, onValueChange, options, placeholder, icon: Icon }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-8 gap-1.5 rounded-md border-border bg-surface-card px-3 text-xs font-medium text-foreground hover:bg-surface-subtle"
-        >
-          {Icon ? <Icon className="h-3.5 w-3.5 text-text-secondary" /> : null}
-          {options.find((o) => o.value === value)?.label || placeholder}
-          <ChevronDown className="h-3 w-3 text-text-secondary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="start">
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.value}
-              value={option.value}
-              className="cursor-pointer text-xs focus:bg-surface-hover focus:text-foreground"
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
+import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
 
 function RowActions({ group, onReview, onResolve, onIgnore }) {
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Duplicate group actions"
-            className="h-7 w-7 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="border-border bg-surface-subtle text-foreground" align="end">
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onReview(group)}
-          >
-            <Eye className="mr-2 h-3.5 w-3.5" /> Review
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onResolve(group)}
-          >
-            <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Resolve
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-surface-hover" />
-          <DropdownMenuItem
-            className="cursor-pointer text-xs focus:bg-surface-hover"
-            onClick={() => onIgnore(group)}
-          >
-            <EyeOff className="mr-2 h-3.5 w-3.5" /> Ignore
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <ActionMenu
+      label="Duplicate group actions"
+      items={[
+        { icon: Eye, label: "Review", onSelect: () => onReview(group) },
+        { icon: CheckCircle2, label: "Resolve", onSelect: () => onResolve(group) },
+        { separator: true },
+        { icon: EyeOff, label: "Ignore", onSelect: () => onIgnore(group) },
+      ]}
+    />
   );
 }
 
@@ -127,12 +62,26 @@ export function DuplicateReviewScreen({ projectId }) {
   const [sortValue, setSortValue] = useState("created-desc");
   const [openGroupId, setOpenGroupId] = useState(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
+    let alive = true;
     listGroups(projectId).then((rows) => {
+      if (!alive) return;
       setGroups(rows ?? []);
       setLoading(false);
     });
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const rows = await listGroups(projectId);
+    setGroups(rows ?? []);
+    setRefreshing(false);
+  };
 
   const filtered = useMemo(() => {
     let result = [...groups];
@@ -295,18 +244,19 @@ export function DuplicateReviewScreen({ projectId }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <ScreenHeader
         title="Duplicate Review"
         description="Find and resolve duplicate or near-duplicate assets."
         actions={
           <Button
             variant="outline"
-            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-            onClick={() => console.info("[duplicates] scan requested")}
+            disabled={refreshing}
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={handleRefresh}
           >
-            <ScanSearch className="mr-1.5 h-4 w-4" />
-            Scan for duplicates
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+            Refresh
           </Button>
         }
       />
@@ -315,12 +265,6 @@ export function DuplicateReviewScreen({ projectId }) {
 
       <Toolbar>
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search recommendations..."
-            className="w-full sm:w-64"
-          />
           <FilterDropdown
             value={matchFilter}
             onValueChange={setMatchFilter}
@@ -334,6 +278,13 @@ export function DuplicateReviewScreen({ projectId }) {
             options={STATUS_FILTER_OPTIONS}
             placeholder="Status"
           />
+          <FilterDropdown
+            value={sortValue}
+            onValueChange={setSortValue}
+            options={SORT_OPTIONS}
+            placeholder="Sort"
+            icon={ArrowUpDown}
+          />
           {hasActiveFilters ? (
             <Button
               variant="ghost"
@@ -346,19 +297,16 @@ export function DuplicateReviewScreen({ projectId }) {
             </Button>
           ) : null}
         </div>
-        <FilterDropdown
-          value={sortValue}
-          onValueChange={setSortValue}
-          options={SORT_OPTIONS}
-          placeholder="Sort"
-          icon={ArrowUpDown}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search recommendations..."
+          className="w-full sm:w-64"
         />
       </Toolbar>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-subtle text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+        <LoadingArea panel className="h-64 py-0" />
       ) : (
         <DataTable
           columns={columns}
@@ -366,26 +314,28 @@ export function DuplicateReviewScreen({ projectId }) {
           getRowKey={(g) => g.id}
           onRowClick={(g) => setOpenGroupId(g.id)}
           empty={
-            <EmptyState
-              icon={RadarIcon}
-              title="No duplicate groups"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search query."
-                  : "Your library is clean — no duplicates have been detected."
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                ) : null
-              }
-            />
+            <div className="rounded-xl border border-border bg-surface-subtle">
+              <EmptyState
+                icon={RadarIcon}
+                title="No duplicate groups"
+                description={
+                  hasActiveFilters
+                    ? "Try adjusting your filters or search query."
+                    : "Your library is clean — no duplicates have been detected."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button
+                      variant="outline"
+                      className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null
+                }
+              />
+            </div>
           }
         />
       )}

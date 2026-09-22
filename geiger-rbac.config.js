@@ -42,7 +42,25 @@ const CREATOR_SECTIONS = [
   "Access Control",
 ];
 
-const navPermissions = [...NAV_SECTIONS, ...CREATOR_SECTIONS].map((title) => ({
+const LICENSING_SECTIONS = [
+  "Rights Inventory",
+  "License Templates",
+  "License Pricing",
+  "Issued Licenses",
+  "Expirations & Renewals",
+  "Revenue & Royalties",
+];
+
+const DELIVERY_SECTIONS = [
+  "CDN Delivery",
+  "Dynamic Images",
+  "Video Delivery",
+  "Embeds & Headless",
+  "Channel Publishing",
+  "Delivery Analytics",
+];
+
+const navPermissions = [...NAV_SECTIONS, ...CREATOR_SECTIONS, ...LICENSING_SECTIONS, ...DELIVERY_SECTIONS].map((title) => ({
   key: navPermissionKey(title),
   label: title,
   group: "Workspace views",
@@ -74,10 +92,6 @@ const operationPermissions = [
     scopeBy: "project",
   },
   {
-    // Resource is "payout", not "tip": the condition reads payout.status, and a
-    // condition may only read columns off the permission's own resource. Keyed
-    // as assets.tip.payout this catalog threw at module load, which is why
-    // nothing could import it.
     key: "assets.payout.settle",
     label: "Settle tips and payouts",
     group: "Memberships",

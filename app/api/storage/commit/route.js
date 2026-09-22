@@ -17,19 +17,17 @@ export async function POST(request) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 
-  const { uploadJobId, key, assetId, checksum, name, type, folder, tags, parts, response, providerKey } = body ?? {};
+  const { uploadJobId, key, assetId, checksum, name, type, status, folder, tags, parts, response, providerKey } = body ?? {};
   if (!uploadJobId || !key) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 
-  // Ownership is re-derived from the key, never trusted from the body: the
-  // project segment decides whose membership (and whose edit right) applies.
   const parsed = parseKey(key);
   if (!parsed?.projectId) return NextResponse.json({ error: "bad_key" }, { status: 400 });
   const access = await requireProjectAccess({ projectId: parsed.projectId, action: "write" });
   if (access.response) return access.response;
 
-  const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, folder, tags, parts, response, providerKey });
+  const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, status, folder, tags, parts, response, providerKey });
   if (result.error === "not_committed") return NextResponse.json({ error: "not_committed" }, { status: 409 });
   if (result.error === "forbidden") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (result.error === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404 });

@@ -12,22 +12,23 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@geiger/ui/button";
+import { Input } from "@geiger/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@geiger/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  EmptyState,
+  Field,
+  LoadingArea,
   SectionCard,
   StatusPill,
-  Field,
-  EmptyState,
 } from "@/components/internal/shared/screen_kit";
 import {
   TYPE_ICONS,
@@ -140,17 +141,15 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!job || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={File}
           title="Upload not found"
@@ -158,7 +157,7 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to Upload Center
@@ -172,7 +171,7 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
   const TypeIcon = TYPE_ICONS[draft.fileType] || File;
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -202,21 +201,21 @@ export function UploadJobDetailScreen({ id, onBack, onChange }) {
         <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="outline"
-            className="h-9 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
             onClick={handleRetry}
           >
-            <RotateCcw className="mr-1.5 h-4 w-4" />
+            <RotateCcw className="h-4 w-4" />
             Retry
           </Button>
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSave}
             disabled={!dirty || saving}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="h-4 w-4" />
             )}
             {dirty ? "Save changes" : "Saved"}
           </Button>

@@ -9,6 +9,17 @@ export async function POST(request) {
     return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   }
 
+  const projectId = new URL(request.url).searchParams.get("projectId");
+  if (!projectId) return NextResponse.json({ error: "bad_request" }, { status: 400 });
+
+  const declared = Number(request.headers.get("content-length") || 0);
+  if (declared && declared > PROXY_MAX_BYTES) {
+    return NextResponse.json({ error: "too_large" }, { status: 413 });
+  }
+
+  const access = await requireProjectAccess({ projectId: String(projectId), action: "write" });
+  if (access.response) return access.response;
+
   let form;
   try {
     form = await request.formData();
@@ -17,14 +28,10 @@ export async function POST(request) {
   }
 
   const file = form.get("file");
-  const projectId = form.get("projectId");
   const uploadJobId = form.get("uploadJobId");
-  if (!(file instanceof Blob) || !projectId || !uploadJobId) {
+  if (!(file instanceof Blob) || !uploadJobId) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
-
-  const access = await requireProjectAccess({ projectId: String(projectId), action: "write" });
-  if (access.response) return access.response;
 
   if (file.size > PROXY_MAX_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -48,6 +55,7 @@ export async function POST(request) {
     assetId: form.get("assetId") ? String(form.get("assetId")) : undefined,
     name: form.get("name") ? String(form.get("name")) : undefined,
     type: form.get("type") ? String(form.get("type")) : undefined,
+    status: form.get("status") ? String(form.get("status")) : undefined,
     folder: form.get("folder") ? String(form.get("folder")) : undefined,
     tags,
     checksum: form.get("checksum") ? String(form.get("checksum")) : undefined,

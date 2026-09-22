@@ -1,4 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import { BannerProvider, GlobalBanner } from "@geiger/ui";
+import { Toaster } from "@geiger/ui/sonner";
+
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SystemFavicon } from "@/components/system-favicon";
@@ -18,13 +21,11 @@ export const metadata = {
   description: "Geiger Studio - Assets",
 };
 
-import { BannerProvider } from "@/context/banner-context";
-import { Toaster } from "@geiger/ui/sonner";
-
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning
+      <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SystemFavicon />
@@ -35,9 +36,8 @@ export default function RootLayout({ children }) {
           disableTransitionOnChange
         >
           <BannerProvider>
-            <div className="flex flex-col min-h-screen">
-              {children}
-            </div>
+            <GlobalBanner />
+            <div className="flex flex-col min-h-screen">{children}</div>
             <Toaster />
           </BannerProvider>
         </ThemeProvider>

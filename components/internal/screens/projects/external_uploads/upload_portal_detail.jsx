@@ -14,25 +14,26 @@ import {
   Mail,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@geiger/ui/button";
+import { Input } from "@geiger/ui/input";
+import { Switch } from "@geiger/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@geiger/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
+  DataTable,
+  EmptyState,
+  Field,
+  LoadingArea,
   SectionCard,
   StatusPill,
-  Field,
-  EmptyState,
-  DataTable,
 } from "@/components/internal/shared/screen_kit";
 import {
   PORTAL_STATUS_META,
@@ -47,17 +48,13 @@ import {
   listSubmissions,
   updateSubmission,
 } from "@/lib/supabase/external_uploads";
-
-const PORTAL_BASE_URL = "https://assets.geiger.studio/u";
+import { useCopied } from "@/lib/use-copied";
+import { portalShareUrl } from "@/lib/share";
 
 function PortalGlyph({ type, className }) {
   const Icon = type === "form" ? FormInput : Link2;
   return <Icon className={className} />;
 }
-
-// ---------------------------------------------------------------------------
-// Submissions tab
-// ---------------------------------------------------------------------------
 
 function SubmissionsTab({ rows, onApprove, onReject }) {
   const columns = [
@@ -143,21 +140,19 @@ function SubmissionsTab({ rows, onApprove, onReject }) {
         data={rows}
         getRowKey={(s) => s.id}
         empty={
-          <EmptyState
-            icon={Inbox}
-            title="No submissions yet"
-            description="Share this portal to start receiving uploads."
-            className="py-12"
-          />
+          <div className="rounded-xl border border-border bg-surface-subtle">
+            <EmptyState
+              icon={Inbox}
+              title="No submissions yet"
+              description="Share this portal to start receiving uploads."
+              className="py-12"
+            />
+          </div>
         }
       />
     </SectionCard>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Detail screen
-// ---------------------------------------------------------------------------
 
 export function UploadPortalDetailScreen({ id, onBack, onChange }) {
   const [loading, setLoading] = useState(true);
@@ -165,7 +160,7 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
   const [draft, setDraft] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, flashCopied] = useCopied();
 
   useEffect(() => {
     let alive = true;
@@ -235,29 +230,26 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
     if (!updated) setSubmissions(prev);
   };
 
-  const shareUrl = draft ? `${PORTAL_BASE_URL}/${draft.slug}` : "";
+  const shareUrl = draft ? portalShareUrl(draft.slug) : "";
 
   const handleCopy = () => {
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(shareUrl).catch(() => {});
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    flashCopied();
   };
 
   if (loading) {
     return (
-      <MainScreenWrapper className="dark">
-        <div className="flex h-64 items-center justify-center text-text-tertiary">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
+      <MainScreenWrapper>
+        <LoadingArea className="h-64 py-0" />
       </MainScreenWrapper>
     );
   }
 
   if (!portal || !draft) {
     return (
-      <MainScreenWrapper className="dark">
+      <MainScreenWrapper>
         <EmptyState
           icon={Inbox}
           title="Portal not found"
@@ -265,7 +257,7 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
           action={
             <Button
               variant="outline"
-              className="border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
               onClick={onBack}
             >
               Back to External Uploads
@@ -277,7 +269,7 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
   }
 
   return (
-    <MainScreenWrapper className="dark">
+    <MainScreenWrapper>
       <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -304,14 +296,14 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            className="h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSave}
             disabled={!dirty || saving}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="h-4 w-4" />
             )}
             {dirty ? "Save changes" : "Saved"}
           </Button>
@@ -424,13 +416,13 @@ export function UploadPortalDetailScreen({ id, onBack, onChange }) {
                   />
                   <Button
                     variant="outline"
-                    className="h-9 shrink-0 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                    className="shrink-0 border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
                     onClick={handleCopy}
                   >
                     {copied ? (
-                      <Check className="mr-1.5 h-4 w-4 text-emerald-300" />
+                      <Check className="h-4 w-4 text-emerald-300" />
                     ) : (
-                      <Copy className="mr-1.5 h-4 w-4" />
+                      <Copy className="h-4 w-4" />
                     )}
                     {copied ? "Copied" : "Copy"}
                   </Button>

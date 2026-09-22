@@ -3,13 +3,13 @@
 import React, { useMemo, useState } from "react";
 import { File } from "lucide-react";
 
-import { TYPE_ICONS } from "@/components/internal/screens/projects/library/constants";
+import { TYPE_ICONS, DEFAULT_ASSET_COLOR } from "@/components/internal/shared/asset_meta";
 import { assetFileUrl } from "@/lib/storage/client";
 import { cn } from "@/lib/utils";
 
 function TypeGlyph({ type, color, className }) {
   const Icon = TYPE_ICONS[type] || File;
-  return <Icon className={className} style={{ color: color || "#737373" }} />;
+  return <Icon className={className} style={{ color: color || DEFAULT_ASSET_COLOR }} />;
 }
 
 function isPdf(asset) {
@@ -33,7 +33,7 @@ function isAudio(asset) {
   return asset?.type === "audio" || mime.startsWith("audio/");
 }
 
-export function AssetPreview({ asset, className }) {
+export function AssetPreview({ asset, className, frameless = false }) {
   const [failed, setFailed] = useState(false);
   const fileUrl = useMemo(
     () => (asset?.id ? assetFileUrl(asset.id) : ""),
@@ -42,37 +42,46 @@ export function AssetPreview({ asset, className }) {
 
   const hasFile = Boolean(asset?.storageKey && fileUrl && !failed);
   const thumb = asset?.thumbnailUrl || "";
+  const assetColor = asset?.color || DEFAULT_ASSET_COLOR;
 
   const frameClass = cn(
-    "overflow-hidden rounded-xl border border-border",
+    "overflow-hidden",
+    !frameless && "rounded-xl border border-border",
     className,
   );
-  const frameStyle = {
-    background: `linear-gradient(135deg, ${asset?.color || "#737373"}15 0%, ${asset?.color || "#737373"}08 100%)`,
-    borderColor: `${asset?.color || "#737373"}20`,
-  };
+  const frameStyle = frameless
+    ? undefined
+    : {
+        background: `linear-gradient(135deg, ${assetColor}15 0%, ${assetColor}08 100%)`,
+        borderColor: `${assetColor}20`,
+      };
 
-  // No stored object and no thumbnail — show placeholder instead of a broken file URL.
+  const mediaClass = frameless
+    ? "h-auto max-h-[26rem] w-full object-contain"
+    : "aspect-video w-full object-contain";
+
   if (!hasFile && !thumb) {
     return (
       <div
         className={cn(
           frameClass,
           "flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center",
+          frameless && "bg-surface-card",
         )}
         style={frameStyle}
       >
         <TypeGlyph type={asset?.type} color={asset?.color} className="h-16 w-16" />
         <p className="text-xs text-text-tertiary">
-          {asset?.storageStatus === "pending"
-            ? "File is still processing…"
-            : "No file uploaded yet — no preview available."}
+          {failed
+            ? "This file couldn't be loaded."
+            : asset?.storageStatus === "pending"
+              ? "File is still processing…"
+              : "No file uploaded yet — no preview available."}
         </p>
       </div>
     );
   }
 
-  // Stored file failed to load (deleted object, 404) — fall back to thumbnail/icon.
   if (failed && thumb) {
     return (
       <div className={frameClass} style={frameStyle}>
@@ -80,7 +89,7 @@ export function AssetPreview({ asset, className }) {
         <img
           src={thumb}
           alt={asset?.name || "Asset thumbnail"}
-          className="aspect-video w-full object-contain"
+          className={mediaClass}
         />
       </div>
     );
@@ -93,12 +102,8 @@ export function AssetPreview({ asset, className }) {
         <img
           src={thumb || fileUrl}
           alt={asset?.name || "Asset preview"}
-          className="aspect-video w-full object-contain"
-          onError={() => {
-            // Thumbnail may be stale; retry against the file proxy once.
-            if (thumb) setFailed(true);
-            else setFailed(true);
-          }}
+          className={mediaClass}
+          onError={() => setFailed(true)}
         />
       </div>
     );
@@ -111,7 +116,7 @@ export function AssetPreview({ asset, className }) {
           src={fileUrl}
           controls
           preload="metadata"
-          className="aspect-video w-full bg-black"
+          className={cn(mediaClass, "bg-black object-contain")}
           onError={() => setFailed(true)}
         />
       </div>
@@ -124,6 +129,7 @@ export function AssetPreview({ asset, className }) {
         className={cn(
           frameClass,
           "flex aspect-video flex-col items-center justify-center gap-4 p-6",
+          frameless && "bg-surface-card",
         )}
         style={frameStyle}
       >
@@ -145,14 +151,13 @@ export function AssetPreview({ asset, className }) {
         <iframe
           src={fileUrl}
           title={asset?.name || "PDF preview"}
-          className="aspect-video w-full bg-white"
+          className={cn("w-full bg-white", frameless ? "h-[26rem]" : "aspect-video")}
           onError={() => setFailed(true)}
         />
       </div>
     );
   }
 
-  // Thumbnail-only, or a non-renderable type with a stored file.
   if (thumb) {
     return (
       <div className={frameClass} style={frameStyle}>
@@ -160,7 +165,7 @@ export function AssetPreview({ asset, className }) {
         <img
           src={thumb}
           alt={asset?.name || "Asset thumbnail"}
-          className="aspect-video w-full object-contain"
+          className={mediaClass}
           onError={() => setFailed(true)}
         />
       </div>
@@ -172,6 +177,7 @@ export function AssetPreview({ asset, className }) {
       className={cn(
         frameClass,
         "flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center",
+        frameless && "bg-surface-card",
       )}
       style={frameStyle}
     >

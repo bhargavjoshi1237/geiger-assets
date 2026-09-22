@@ -1,8 +1,3 @@
-// Lookups, filter options, and formatters for the Archive & Trash screens.
-// Config only — never row data (that lives in the DB via lib/supabase/archive.js).
-// Most lookups are shared with the library; re-export them so both screens stay
-// in lockstep.
-
 export {
   TYPE_ICONS,
   FILE_TYPE_COLORS,

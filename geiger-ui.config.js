@@ -39,6 +39,16 @@ export default defineNavConfig({
       reason: "Guest submissions land as upload jobs.",
     },
     {
+      screen: "Workflow Templates",
+      requires: ["All Workflows"],
+      reason: "Templates mint editable workflows.",
+    },
+    {
+      screen: "Run History",
+      requires: ["All Workflows"],
+      reason: "Runs are executions of workflows.",
+    },
+    {
       screen: "Members",
       requires: ["Membership Tiers"],
       reason: "Members hold subscriptions against a tier.",

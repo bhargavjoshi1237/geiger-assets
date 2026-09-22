@@ -8,6 +8,7 @@
 
 -- @up
 create extension if not exists pgcrypto;
+create extension if not exists citext;
 
 create schema if not exists assets;
 grant usage on schema assets to anon, authenticated, service_role;

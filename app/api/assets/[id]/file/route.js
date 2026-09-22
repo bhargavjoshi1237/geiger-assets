@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
 import { getAssetRow, proxyStreamResponse, isStorageConfigured } from "@/lib/storage/service";
 import { backendForRef, refFromAssetRow } from "@/lib/storage/backends/index.js";
+import { logFileDelivery } from "@/lib/storage/delivery_log";
 import { s3Config } from "@/lib/s3/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -36,12 +37,12 @@ export async function GET(request, { params }) {
     return NextResponse.redirect(url, { status: 307 });
   }
 
-  // Gateways without presigned GETs stream through the handler instead of
-  // redirecting to a URL the gateway would reject.
   if (!s3Config().presignedReads) {
     const res = await proxyStreamResponse(row.storage_key, { filename, download, request, ref });
     if (!res) return NextResponse.json({ error: "not_found" }, { status: 404 });
     if (download) await bumpDownloads(id, row.downloads);
+    // Logged after the response is built so the insert never blocks the stream.
+    logFileDelivery({ request, response: res, projectId: row.project_id, assetId: id });
     return res;
   }
 

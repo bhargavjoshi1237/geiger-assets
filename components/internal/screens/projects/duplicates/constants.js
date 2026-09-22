@@ -1,6 +1,3 @@
-// Lookups, filter options, and formatters for the duplicate-review screens.
-// Config only — never row data (that lives in the DB via lib/supabase/duplicates.js).
-
 export const MATCH_META = {
   exact: {
     label: "Exact",
@@ -18,16 +15,19 @@ export const MATCH_META = {
 
 export const STATUS_META = {
   open: {
+    variant: "warning",
     label: "Open",
     className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   resolved: {
+    variant: "success",
     label: "Resolved",
     className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   ignored: {
+    variant: "neutral",
     label: "Ignored",
     className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
     dotClass: "bg-zinc-400",
@@ -57,9 +57,4 @@ export const SORT_OPTIONS = [
   { value: "members-desc", label: "Most Members" },
 ];
 
-export function formatDate(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
+export { formatDate } from "@/lib/format";

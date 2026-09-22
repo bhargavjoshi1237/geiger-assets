@@ -31,8 +31,6 @@ async function main() {
   step(Boolean(client), "s3 client created");
   if (!client) process.exit(1);
 
-  // Bucket reachability: HEAD first, LIST as the fallback for gateways
-  // without HeadBucket (Appwrite).
   let bucketOk = false;
   try {
     await client.send(new HeadBucketCommand({ Bucket: cfg.bucket }));
@@ -68,8 +66,6 @@ async function main() {
   }
   step(bytesOk, "get object bytes round-trip");
 
-  // Presigned URLs are the spec design but Appwrite answers them with 501.
-  // They are advisory here: proxy mode covers uploads and reads without them.
   const getUrl = await s3.signGetUrl(probeKey);
   if (getUrl) {
     try {
@@ -79,7 +75,6 @@ async function main() {
         try {
           res.body?.cancel?.();
         } catch {
-          /* ignore */
         }
         warn("presigned GET unsupported", `status=${res.status} — reads use the proxy (S3_PRESIGNED_READS=false)`);
       }
@@ -91,7 +86,8 @@ async function main() {
   }
 
   const putBody = "presigned-put-probe";
-  const putUrl = await s3.signPutUrl(`p/_health/tmp/s3-check-put-${Date.now()}.txt`, {
+  const putProbeKey = `p/_health/tmp/s3-check-put-${Date.now()}.txt`;
+  const putUrl = await s3.signPutUrl(putProbeKey, {
     contentType: "text/plain",
     maxBytes: Buffer.byteLength(putBody),
   });
@@ -107,14 +103,13 @@ async function main() {
         try {
           putRes.body?.cancel?.();
         } catch {
-          /* ignore */
         }
         warn("presigned PUT unsupported", `status=${putRes.status} — uploads use the proxy (S3_PRESIGNED_UPLOADS=false)`);
       }
     } catch (err) {
       warn("presigned PUT unsupported", `${err.message} — uploads use the proxy (S3_PRESIGNED_UPLOADS=false)`);
     }
-    await s3.deleteObject(`p/_health/tmp/s3-check-put-${Date.now()}.txt`).catch(() => false);
+    await s3.deleteObject(putProbeKey).catch(() => false);
   } else {
     warn("presigned PUT unsupported", "could not sign — uploads use the proxy (S3_PRESIGNED_UPLOADS=false)");
   }
@@ -128,7 +123,7 @@ async function main() {
   if (copied) await s3.deleteObject(copyKey);
 
   step(await s3.deleteObject(probeKey), "delete probe object");
-  // Reads can lag deletes on some gateways — allow a few seconds to settle.
+
   let gone = await s3.headObject(probeKey);
   for (let i = 0; gone !== null && i < 3; i++) {
     await new Promise((r) => setTimeout(r, 2000));
