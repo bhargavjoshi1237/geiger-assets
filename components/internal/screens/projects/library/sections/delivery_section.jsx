@@ -15,7 +15,7 @@ import {
 import { Switch } from "@geiger/ui/switch";
 import { EmptyState, Field, SectionCard, SettingRow, SettingsList } from "@/components/internal/shared/screen_kit";
 import { useCopied } from "@/lib/use-copied";
-import { deliveryPath, deliveryUrl } from "@/lib/delivery/url";
+import { deliveryHref, deliveryUrl } from "@/lib/delivery/url";
 
 const CROP_OPTIONS = [
   { value: "fill", label: "Fill" },
@@ -49,7 +49,11 @@ const EFFECT_OPTIONS = [
 ];
 
 
-export function DeliverySection({ asset, onPatch }) {
+// `asset` is the in-progress form; `saved` is what the server currently holds.
+// The toggle follows the form, but /d/ only serves once delivery_enabled has
+// actually been persisted, so the preview has to follow `saved` or it renders
+// against a 404 the moment the switch is flipped.
+export function DeliverySection({ asset, saved, onPatch }) {
   const [width, setWidth] = useState("800");
   const [height, setHeight] = useState("");
   const [crop, setCrop] = useState("fill");
@@ -60,6 +64,7 @@ export function DeliverySection({ asset, onPatch }) {
 
   const patch = onPatch || (() => {});
   const enabled = Boolean(asset?.deliveryEnabled);
+  const live = Boolean((saved ?? asset)?.deliveryEnabled);
 
   const transform = useMemo(() => {
     const parts = [];
@@ -72,12 +77,15 @@ export function DeliverySection({ asset, onPatch }) {
     return parts.join(",");
   }, [width, height, crop, format, quality, effect]);
 
-  const url = useMemo(() => deliveryPath(asset, transform), [asset, transform]);
+  // href is what this page can actually fetch; shareUrl is what gets shown and
+  // copied. They differ by origin + basePath, so both come from one builder.
+  const href = useMemo(() => deliveryHref(asset, transform), [asset, transform]);
+  const shareUrl = useMemo(() => deliveryUrl(asset, transform), [asset, transform]);
 
   const copyUrl = async () => {
-    if (!url) return;
+    if (!shareUrl) return;
     try {
-      await navigator.clipboard.writeText(deliveryUrl(asset, transform));
+      await navigator.clipboard.writeText(shareUrl);
       flashCopied();
     } catch {
       // Clipboard unavailable — the URL stays visible for manual copy.
@@ -110,6 +118,13 @@ export function DeliverySection({ asset, onPatch }) {
             icon={FlaskConical}
             title="Delivery is off"
             description="Enable delivery above to preview transforms for this asset."
+            className="py-8"
+          />
+        ) : !live ? (
+          <EmptyState
+            icon={FlaskConical}
+            title="Save to start delivering"
+            description="Delivery is on in this form but not saved yet, so /d/ URLs still 404. Save the asset to preview transforms."
             className="py-8"
           />
         ) : !hasFile ? (
@@ -206,10 +221,10 @@ export function DeliverySection({ asset, onPatch }) {
             <div className="space-y-3">
               <div className="flex min-h-48 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-card">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={asset.name || "Delivery preview"} className="max-h-72 w-full object-contain" />
+                <img src={href} alt={asset.name || "Delivery preview"} className="max-h-72 w-full object-contain" />
               </div>
               <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-card px-3 py-2">
-                <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-foreground">{url}</code>
+                <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-foreground">{shareUrl}</code>
                 <Button
                   variant="ghost"
                   size="icon-sm"

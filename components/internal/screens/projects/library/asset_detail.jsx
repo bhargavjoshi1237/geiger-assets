@@ -379,6 +379,7 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
           return (
             <ActiveSection
               asset={form}
+              saved={asset}
               headerItem={NAV_GROUPS.flatMap((g) => g.items).find((i) => i.key === key)}
               relationships={relationships}
               versions={versions}
