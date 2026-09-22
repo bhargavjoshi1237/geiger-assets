@@ -59,6 +59,7 @@ import {
   formatBytes,
   formatDate,
 } from "./constants";
+import { deliveryUrl } from "@/lib/delivery/url";
 import { listAssets, createAsset } from "@/lib/supabase/assets";
 import { getUser } from "@/lib/supabase/user";
 import {
@@ -426,9 +427,20 @@ export function LibraryScreen({ projectId }) {
     [assets, previewId],
   );
 
+  // The public delivery URL, not the workspace deep link — the latter is
+  // auth-gated and only reopens the library UI. Delivery is opt-in per asset,
+  // so one that has not been switched on has no shareable link yet.
   const handleCopyLink = (asset) => {
-    const { origin, pathname } = window.location;
-    navigator.clipboard?.writeText(`${origin}${pathname}?asset=${asset.id}`);
+    if (!asset?.deliveryEnabled) {
+      toast.error("Turn on Delivery for this asset to get a shareable link.");
+      return;
+    }
+    const url = deliveryUrl(asset);
+    if (!url) {
+      toast.error("Couldn't build a link for this asset.");
+      return;
+    }
+    navigator.clipboard?.writeText(url);
     toast.success("Link copied.");
   };
 

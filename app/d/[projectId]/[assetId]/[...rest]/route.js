@@ -22,6 +22,10 @@ import { verifyDeliverySignature } from "@/lib/delivery/signing";
 export const runtime = "nodejs";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
+// Originals change with new versions, so they are deliberately not immutable.
+// This also has to stay well under S3_SIGNED_URL_TTL so a cached redirect can
+// never outlive the signed URL it points at.
+const ORIGINAL_CACHE = "public, max-age=300";
 
 async function streamToBuffer(body) {
   if (!body) return null;
@@ -172,12 +176,21 @@ export async function GET(request, { params }) {
     }
   }
 
-  // No transforms: stream the original with a short cache (originals change
-  // with versions, so they are deliberately not immutable). A Range request
-  // (video scrubbing) is forwarded to the backend and answered 206.
+  // No transforms: hand the bytes off to the backend the same way a transform
+  // cache hit does. The redirect costs no egress here, and for the pool it
+  // points at the gateway, which keeps the link stable when an object moves
+  // between providers. Proxying is only the fallback for a backend that can't
+  // produce a read URL — it pulls the whole object through this function.
   if (!segments.length) {
     const ref = refFromAssetRow(asset) || { backend: "s3", key: asset.storage_key };
     const backend = backendForRef(ref);
+    const signed = await backend.signRead(ref);
+    if (signed) {
+      return NextResponse.redirect(signed, {
+        status: 307,
+        headers: { "Cache-Control": ORIGINAL_CACHE },
+      });
+    }
     const range = request.headers.get("range") || null;
     if (range) {
       const ranged = await backend.getStream(ref, { range });

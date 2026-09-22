@@ -15,6 +15,7 @@ import {
 import { Switch } from "@geiger/ui/switch";
 import { EmptyState, Field, SectionCard, SettingRow, SettingsList } from "@/components/internal/shared/screen_kit";
 import { useCopied } from "@/lib/use-copied";
+import { deliveryPath, deliveryUrl } from "@/lib/delivery/url";
 
 const CROP_OPTIONS = [
   { value: "fill", label: "Fill" },
@@ -47,10 +48,6 @@ const EFFECT_OPTIONS = [
   { value: "tint", label: "Tint" },
 ];
 
-function filenameFor(asset) {
-  const fallback = asset.originalFilename || asset.name || "image.jpg";
-  return String(fallback).split("/").pop() || "image.jpg";
-}
 
 export function DeliverySection({ asset, onPatch }) {
   const [width, setWidth] = useState("800");
@@ -75,15 +72,12 @@ export function DeliverySection({ asset, onPatch }) {
     return parts.join(",");
   }, [width, height, crop, format, quality, effect]);
 
-  const url = useMemo(() => {
-    if (!asset?.projectId || !asset?.id) return "";
-    return `/d/${asset.projectId}/${asset.id}/${transform}/${filenameFor(asset)}`;
-  }, [asset, transform]);
+  const url = useMemo(() => deliveryPath(asset, transform), [asset, transform]);
 
   const copyUrl = async () => {
     if (!url) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${url}`);
+      await navigator.clipboard.writeText(deliveryUrl(asset, transform));
       flashCopied();
     } catch {
       // Clipboard unavailable — the URL stays visible for manual copy.
