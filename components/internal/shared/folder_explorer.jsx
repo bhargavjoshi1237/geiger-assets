@@ -46,6 +46,7 @@ import {
   updateFolder,
   softDeleteFolder,
 } from "@/lib/supabase/folders";
+import { copyAssetLink } from "@/lib/delivery/copy_link";
 import { listAssets, softDeleteAsset, updateAsset } from "@/lib/supabase/assets";
 import { TYPE_ICONS, DEFAULT_ASSET_COLOR } from "@/components/internal/shared/asset_meta";
 import { formatBytes } from "@/lib/format";
@@ -775,10 +776,7 @@ export function FolderExplorer({
     {
       icon: Link2,
       label: "Copy link",
-      onSelect: () => {
-        const { origin, pathname } = window.location;
-        copyToClipboard(`${origin}${pathname}?asset=${asset.id}`, "Link");
-      },
+      onSelect: () => copyAssetLink(asset),
     },
     { icon: Copy, label: "Copy name", onSelect: () => copyToClipboard(asset.name, "Name") },
     allowCreate && {

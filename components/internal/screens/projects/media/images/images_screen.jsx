@@ -29,6 +29,7 @@ import {
   formatDate,
 } from "@/components/internal/screens/projects/library/constants";
 import { assetFileUrl } from "@/lib/storage/client";
+import { copyAssetLink } from "@/lib/delivery/copy_link";
 import { listAssets } from "@/lib/supabase/assets";
 import {
   getOrientation,
@@ -136,7 +137,7 @@ function ImageDetail({ asset, onBack, focalPoints, onFocalChange }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}${window.location.pathname}?asset=${asset.id}`); toast.success("Link copied."); }}>
+          <Button variant="outline" className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground" onClick={() => copyAssetLink(asset)}>
             <Link2 className="h-4 w-4" /> Copy link
           </Button>
           <Button
