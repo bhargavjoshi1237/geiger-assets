@@ -11,7 +11,7 @@ and the shared kit (`components/internal/shared`).
 |---|---|---|
 | Workspace screen | `components/internal/screens/<area>/<name>.jsx` | snake_case file, `*Screen` export |
 | Screen ↔ nav wiring | `components/internal/screens/registry.jsx` | title → component map |
-| Sidebar nav entries | `components/internal/sidebar/sidebar_nav.jsx` | `title` must match registry key |
+| Sidebar nav entries | `components/internal/sidebar/projects/feature_registry.js` (assembled in `sidebar_data.js`) | `title` must match registry key |
 | Shared screen primitives | `components/internal/shared/screen_kit.jsx` | `ScreenHeader`, `StatsBar`, `DataTable`… |
 | Page-width wrappers | `components/internal/shared/screen_wrappers.jsx` | `MainScreenWrapper`, `SecondaryScreenWrapper` |
 | Lookups & formatters | `components/internal/screens/<area>/constants.js` | status/type `*_MAP`, `*_FILTER_OPTIONS`, `formatDate`/`currency` |
@@ -37,7 +37,7 @@ alias.
   detail/settings screens.
 - **Wire it through the registry, never by ad-hoc routing.** Add the component to
   `SCREEN_REGISTRY` in `registry.jsx` keyed by the **exact** sidebar title from
-  `sidebar_nav.jsx`. Unlisted titles fall back to `ComingSoonScreen`.
+  `feature_registry.js`. Unlisted feature titles fall back to `FeatureScreen`.
 - **Per-entity features are tabs, not top-level screens.** Cover media, tickets,
   visibility, page design, publishing, etc. live as tabs inside the event editor
   (`events/event_detail.jsx`), reached by selecting a row in All Events — they do
@@ -222,7 +222,7 @@ controls; it does not secure data.
    the answer is truly inconsequential — and say which default you took.
 1. Component at `components/internal/screens/<area>/<name>.jsx` — `"use client"`,
    `*Screen` export, wrapped in `MainScreenWrapper`/`SecondaryScreenWrapper`.
-2. Register it in `registry.jsx` under the exact `sidebar_nav.jsx` title (and add
+2. Register it in `registry.jsx` under the exact `feature_registry.js` title (and add
    the nav entry if it's new).
 3. Fetch rows from `lib/supabase/<area>.js` (start empty + loading, no static
    seed); keep `*_MAP`/`*_FILTER_OPTIONS`/formatters in `constants.js`; derive
