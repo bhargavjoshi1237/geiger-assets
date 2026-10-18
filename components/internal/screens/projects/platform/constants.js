@@ -59,7 +59,7 @@ export const ENDPOINT_STATUS_MAP = {
   active: {
     variant: "success",
     label: "Active",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   paused: {
@@ -80,19 +80,19 @@ export const DELIVERY_STATUS_MAP = {
   queued: {
     variant: "warning",
     label: "Queued",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   delivered: {
     variant: "success",
     label: "Delivered",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   failed: {
-    variant: "destructive",
+    variant: "danger",
     label: "Failed",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
     dotClass: "bg-red-400",
   },
 };
@@ -107,42 +107,118 @@ export const DELIVERY_STATUS_FILTER_OPTIONS = [
 // Integrations ---------------------------------------------------------------
 
 export const INTEGRATION_CATEGORY_MAP = {
-  creative: "Creative tools",
   storage: "Cloud storage",
+  creative: "Creative tools",
   productivity: "Productivity",
   marketing: "Marketing",
   social: "Social",
+  developer: "Developer",
 };
 
-export const INTEGRATION_GROUP_ORDER = ["creative", "storage", "productivity", "marketing", "social"];
+export const INTEGRATION_GROUP_ORDER = [
+  "storage",
+  "creative",
+  "productivity",
+  "marketing",
+  "social",
+  "developer",
+];
 
-export const INTEGRATION_CATEGORY_FILTER_OPTIONS = [
-  { value: "all", label: "All Categories" },
+export const INTEGRATION_CATEGORY_TABS = [
+  { value: "all", label: "All" },
   ...INTEGRATION_GROUP_ORDER.map((c) => ({ value: c, label: INTEGRATION_CATEGORY_MAP[c] })),
 ];
 
 export const INTEGRATION_STATUS_MAP = {
+  connected: {
+    variant: "success",
+    label: "Connected",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    dotClass: "bg-emerald-400",
+  },
+  available: {
+    variant: "info",
+    label: "Available",
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+    dotClass: "bg-blue-400",
+  },
+  built_in: {
+    variant: "info",
+    label: "Built in",
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+    dotClass: "bg-blue-400",
+  },
+  not_configured: {
+    variant: "warning",
+    label: "Needs setup",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    dotClass: "bg-amber-400",
+  },
   coming_soon: {
     variant: "neutral",
     label: "Coming soon",
     className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
     dotClass: "bg-zinc-400",
   },
-  connected: {
-    variant: "success",
-    label: "Connected",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    dotClass: "bg-emerald-400",
-  },
 };
 
+// `kind` says how real an entry is: "oauth" connects for real today, "builtin"
+// is a native surface of this app (opens its tab), "planned" is scoped only.
+// `color` + `letter` draw the brand tile, like the External Uploads sources.
 export const INTEGRATION_CATALOG = [
+  {
+    key: "google-drive",
+    name: "Google Drive",
+    tagline: "Pick files in Drive and import them straight into the library.",
+    category: "storage",
+    kind: "oauth",
+    color: "#4285F4",
+    letter: "G",
+    capabilities: [
+      "Import files with Google's own picker",
+      "Docs, Sheets and Slides arrive as PDFs",
+      "Imports run as tracked upload jobs",
+    ],
+    access: "Only the files you pick (drive.file scope) — never your whole Drive.",
+  },
+  {
+    key: "dropbox",
+    name: "Dropbox",
+    tagline: "Ingest team folders on a schedule.",
+    category: "storage",
+    kind: "planned",
+    color: "#0061FF",
+    letter: "Db",
+    capabilities: ["Scheduled imports", "Delta sync", "Team-folder scopes"],
+  },
+  {
+    key: "onedrive",
+    name: "OneDrive",
+    tagline: "Bring in files from OneDrive and SharePoint libraries.",
+    category: "storage",
+    kind: "planned",
+    color: "#0078D4",
+    letter: "Od",
+    capabilities: ["SharePoint site libraries", "Folder imports", "Version-aware re-sync"],
+  },
+  {
+    key: "box",
+    name: "Box",
+    tagline: "Mirror governed Box folders into the DAM.",
+    category: "storage",
+    kind: "planned",
+    color: "#0061D5",
+    letter: "Bx",
+    capabilities: ["Folder mirroring", "Metadata template mapping", "Retention-aware imports"],
+  },
   {
     key: "photoshop",
     name: "Photoshop",
     tagline: "Push renditions straight to the library from the editor.",
     category: "creative",
-    status: "coming_soon",
+    kind: "planned",
+    color: "#31A8FF",
+    letter: "Ps",
     capabilities: ["Export artboards as assets", "Sync versions back", "Read library metadata"],
   },
   {
@@ -150,48 +226,112 @@ export const INTEGRATION_CATALOG = [
     name: "Figma",
     tagline: "Hand off frames and components without leaving the canvas.",
     category: "creative",
-    status: "coming_soon",
+    kind: "planned",
+    color: "#A259FF",
+    letter: "F",
     capabilities: ["Export frames as assets", "Link live embeds", "Sync cover thumbnails"],
   },
   {
-    key: "drive",
-    name: "Google Drive",
-    tagline: "Mirror folders between Drive and the DAM.",
-    category: "storage",
-    status: "coming_soon",
-    capabilities: ["Import from Drive", "Two-way folder sync", "Shared-drive support"],
-  },
-  {
-    key: "dropbox",
-    name: "Dropbox",
-    tagline: "Ingest team folders on a schedule.",
-    category: "storage",
-    status: "coming_soon",
-    capabilities: ["Scheduled imports", "Delta sync", "Team-folder scopes"],
+    key: "canva",
+    name: "Canva",
+    tagline: "Design with approved brand assets, publish back finished work.",
+    category: "creative",
+    kind: "planned",
+    color: "#00C4CC",
+    letter: "C",
+    capabilities: ["Brand-asset panel in Canva", "Save designs as assets", "Usage tracking"],
   },
   {
     key: "slack",
     name: "Slack",
     tagline: "Route approvals and upload notices to channels.",
     category: "productivity",
-    status: "coming_soon",
+    kind: "planned",
+    color: "#4A154B",
+    letter: "S",
     capabilities: ["Approval notifications", "Upload digests", "Search from chat"],
+  },
+  {
+    key: "notion",
+    name: "Notion",
+    tagline: "Embed live assets in docs that update when the file does.",
+    category: "productivity",
+    kind: "planned",
+    color: "#37352F",
+    letter: "N",
+    capabilities: ["Live asset embeds", "Link previews", "Collection galleries in pages"],
   },
   {
     key: "hubspot",
     name: "HubSpot",
     tagline: "Serve approved creative inside campaigns.",
     category: "marketing",
-    status: "coming_soon",
+    kind: "planned",
+    color: "#FF7A59",
+    letter: "H",
     capabilities: ["File-manager sync", "Campaign asset picker", "Usage attribution"],
+  },
+  {
+    key: "shopify",
+    name: "Shopify",
+    tagline: "Keep product imagery in step with the catalog.",
+    category: "marketing",
+    kind: "planned",
+    color: "#95BF47",
+    letter: "Sh",
+    capabilities: ["Product media sync", "Variant image mapping", "Delivery through the CDN"],
   },
   {
     key: "instagram",
     name: "Instagram",
     tagline: "Publish gallery selects to social.",
     category: "social",
-    status: "coming_soon",
+    kind: "planned",
+    color: "#E1306C",
+    letter: "Ig",
     capabilities: ["Scheduled publishing", "Caption templates", "Performance pullback"],
+  },
+  {
+    key: "linkedin",
+    name: "LinkedIn",
+    tagline: "Share approved creative to company pages.",
+    category: "social",
+    kind: "planned",
+    color: "#0A66C2",
+    letter: "in",
+    capabilities: ["Company-page posts", "Document carousels", "Engagement pullback"],
+  },
+  {
+    key: "webhooks",
+    name: "Webhooks",
+    tagline: "Signed HTTP callbacks when assets, collections or galleries change.",
+    category: "developer",
+    kind: "builtin",
+    tab: "Webhooks",
+    color: "#10B981",
+    letter: "{ }",
+    capabilities: ["Per-event subscriptions", "Signed payloads", "Delivery log and retries"],
+  },
+  {
+    key: "api",
+    name: "REST API",
+    tagline: "Read and write the library with scoped API keys.",
+    category: "developer",
+    kind: "builtin",
+    tab: "API Keys",
+    color: "#6366F1",
+    letter: "API",
+    capabilities: ["Scoped API keys", "Assets, folders and collections", "Rotate and revoke keys"],
+  },
+  {
+    key: "zapier",
+    name: "Zapier",
+    tagline: "Wire the DAM into thousands of apps without code.",
+    category: "developer",
+    kind: "planned",
+    color: "#FF4F00",
+    letter: "Z",
+    capabilities: ["Triggers on new assets", "Create assets from any app", "Multi-step zaps"],
   },
 ];
 
@@ -220,13 +360,13 @@ export const EXPORT_STATUS_MAP = {
   completed: {
     variant: "success",
     label: "Completed",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   failed: {
-    variant: "destructive",
+    variant: "danger",
     label: "Failed",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
     dotClass: "bg-red-400",
   },
 };
@@ -268,24 +408,42 @@ export const API_SCOPES = [
 ];
 
 export const ALL_SCOPES = API_SCOPES.map((s) => s.value);
+export const READ_SCOPES = ALL_SCOPES.filter((s) => s.endsWith(":read"));
+
+// API_SCOPES folded into one row per resource ({ read, write } scope or null),
+// for the key dialog's permission matrix.
+export const API_SCOPE_RESOURCES = API_SCOPES.reduce((rows, scope) => {
+  const [resource, access] = scope.value.split(":");
+  let row = rows.find((r) => r.resource === resource);
+  if (!row) {
+    row = { resource, label: scope.label.split(" · ")[0], read: null, write: null };
+    rows.push(row);
+  }
+  row[access] = scope;
+  return rows;
+}, []);
+
+export function scopeLabel(value) {
+  return API_SCOPES.find((s) => s.value === value)?.label || value;
+}
 
 export const KEY_STATUS_META = {
   active: {
     variant: "success",
     label: "Active",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   expired: {
     variant: "warning",
     label: "Expired",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   revoked: {
-    variant: "destructive",
+    variant: "danger",
     label: "Revoked",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
     dotClass: "bg-red-400",
   },
 };
@@ -317,103 +475,156 @@ export const EFFECT_OPTIONS = [
   { value: "tint", label: "Tint" },
 ];
 
-export const API_TAB_OPTIONS = [
-  { value: "keys", label: "Keys" },
-  { value: "delivery", label: "Delivery settings" },
-  { value: "usage", label: "Usage" },
-  { value: "reference", label: "Reference" },
+// API reference ----------------------------------------------------------------
+// One entry per public endpoint. `query`, `body` and `flags` feed buildCurl(),
+// which prefixes the real API origin so a copied command runs as-is.
+
+export const REFERENCE_GROUPS = [
+  { value: "assets", label: "Assets", description: "Search, read and manage library records." },
+  { value: "upload", label: "Uploads", description: "Send files straight to storage, then attach them." },
+  { value: "collections", label: "Collections", description: "Curated sets of assets." },
+  { value: "folders", label: "Folders", description: "The library's folder tree." },
+  { value: "tags", label: "Tags", description: "The project's tag vocabulary." },
+  { value: "delivery", label: "Delivery", description: "Public, transformable delivery URLs." },
 ];
+
+export const REFERENCE_GROUP_TABS = [
+  { value: "all", label: "All" },
+  ...REFERENCE_GROUPS.map((g) => ({ value: g.value, label: g.label })),
+];
+
+export const METHOD_BADGE_CLASS = {
+  GET: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  POST: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  PATCH: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  PUT: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  DELETE: "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400",
+};
 
 export const REFERENCE_ENDPOINTS = [
   {
+    group: "assets",
     method: "GET",
-    path: "/api/v1/assets?limit=25",
+    path: "/api/v1/assets",
+    query: "?limit=25",
+    scope: "assets:read",
     title: "List assets",
     description: "Search and page through the library with a cursor.",
-    curl: 'curl -H "Authorization: Bearer gk_live_…" /api/v1/assets?limit=25',
   },
   {
+    group: "assets",
     method: "POST",
     path: "/api/v1/assets",
+    scope: "assets:write",
     title: "Create asset",
     description: "Create an asset record before committing a file.",
-    curl: 'curl -X POST -H "Authorization: Bearer gk_live_…" -H "Content-Type: application/json" -d \'{"name":"hero.jpg","folder":"marketing"}\' /api/v1/assets',
+    body: '{"name":"hero.jpg","folder":"marketing"}',
   },
   {
+    group: "assets",
     method: "GET",
     path: "/api/v1/assets/{id}",
+    scope: "assets:read",
     title: "Get asset",
     description: "Fetch one asset by id.",
-    curl: 'curl -H "Authorization: Bearer gk_live_…" /api/v1/assets/{id}',
   },
   {
+    group: "assets",
     method: "PATCH",
     path: "/api/v1/assets/{id}",
+    scope: "assets:write",
     title: "Update asset",
     description: "Patch name, folder, tags, status or description.",
-    curl: 'curl -X PATCH -H "Authorization: Bearer gk_live_…" -H "Content-Type: application/json" -d \'{"status":"approved"}\' /api/v1/assets/{id}',
+    body: '{"status":"approved"}',
   },
   {
+    group: "assets",
     method: "DELETE",
     path: "/api/v1/assets/{id}",
+    scope: "assets:write",
     title: "Delete asset",
     description: "Soft-delete an asset.",
-    curl: 'curl -X DELETE -H "Authorization: Bearer gk_live_…" /api/v1/assets/{id}',
   },
   {
+    group: "assets",
     method: "GET",
     path: "/api/v1/assets/{id}/download",
-    title: "Download",
-    description: "Redirect to a short-lived download URL.",
-    curl: 'curl -H "Authorization: Bearer gk_live_…" /api/v1/assets/{id}/download',
+    scope: "assets:read",
+    title: "Download original",
+    description: "Redirects to a short-lived download URL.",
+    flags: "-L -O",
   },
   {
+    group: "upload",
     method: "POST",
     path: "/api/v1/upload",
+    scope: "upload:write",
     title: "Presign upload",
     description: "Get a direct-to-storage upload URL.",
-    curl: 'curl -X POST -H "Authorization: Bearer gk_live_…" -H "Content-Type: application/json" -d \'{"filename":"hero.jpg","contentType":"image/jpeg","sizeBytes":123456}\' /api/v1/upload',
+    body: '{"filename":"hero.jpg","contentType":"image/jpeg","sizeBytes":123456}',
   },
   {
+    group: "upload",
     method: "POST",
     path: "/api/v1/upload/commit",
+    scope: "upload:write",
     title: "Commit upload",
     description: "Attach a finished upload to an asset record.",
-    curl: 'curl -X POST -H "Authorization: Bearer gk_live_…" -H "Content-Type: application/json" -d \'{"uploadJobId":"…","key":"…"}\' /api/v1/upload/commit',
+    body: '{"uploadJobId":"…","key":"…"}',
   },
   {
+    group: "collections",
     method: "GET",
     path: "/api/v1/collections",
+    scope: "collections:read",
     title: "List collections",
     description: "Page through collections with asset counts.",
-    curl: 'curl -H "Authorization: Bearer gk_live_…" /api/v1/collections',
   },
   {
+    group: "folders",
     method: "GET",
     path: "/api/v1/folders",
+    scope: "folders:read",
     title: "List folders",
     description: "Page through folders.",
-    curl: 'curl -H "Authorization: Bearer gk_live_…" /api/v1/folders',
   },
   {
+    group: "tags",
     method: "GET",
     path: "/api/v1/tags",
+    scope: "tags:read",
     title: "List tags",
     description: "The project's tag vocabulary with usage counts.",
-    curl: 'curl -H "Authorization: Bearer gk_live_…" /api/v1/tags',
   },
   {
+    group: "delivery",
     method: "PATCH",
     path: "/api/v1/delivery/{id}",
+    scope: "delivery:write",
     title: "Toggle delivery",
     description: "Enable or disable dynamic delivery for an asset.",
-    curl: 'curl -X PATCH -H "Authorization: Bearer gk_live_…" -H "Content-Type: application/json" -d \'{"deliveryEnabled":true}\' /api/v1/delivery/{id}',
+    body: '{"deliveryEnabled":true}',
   },
   {
+    group: "delivery",
     method: "POST",
     path: "/api/v1/delivery/{id}",
+    scope: "delivery:read",
     title: "Mint delivery URL",
     description: "Build a canonical (optionally signed) delivery URL.",
-    curl: 'curl -X POST -H "Authorization: Bearer gk_live_…" -H "Content-Type: application/json" -d \'{"transforms":"w_800,c_fill,f_auto,q_auto"}\' /api/v1/delivery/{id}',
+    body: '{"transforms":"w_800,c_fill,f_auto,q_auto"}',
   },
 ];
+
+export const API_KEY_PLACEHOLDER = "gk_live_…";
+
+export function buildCurl(endpoint, origin = "") {
+  const lines = [`curl${endpoint.flags ? ` ${endpoint.flags}` : ""}${endpoint.method === "GET" ? "" : ` -X ${endpoint.method}`}`];
+  lines.push(`-H "Authorization: Bearer ${API_KEY_PLACEHOLDER}"`);
+  if (endpoint.body) {
+    lines.push('-H "Content-Type: application/json"');
+    lines.push(`-d '${endpoint.body}'`);
+  }
+  lines.push(`"${origin}${endpoint.path}${endpoint.query || ""}"`);
+  return lines.join(" \\\n  ");
+}

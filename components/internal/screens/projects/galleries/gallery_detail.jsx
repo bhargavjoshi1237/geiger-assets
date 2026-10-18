@@ -4,19 +4,24 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Check,
-  File as FileIcon,
   Copy,
   Eye,
   EyeOff,
+  ExternalLink,
+  Frame,
   Globe,
+  GripVertical,
   Images,
   Link2,
-  Loader2,
+  Lock,
+  Palette,
+  PanelsTopLeft,
+  Pipette,
   Plus,
-  Save,
+  Search,
+  ShoppingCart,
   Trash2,
   Upload,
   X,
@@ -34,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@geiger/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -43,36 +47,69 @@ import {
   DialogTitle,
 } from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import {
+  EditorLoading,
+  EditorNotFound,
+  EditorShell,
+} from "@/components/internal/shared/editor_shell";
+import { EditorSaveActions, useEditorGuard } from "@/components/internal/shared/unsaved_changes";
 import {
   EmptyState,
   Field,
-  LoadingArea,
   SearchInput,
   SectionCard,
+  SegmentedTabs,
   SettingRow,
   SettingsList,
   StatusPill,
 } from "@/components/internal/shared/screen_kit";
-import { TYPE_ICONS } from "@/components/internal/shared/asset_meta";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import {
   ACCENT_SWATCHES,
   CAPTION_OPTIONS,
+  COLUMN_OPTIONS,
   DOWNLOAD_MODE_META,
   DOWNLOAD_MODE_OPTIONS,
+  ENTRANCE_OPTIONS,
+  FOOTER_ALIGN_OPTIONS,
   GAP_OPTIONS,
   GROUND_OPTIONS,
+  HEADER_ALIGN_OPTIONS,
+  HERO_ALIGN_OPTIONS,
+  HOVER_OPTIONS,
   LAYOUT_META,
   LAYOUT_OPTIONS,
+  POSTER_ASPECT_OPTIONS,
+  POSTER_CORNER_OPTIONS,
+  POSTER_FOCUS_OPTIONS,
+  POSTER_FRAME_COLOR_OPTIONS,
+  POSTER_FRAME_OPTIONS,
+  POSTER_MOTION_OPTIONS,
+  POSTER_POSITION_OPTIONS,
+  POSTER_SCRIM_OPTIONS,
+  POSTER_SHADOW_OPTIONS,
+  POSTER_SIZE_OPTIONS,
   RADIUS_OPTIONS,
   SOURCE_OPTIONS,
   STATUS_META,
+  TEXTURE_OPTIONS,
+  TILE_SHAPE_OPTIONS,
+  TITLE_SIZE_OPTIONS,
+  TYPOGRAPHY_CLASS,
   TYPOGRAPHY_OPTIONS,
   VISIBILITY_META,
   VISIBILITY_OPTIONS,
+  WIDTH_OPTIONS,
+  groundTone,
   withThemeDefaults,
 } from "./constants";
-import { GalleryGrid, ThemeSwatch } from "./galleries_kit";
+import {
+  GalleryFooter,
+  GalleryGrid,
+  GalleryPoster,
+  GalleryTopbar,
+  completeLinks,
+} from "./galleries_kit";
 import {
   createGalleryItems,
   deleteGalleryItem,
@@ -87,6 +124,162 @@ import {
 import { listAssets } from "@/lib/supabase/assets";
 import { listCollectionAssets } from "@/lib/supabase/collections";
 import { getUser } from "@/lib/supabase/user";
+import { GallerySellingSection } from "./gallery_selling";
+import { ConfirmDeleteDialog } from "../settings/settings_kit";
+
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "content",
+        label: "Content",
+        icon: Images,
+        desc: "The source, cover, and curated assets this gallery shows.",
+      },
+    ],
+  },
+  {
+    group: "Design",
+    items: [
+      {
+        key: "design",
+        label: "Layout & theme",
+        icon: Palette,
+        desc: "Grid layout, spacing, typography, and colors.",
+      },
+      {
+        key: "poster",
+        label: "Poster",
+        icon: Frame,
+        desc: "The cover image, its frame, and a text overlay.",
+      },
+      {
+        key: "navigation",
+        label: "Header & footer",
+        icon: PanelsTopLeft,
+        desc: "Top bar, footer, and the links in each.",
+      },
+    ],
+  },
+  {
+    group: "Store",
+    items: [
+      {
+        key: "selling",
+        label: "Selling",
+        icon: ShoppingCart,
+        desc: "Prices, licences, prints, physical products, bundles and a whole-gallery unlock.",
+      },
+    ],
+  },
+  {
+    group: "Sharing",
+    items: [
+      {
+        key: "access",
+        label: "Access",
+        icon: Lock,
+        desc: "Visibility, passwords, email capture, and downloads.",
+      },
+      {
+        key: "seo",
+        label: "SEO & social",
+        icon: Search,
+        desc: "How the gallery appears in search results and link previews.",
+      },
+      {
+        key: "publish",
+        label: "Publish",
+        icon: Globe,
+        desc: "The public address and publish state.",
+      },
+    ],
+  },
+];
+
+// Layouts that honor the column count.
+const COLUMN_LAYOUTS = new Set(["grid", "masonry", "mosaic"]);
+
+/** Editable label + URL rows, shared by the header and footer link lists. */
+function LinkListEditor({ links, onChange, empty }) {
+  const update = (index, key, value) =>
+    onChange(links.map((link, i) => (i === index ? { ...link, [key]: value } : link)));
+
+  return (
+    <div className="space-y-2">
+      {links.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border py-5 text-center text-xs text-text-tertiary">
+          {empty}
+        </p>
+      ) : (
+        links.map((link, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <Input
+              value={link.label || ""}
+              onChange={(e) => update(index, "label", e.target.value)}
+              placeholder="Label"
+              className="w-32 bg-surface-card sm:w-44"
+            />
+            <Input
+              value={link.href || ""}
+              onChange={(e) => update(index, "href", e.target.value)}
+              placeholder="https://"
+              className="flex-1 bg-surface-card"
+            />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Remove link"
+              className="h-8 w-8 shrink-0 text-text-secondary hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+              onClick={() => onChange(links.filter((_, i) => i !== index))}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+        onClick={() => onChange([...links, { label: "", href: "" }])}
+      >
+        <Plus className="mr-1 h-3.5 w-3.5" />
+        Add link
+      </Button>
+    </div>
+  );
+}
+
+/** A slice of the public page on the gallery's own ground, for live previews. */
+function GroundPreview({ theme, className, children }) {
+  const tone = groundTone(theme);
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border border-border",
+        TYPOGRAPHY_CLASS[theme.typography] || TYPOGRAPHY_CLASS.sans,
+        tone.page,
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Image assets as Select options, with a thumbnail beside each name. */
+function ImageAssetItems({ assets }) {
+  return assets.map((asset) => (
+    <SelectItem key={asset.id} value={asset.id}>
+      <span className="flex min-w-0 items-center gap-2">
+        <AssetThumbnail asset={asset} className="h-5 w-8 rounded-sm" iconClassName="h-3 w-3" />
+        <span className="truncate">{asset.name}</span>
+      </span>
+    </SelectItem>
+  ));
+}
 
 function publicUrl(slug) {
   if (!slug) return "";
@@ -94,41 +287,86 @@ function publicUrl(slug) {
   return `${base}/g/${slug}`;
 }
 
-/** Row in the curated-content list: reorder, caption, hide, remove. */
-function CuratedRow({ item, asset, index, total, onMove, onCaption, onToggleHidden, onRemove }) {
-  const Icon = TYPE_ICONS[asset?.type] || FileIcon;
+/**
+ * Row in the curated-content list. Drag the handle (or use the arrows) to
+ * reorder, type straight into the caption, and hide or remove from the actions
+ * that surface on hover.
+ */
+function CuratedRow({
+  item,
+  asset,
+  index,
+  total,
+  dragging,
+  dropTarget,
+  onMove,
+  onCaption,
+  onToggleHidden,
+  onRemove,
+  dragHandlers,
+}) {
+  const iconButton =
+    "h-7 w-7 text-text-secondary hover:bg-surface-active hover:text-foreground";
   return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
-      <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border"
-        style={{ background: `${asset?.color || "#737373"}20` }}
+    <div
+      {...dragHandlers}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-hover",
+        dragging && "opacity-40",
+        dropTarget && "bg-surface-hover ring-1 ring-inset ring-border-strong",
+      )}
+    >
+      <span
+        draggable
+        onDragStart={dragHandlers.onHandleDragStart}
+        onDragEnd={dragHandlers.onHandleDragEnd}
+        aria-hidden="true"
+        title="Drag to reorder"
+        className="flex h-8 w-4 shrink-0 cursor-grab items-center justify-center text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
       >
-        <Icon className="h-4 w-4" style={{ color: asset?.color || "#737373" }} />
-      </div>
+        <GripVertical className="h-4 w-4" />
+      </span>
+      <span className="w-5 shrink-0 text-right text-[11px] tabular-nums text-text-tertiary">
+        {index + 1}
+      </span>
+      <AssetThumbnail
+        asset={asset}
+        assetId={item.assetId}
+        large
+        className={cn("h-11 w-11 rounded-md", item.isHidden && "opacity-40 grayscale")}
+      />
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate text-sm",
-            item.isHidden ? "text-text-tertiary line-through" : "text-foreground",
-          )}
-        >
-          {asset?.name || "Missing asset"}
-        </p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p
+            className={cn(
+              "truncate text-sm font-medium",
+              item.isHidden ? "text-text-tertiary" : "text-foreground",
+            )}
+          >
+            {asset?.name || "Missing asset"}
+          </p>
+          {item.isHidden ? (
+            <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
+              Hidden
+            </Badge>
+          ) : null}
+        </div>
         <Input
           value={item.caption}
           onChange={(e) => onCaption(item, e.target.value)}
-          placeholder="Caption (optional)"
-          className="mt-1 h-7 border-none bg-transparent px-0 text-[11px] text-text-secondary shadow-none focus-visible:ring-0"
+          placeholder="Add a caption…"
+          aria-label={`Caption for ${asset?.name || "item"}`}
+          className="-ml-1.5 mt-0.5 h-6 w-full max-w-md border-transparent bg-transparent px-1.5 text-xs text-text-secondary shadow-none placeholder:text-text-tertiary hover:border-border focus-visible:border-border-strong focus-visible:bg-surface-card focus-visible:ring-0"
         />
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         <Button
           variant="ghost"
           size="icon-sm"
           aria-label="Move up"
           disabled={index === 0}
-          className="h-7 w-7 text-text-secondary hover:bg-surface-active hover:text-foreground"
-          onClick={() => onMove(index, -1)}
+          className={iconButton}
+          onClick={() => onMove(index, index - 1)}
         >
           <ArrowUp className="h-3.5 w-3.5" />
         </Button>
@@ -137,8 +375,8 @@ function CuratedRow({ item, asset, index, total, onMove, onCaption, onToggleHidd
           size="icon-sm"
           aria-label="Move down"
           disabled={index === total - 1}
-          className="h-7 w-7 text-text-secondary hover:bg-surface-active hover:text-foreground"
-          onClick={() => onMove(index, 1)}
+          className={iconButton}
+          onClick={() => onMove(index, index + 1)}
         >
           <ArrowDown className="h-3.5 w-3.5" />
         </Button>
@@ -146,7 +384,8 @@ function CuratedRow({ item, asset, index, total, onMove, onCaption, onToggleHidd
           variant="ghost"
           size="icon-sm"
           aria-label={item.isHidden ? "Show in gallery" : "Hide from gallery"}
-          className="h-7 w-7 text-text-secondary hover:bg-surface-active hover:text-foreground"
+          title={item.isHidden ? "Show in gallery" : "Hide from gallery"}
+          className={iconButton}
           onClick={() => onToggleHidden(item)}
         >
           {item.isHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -155,7 +394,8 @@ function CuratedRow({ item, asset, index, total, onMove, onCaption, onToggleHidd
           variant="ghost"
           size="icon-sm"
           aria-label="Remove from gallery"
-          className="h-7 w-7 text-text-secondary hover:bg-red-500/10 hover:text-red-400"
+          title="Remove from gallery"
+          className="h-7 w-7 text-text-secondary hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
           onClick={() => onRemove(item)}
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -221,7 +461,6 @@ function AddAssetsDialog({ open, onOpenChange, assets, existingIds, onAdd }) {
             </p>
           ) : (
             candidates.map((a) => {
-              const Icon = TYPE_ICONS[a.type] || FileIcon;
               const on = picked.has(a.id);
               return (
                 <button
@@ -230,12 +469,7 @@ function AddAssetsDialog({ open, onOpenChange, assets, existingIds, onAdd }) {
                   onClick={() => toggle(a.id)}
                   className="flex w-full items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-surface-hover"
                 >
-                  <div
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-                    style={{ background: `${a.color}20` }}
-                  >
-                    <Icon className="h-3.5 w-3.5" style={{ color: a.color }} />
-                  </div>
+                  <AssetThumbnail asset={a} className="h-8 w-8 rounded-md" iconClassName="h-3.5 w-3.5" />
                   <span className="min-w-0 flex-1 truncate text-xs text-foreground">{a.name}</span>
                   <span
                     className={cn(
@@ -288,6 +522,9 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
   const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [publishConfirm, setPublishConfirm] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [drag, setDrag] = useState(null); // { from, over }
 
   useEffect(() => {
     let alive = true;
@@ -333,6 +570,22 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
     [],
   );
 
+  // Header, footer and poster are nested groups inside the theme bag.
+  const patchThemePart = useCallback(
+    (part, patch) =>
+      setDraft((d) => {
+        if (!d) return d;
+        const theme = withThemeDefaults(d.theme);
+        return { ...d, theme: { ...theme, [part]: { ...theme[part], ...patch } } };
+      }),
+    [],
+  );
+
+  const setThemePart = useCallback(
+    (part, key) => (value) => patchThemePart(part, { [key]: value }),
+    [patchThemePart],
+  );
+
   const dirty = useMemo(() => {
     if (!gallery || !draft) return false;
     return JSON.stringify({ ...gallery, theme: withThemeDefaults(gallery.theme) }) !== JSON.stringify(draft);
@@ -354,9 +607,42 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
   }, [draft, items, collectionAssetIds, assetById]);
 
   const curatedIds = useMemo(() => new Set(items.map((i) => i.assetId)), [items]);
+  const hiddenCount = items.filter((i) => i.isHidden).length;
 
-  const handleSave = async () => {
-    if (!draft) return;
+  // Library images that can stand in as a logo.
+  const imageAssets = useMemo(
+    () => assets.filter((a) => a.type === "image" && a.thumbnailUrl),
+    [assets],
+  );
+
+  // Poster candidates are the gallery's own images, plus the chosen cover even
+  // if it has since left the gallery.
+  const coverAssetId = draft?.coverAssetId || null;
+  const coverOptions = useMemo(() => {
+    const seen = new Set();
+    const candidates = [
+      ...previewItems.map((i) => i.asset),
+      coverAssetId ? assetById.get(coverAssetId) : null,
+    ];
+    return candidates.filter((a) => {
+      if (!a?.thumbnailUrl || seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
+  }, [previewItems, coverAssetId, assetById]);
+
+  // Same pick the public page makes: the chosen cover, else the first image.
+  const posterAsset =
+    (coverAssetId && assetById.get(coverAssetId)) ||
+    previewItems.find((i) => i.asset?.thumbnailUrl)?.asset ||
+    null;
+
+  const save = useCallback(async () => {
+    if (!dirty || saving || !draft) return false;
+    if (!draft.name?.trim()) {
+      toast.error("Give the gallery a name before saving.");
+      return false;
+    }
     setSaving(true);
     const patch = {
       name: draft.name,
@@ -373,6 +659,7 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
       downloadMode: draft.downloadMode,
       allowFavorites: draft.allowFavorites,
       seo: draft.seo,
+      commerce: draft.commerce,
       slug: draft.slug,
       expiresAt: draft.expiresAt || null,
     };
@@ -386,9 +673,25 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
       setDraft({ ...updated, theme: withThemeDefaults(updated.theme) });
       onChange?.(updated);
       toast.success("Gallery saved.");
-    } else {
-      toast.error("Couldn't save the gallery.");
+      return true;
     }
+    toast.error("Couldn't save the gallery.");
+    return false;
+  }, [dirty, draft, id, onChange, saving]);
+
+  const discard = useCallback(
+    () => setDraft(gallery ? { ...gallery, theme: withThemeDefaults(gallery.theme) } : null),
+    [gallery],
+  );
+
+  // Publishing and unpublishing both go through a type-to-confirm dialog.
+  const requestTogglePublish = () => {
+    if (!draft) return;
+    if (draft.status !== "published" && !draft.slug) {
+      toast.error("Give the gallery a URL slug before publishing.");
+      return;
+    }
+    setPublishConfirm(true);
   };
 
   const handleTogglePublish = async () => {
@@ -398,6 +701,7 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
       toast.error("Give the gallery a URL slug before publishing.");
       return;
     }
+    setPublishing(true);
     const patch = {
       status: next,
       publishedAt: next === "published" ? new Date().toISOString() : draft.publishedAt,
@@ -408,9 +712,11 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
       setDraft((d) => ({ ...d, ...patch }));
       onChange?.(updated);
       toast.success(next === "published" ? "Gallery published." : "Gallery unpublished.");
+      setPublishConfirm(false);
     } else {
       toast.error("Couldn't change the publish state.");
     }
+    setPublishing(false);
   };
 
   const handleCopy = async () => {
@@ -450,11 +756,11 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
     }
   };
 
-  const handleMove = async (index, delta) => {
+  const handleMove = async (from, to) => {
+    if (from === to || to < 0 || to >= items.length) return;
     const next = [...items];
-    const target = index + delta;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
     const renumbered = next.map((item, i) => ({ ...item, position: i }));
     const prev = items;
     setItems(renumbered);
@@ -497,634 +803,1055 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
     }
   };
 
-  const addNavLink = () =>
-    setDraft((d) => ({ ...d, nav: [...(d.nav || []), { label: "", href: "" }] }));
-
-  const setNavLink = (index, key, value) =>
-    setDraft((d) => ({
-      ...d,
-      nav: (d.nav || []).map((n, i) => (i === index ? { ...n, [key]: value } : n)),
-    }));
-
-  const removeNavLink = (index) =>
-    setDraft((d) => ({ ...d, nav: (d.nav || []).filter((_, i) => i !== index) }));
+  const guard = useEditorGuard({
+    dirty,
+    saving,
+    save,
+    discard,
+    onBack,
+    name: draft?.name || "this gallery",
+  });
+  const back = { label: "Gallery Builder", onClick: guard.back };
 
   if (loading) {
-    return (
-      <MainScreenWrapper>
-        <LoadingArea panel size={72} />
-      </MainScreenWrapper>
-    );
+    return <EditorLoading back={back} title="Loading gallery…" nav={NAV_GROUPS} />;
   }
 
   if (!gallery || !draft) {
     return (
-      <MainScreenWrapper>
-        <EmptyState
-          icon={Images}
-          title="Gallery not found"
-          description="This gallery may have been deleted or isn't available."
-          action={
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
-              onClick={onBack}
-            >
-              Back to Gallery Builder
-            </Button>
-          }
-        />
-      </MainScreenWrapper>
+      <EditorNotFound
+        back={back}
+        nav={NAV_GROUPS}
+        icon={Images}
+        title="Gallery not found"
+        description="This gallery may have been deleted or isn't available."
+      />
     );
   }
 
   const published = draft.status === "published";
+  const customAccent = !ACCENT_SWATCHES.includes(draft.theme.accent);
 
   return (
-    <MainScreenWrapper>
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to Gallery Builder"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <ThemeSwatch theme={draft.theme} className="h-10 w-10" />
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              {draft.name || "Untitled gallery"}
-            </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <StatusPill status={draft.status} map={STATUS_META} className="text-[10px]" />
-              <StatusPill status={draft.visibility} map={VISIBILITY_META} className="text-[10px]" />
-              <span className="text-xs text-text-secondary">
-                {previewItems.length} asset{previewItems.length === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="outline"
-            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-            onClick={handleTogglePublish}
-          >
-            {published ? <EyeOff className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-            {published ? "Unpublish" : "Publish"}
-          </Button>
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={handleSave}
-            disabled={!dirty || saving}
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {dirty ? "Save changes" : "Saved"}
-          </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="content" className="gap-6">
-        <TabsList>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="design">Layout &amp; Theme</TabsTrigger>
-          <TabsTrigger value="navigation">Navigation</TabsTrigger>
-          <TabsTrigger value="access">Access</TabsTrigger>
-          <TabsTrigger value="seo">SEO &amp; Social</TabsTrigger>
-          <TabsTrigger value="publish">Publish</TabsTrigger>
-        </TabsList>
-
-        {/* Content ------------------------------------------------------- */}
-        <TabsContent value="content" className="space-y-5">
-          <SectionCard
-            title="Source"
-            description="A collection-backed gallery follows the collection; a curated one keeps its own list."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Source type">
-                <Select value={draft.sourceKind} onValueChange={set("sourceKind")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SOURCE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              {draft.sourceKind === "collection" ? (
-                <Field label="Collection">
-                  <Select
-                    value={draft.collectionId || ""}
-                    onValueChange={set("collectionId")}
-                  >
-                    <SelectTrigger className="bg-surface-card">
-                      <SelectValue placeholder="Choose a collection" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(collections || []).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              ) : null}
-            </div>
-          </SectionCard>
-
-          {draft.sourceKind === "curated" ? (
-            <SectionCard
-              title="Items"
-              description="Order, caption and hide what this gallery shows."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                  onClick={() => setShowAdd(true)}
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add assets
-                </Button>
-              }
-              bodyPadding={false}
-            >
-              {items.length === 0 ? (
-                <EmptyState
-                  icon={Images}
-                  title="Nothing in this gallery yet"
-                  description="Add assets from your library to start building the page."
-                  action={
-                    <Button
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                      onClick={() => setShowAdd(true)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add assets
-                    </Button>
-                  }
-                />
-              ) : (
-                items.map((item, index) => (
-                  <div key={item.id} onBlur={() => commitCaption(item)}>
-                    <CuratedRow
-                      item={item}
-                      asset={assetById.get(item.assetId)}
-                      index={index}
-                      total={items.length}
-                      onMove={handleMove}
-                      onCaption={handleCaption}
-                      onToggleHidden={handleToggleHidden}
-                      onRemove={handleRemoveItem}
-                    />
-                  </div>
-                ))
-              )}
-            </SectionCard>
-          ) : (
-            <SectionCard
-              title="Collection contents"
-              description="Read-only here — change the collection to change the gallery."
-            >
-              {previewItems.length === 0 ? (
-                <p className="py-6 text-center text-xs text-text-tertiary">
-                  {draft.collectionId
-                    ? "This collection has no assets yet."
-                    : "Pick a collection to publish."}
-                </p>
-              ) : (
-                <p className="text-xs text-text-secondary">
-                  {previewItems.length} asset{previewItems.length === 1 ? "" : "s"} will be
-                  published from this collection.
-                </p>
-              )}
-            </SectionCard>
-          )}
-        </TabsContent>
-
-        {/* Layout & Theme ------------------------------------------------ */}
-        <TabsContent value="design" className="space-y-5">
-          <SectionCard title="Layout" description={LAYOUT_META[draft.layout]?.hint}>
-            <div className="grid gap-2 sm:grid-cols-5">
-              {LAYOUT_OPTIONS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => set("layout")(o.value)}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-xs transition-colors",
-                    draft.layout === o.value
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-surface-card text-muted-foreground hover:bg-surface-hover",
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Theme" description="How the public page looks.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Accent">
-                <div className="flex flex-wrap gap-2">
-                  {ACCENT_SWATCHES.map((hex) => (
-                    <button
-                      key={hex}
-                      type="button"
-                      aria-label={`Accent ${hex}`}
-                      onClick={() => setTheme("accent")(hex)}
-                      className={cn(
-                        "h-7 w-7 rounded-full border-2 transition-transform",
-                        draft.theme.accent === hex
-                          ? "border-foreground scale-110"
-                          : "border-transparent",
-                      )}
-                      style={{ background: hex }}
-                    />
-                  ))}
-                </div>
-              </Field>
-
-              <Field label="Ground">
-                <Select value={draft.theme.ground} onValueChange={setTheme("ground")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GROUND_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field label="Typography">
-                <Select value={draft.theme.typography} onValueChange={setTheme("typography")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPOGRAPHY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field label="Spacing">
-                <Select value={draft.theme.gap} onValueChange={setTheme("gap")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GAP_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field label="Corners">
-                <Select value={draft.theme.radius} onValueChange={setTheme("radius")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RADIUS_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field label="Captions">
-                <Select value={draft.theme.caption} onValueChange={setTheme("caption")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CAPTION_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Preview" description="The same renderer the public page uses.">
-            {previewItems.length === 0 ? (
-              <p className="py-6 text-center text-xs text-text-tertiary">
-                Add content to see the preview.
-              </p>
-            ) : (
-              <div
-                className={cn(
-                  "rounded-lg p-4",
-                  draft.theme.ground === "light" ? "bg-zinc-100" : "bg-surface-card",
-                )}
-              >
-                <GalleryGrid
-                  items={previewItems.slice(0, 8)}
-                  theme={draft.theme}
-                  layout={draft.layout}
-                />
-              </div>
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        {/* Navigation ---------------------------------------------------- */}
-        <TabsContent value="navigation" className="space-y-5">
-          <SectionCard
-            title="Custom navigation"
-            description="Links rendered in the gallery's header — a portfolio, a contact page, a brief."
-            action={
+    <>
+      <EditorShell
+        back={back}
+        title={draft.name || "Untitled gallery"}
+        status={draft.status}
+        statusMap={STATUS_META}
+        badges={<StatusPill status={draft.visibility} map={VISIBILITY_META} className="text-[10px]" />}
+        meta={`${previewItems.length} asset${previewItems.length === 1 ? "" : "s"}${
+          draft.slug ? ` · /g/${draft.slug}` : ""
+        }`}
+        actions={
+          <EditorSaveActions dirty={dirty} saving={saving} onSave={save} onDiscard={discard}>
+            {published && gallery.slug ? (
               <Button
+                asChild
                 variant="outline"
-                size="sm"
-                className="h-8 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                onClick={addNavLink}
+                className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
               >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                Add link
+                <a href={publicUrl(gallery.slug)} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
               </Button>
-            }
-          >
-            {(draft.nav || []).length === 0 ? (
-              <p className="py-6 text-center text-xs text-text-tertiary">
-                No navigation links. The gallery header shows just its name.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {(draft.nav || []).map((link, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={link.label || ""}
-                      onChange={(e) => setNavLink(index, "label", e.target.value)}
-                      placeholder="Label"
-                      className="bg-surface-card sm:w-48"
-                    />
-                    <Input
-                      value={link.href || ""}
-                      onChange={(e) => setNavLink(index, "href", e.target.value)}
-                      placeholder="https://"
-                      className="flex-1 bg-surface-card"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove link"
-                      className="h-8 w-8 shrink-0 text-text-secondary hover:bg-red-500/10 hover:text-red-400"
-                      onClick={() => removeNavLink(index)}
+            ) : null}
+            <Button
+              variant="outline"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+              onClick={requestTogglePublish}
+            >
+              {published ? <EyeOff className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              {published ? "Unpublish" : "Publish"}
+            </Button>
+          </EditorSaveActions>
+        }
+        nav={NAV_GROUPS}
+        subject={draft}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
+      >
+        {({ active }) => (
+          <>
+            {/* Content ------------------------------------------------------- */}
+            {active === "content" ? (
+              <div className="space-y-8">
+                <SectionCard
+                  bare
+                  title="Source"
+                  description="A collection-backed gallery follows the collection; a curated one keeps its own list."
+                  bodyPadding={false}
+                  action={
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Select value={draft.sourceKind} onValueChange={set("sourceKind")}>
+                        <SelectTrigger aria-label="Source type" className="h-9 w-44 bg-surface-card">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SOURCE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {draft.sourceKind === "collection" ? (
+                        <Select
+                          value={draft.collectionId || ""}
+                          onValueChange={set("collectionId")}
+                        >
+                          <SelectTrigger aria-label="Collection" className="h-9 w-48 bg-surface-card">
+                            <SelectValue placeholder="Choose a collection" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(collections || []).map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : null}
+                    </div>
+                  }
+                >
+                </SectionCard>
+
+                {draft.sourceKind === "curated" ? (
+                  <SectionCard
+                    bare
+                    title="Items"
+                    description={
+                      items.length
+                        ? `${items.length} item${items.length === 1 ? "" : "s"}${
+                            hiddenCount ? ` · ${hiddenCount} hidden` : ""
+                          } — drag to reorder, click a caption to edit it.`
+                        : "Order, caption and hide what this gallery shows."
+                    }
+                    action={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-border bg-transparent px-3 text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                        onClick={() => setShowAdd(true)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add assets
+                      </Button>
+                    }
+                    bodyPadding={false}
+                  >
+                    {items.length === 0 ? (
+                      <EmptyState
+                        icon={Images}
+                        title="Nothing in this gallery yet"
+                        description="Add assets from your library to start building the page."
+                        action={
+                          <Button
+                            className="bg-primary text-primary-foreground hover:bg-primary/90"
+                            onClick={() => setShowAdd(true)}
+                          >
+                            <Plus className="h-4 w-4" />
+                            Add assets
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <div className="-mx-2 space-y-0.5 pt-2">
+                        {items.map((item, index) => (
+                          <div key={item.id} onBlur={() => commitCaption(item)}>
+                            <CuratedRow
+                              item={item}
+                              asset={assetById.get(item.assetId)}
+                              index={index}
+                              total={items.length}
+                              dragging={drag?.from === index}
+                              dropTarget={drag && drag.over === index && drag.from !== index}
+                              onMove={handleMove}
+                              onCaption={handleCaption}
+                              onToggleHidden={handleToggleHidden}
+                              onRemove={handleRemoveItem}
+                              dragHandlers={{
+                                onHandleDragStart: (e) => {
+                                  e.dataTransfer.effectAllowed = "move";
+                                  e.dataTransfer.setData("text/plain", item.id);
+                                  setDrag({ from: index, over: index });
+                                },
+                                onHandleDragEnd: () => setDrag(null),
+                                onDragOver: (e) => {
+                                  if (!drag) return;
+                                  e.preventDefault();
+                                  if (drag.over !== index) setDrag((d) => (d ? { ...d, over: index } : d));
+                                },
+                                onDrop: (e) => {
+                                  e.preventDefault();
+                                  if (drag) handleMove(drag.from, index);
+                                  setDrag(null);
+                                },
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </SectionCard>
+                ) : (
+                  <SectionCard
+                    bare
+                    title="Collection contents"
+                    description="Read-only here — change the collection to change the gallery."
+                  >
+                    {previewItems.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-text-tertiary">
+                        {draft.collectionId
+                          ? "This collection has no assets yet."
+                          : "Pick a collection to publish."}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+                        {previewItems.map(({ asset, key }) => (
+                          <AssetThumbnail
+                            key={key}
+                            asset={asset}
+                            large
+                            alt={asset.name}
+                            className="aspect-square h-auto w-full"
+                            iconClassName="h-5 w-5"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </SectionCard>
+                )}
+              </div>
+            ) : null}
+
+            {/* Layout & Theme ------------------------------------------------ */}
+            {active === "design" ? (
+              <div className="space-y-8">
+                <SectionCard bare title="Layout" description={LAYOUT_META[draft.layout]?.hint}>
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                      {LAYOUT_OPTIONS.map((o) => (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => set("layout")(o.value)}
+                          className={cn(
+                            "rounded-lg border px-3 py-2 text-xs transition-colors",
+                            draft.layout === o.value
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-surface-card text-muted-foreground hover:bg-surface-hover",
+                          )}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {COLUMN_LAYOUTS.has(draft.layout) ? (
+                        <Field label="Columns" hint="On wide screens; phones always show two.">
+                          <SegmentedTabs
+                            fullWidth
+                            tabs={COLUMN_OPTIONS}
+                            value={draft.theme.columns}
+                            onChange={setTheme("columns")}
+                          />
+                        </Field>
+                      ) : null}
+                      {draft.layout === "grid" ? (
+                        <Field label="Tile shape">
+                          <SegmentedTabs
+                            fullWidth
+                            tabs={TILE_SHAPE_OPTIONS}
+                            value={draft.theme.tileShape}
+                            onChange={setTheme("tileShape")}
+                          />
+                        </Field>
+                      ) : null}
+                      <Field label="Page width" hint="How far the page spreads on large screens.">
+                        <SegmentedTabs
+                          fullWidth
+                          tabs={WIDTH_OPTIONS}
+                          value={draft.theme.width}
+                          onChange={setTheme("width")}
+                        />
+                      </Field>
+                      <Field label="Hover" hint="What a tile does under the pointer.">
+                        <SegmentedTabs
+                          fullWidth
+                          tabs={HOVER_OPTIONS}
+                          value={draft.theme.hover}
+                          onChange={setTheme("hover")}
+                        />
+                      </Field>
+                      <Field label="Entrance" hint="How tiles appear when the page opens.">
+                        <SegmentedTabs
+                          fullWidth
+                          tabs={ENTRANCE_OPTIONS}
+                          value={draft.theme.entrance}
+                          onChange={setTheme("entrance")}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard bare title="Theme" description="Colors, type and finish of the public page.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Accent" hint="Tints focus rings, the poster and, optionally, buttons.">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {ACCENT_SWATCHES.map((hex) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            aria-label={`Accent ${hex}`}
+                            onClick={() => setTheme("accent")(hex)}
+                            className={cn(
+                              "h-7 w-7 rounded-full border-2 transition-transform",
+                              draft.theme.accent === hex
+                                ? "border-foreground scale-110"
+                                : "border-transparent",
+                            )}
+                            style={{ background: hex }}
+                          />
+                        ))}
+                        <label
+                          title="Custom color"
+                          className={cn(
+                            "relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 transition-transform",
+                            customAccent ? "border-foreground scale-110" : "border-border",
+                          )}
+                          style={{ background: customAccent ? draft.theme.accent : undefined }}
+                        >
+                          {customAccent ? null : (
+                            <Pipette className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
+                          )}
+                          <input
+                            type="color"
+                            aria-label="Custom accent color"
+                            value={draft.theme.accent}
+                            onChange={(e) => setTheme("accent")(e.target.value)}
+                            className="absolute inset-0 cursor-pointer opacity-0"
+                          />
+                        </label>
+                        <span className="font-mono text-xs uppercase text-text-tertiary">
+                          {draft.theme.accent}
+                        </span>
+                      </div>
+                    </Field>
+
+                    <Field label="Ground" hint="Suite follows the app theme; the others stay fixed.">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={GROUND_OPTIONS}
+                        value={draft.theme.ground}
+                        onChange={setTheme("ground")}
+                      />
+                    </Field>
+
+                    <Field label="Typography">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={TYPOGRAPHY_OPTIONS}
+                        value={draft.theme.typography}
+                        onChange={setTheme("typography")}
+                      />
+                    </Field>
+
+                    <Field label="Backdrop" hint="The texture behind the title.">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={TEXTURE_OPTIONS}
+                        value={draft.theme.texture}
+                        onChange={setTheme("texture")}
+                      />
+                    </Field>
+
+                    <Field label="Title size">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={TITLE_SIZE_OPTIONS}
+                        value={draft.theme.titleSize}
+                        onChange={setTheme("titleSize")}
+                      />
+                    </Field>
+
+                    <Field label="Title alignment">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={HERO_ALIGN_OPTIONS}
+                        value={draft.theme.heroAlign}
+                        onChange={setTheme("heroAlign")}
+                      />
+                    </Field>
+
+                    <Field label="Spacing">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={GAP_OPTIONS}
+                        value={draft.theme.gap}
+                        onChange={setTheme("gap")}
+                      />
+                    </Field>
+
+                    <Field label="Corners">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={RADIUS_OPTIONS}
+                        value={draft.theme.radius}
+                        onChange={setTheme("radius")}
+                      />
+                    </Field>
+
+                    <Field
+                      label="Captions"
+                      hint={draft.layout === "mosaic" ? "Mosaic shows captions over the image." : undefined}
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={CAPTION_OPTIONS}
+                        value={draft.theme.caption}
+                        onChange={setTheme("caption")}
+                      />
+                    </Field>
+                  </div>
+
+                  <SettingsList className="mt-5 border-t border-border pt-4">
+                    <SettingRow
+                      title="Accent on buttons"
+                      description="Primary buttons take the accent color, with text that stays readable."
+                      control={
+                        <Switch
+                          checked={Boolean(draft.theme.accentButtons)}
+                          onCheckedChange={setTheme("accentButtons")}
+                        />
+                      }
+                    />
+                    <SettingRow
+                      title="Show gallery details"
+                      description="Item count, publish date and expiry beside the title."
+                      control={
+                        <Switch
+                          checked={Boolean(draft.theme.showStats)}
+                          onCheckedChange={setTheme("showStats")}
+                        />
+                      }
+                    />
+                  </SettingsList>
+                </SectionCard>
+
+                <SectionCard bare title="Preview" description="The same renderer the public page uses.">
+                  {previewItems.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-text-tertiary">
+                      Add content to see the preview.
+                    </p>
+                  ) : (
+                    <GroundPreview theme={draft.theme} className="p-4">
+                      <GalleryGrid
+                        items={previewItems.slice(0, 12)}
+                        theme={draft.theme}
+                        layout={draft.layout}
+                      />
+                    </GroundPreview>
+                  )}
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {/* Poster -------------------------------------------------------- */}
+            {active === "poster" ? (
+              <div className="space-y-8">
+                <SectionCard bare title="Preview" description="The poster as it sits under the gallery's title.">
+                  <GroundPreview theme={draft.theme} className="p-4 sm:p-6">
+                    <GalleryPoster
+                      asset={posterAsset}
+                      theme={draft.theme}
+                      tone={groundTone(draft.theme)}
+                      preview
+                    />
+                  </GroundPreview>
+                </SectionCard>
+
+                <SectionCard bare title="Image" description="Which image leads the page and how it's cropped.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      label="Poster image"
+                      hint="Automatic uses the first image in the gallery."
+                      className="sm:col-span-2"
+                    >
+                      <Select
+                        value={draft.coverAssetId || "auto"}
+                        onValueChange={(v) => set("coverAssetId")(v === "auto" ? null : v)}
+                      >
+                        <SelectTrigger className="bg-surface-card">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Automatic</SelectItem>
+                          <ImageAssetItems assets={coverOptions} />
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Crop">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_ASPECT_OPTIONS}
+                        value={draft.theme.poster.aspect}
+                        onChange={setThemePart("poster", "aspect")}
+                      />
+                    </Field>
+                    <Field label="Focus" hint="Which part of the image stays in frame.">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_FOCUS_OPTIONS}
+                        value={draft.theme.poster.focus}
+                        onChange={setThemePart("poster", "focus")}
+                      />
+                    </Field>
+                    <Field label="Motion" className="sm:col-span-2">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_MOTION_OPTIONS}
+                        value={draft.theme.poster.motion}
+                        onChange={setThemePart("poster", "motion")}
+                      />
+                    </Field>
+                  </div>
+                </SectionCard>
+
+                <SectionCard bare title="Frame" description="Border, corners and depth around the poster.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Border" hint="Matted sets the image inside a card-colored mat.">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_FRAME_OPTIONS}
+                        value={draft.theme.poster.frame}
+                        onChange={setThemePart("poster", "frame")}
+                      />
+                    </Field>
+                    <Field label="Border color" hint="Accent follows the theme's accent swatch.">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_FRAME_COLOR_OPTIONS}
+                        value={draft.theme.poster.frameColor}
+                        onChange={setThemePart("poster", "frameColor")}
+                      />
+                    </Field>
+                    <Field label="Corners">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_CORNER_OPTIONS}
+                        value={draft.theme.poster.corners}
+                        onChange={setThemePart("poster", "corners")}
+                      />
+                    </Field>
+                    <Field label="Depth">
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={POSTER_SHADOW_OPTIONS}
+                        value={draft.theme.poster.shadow}
+                        onChange={setThemePart("poster", "shadow")}
+                      />
+                    </Field>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  bare
+                  title="Text overlay"
+                  description="Words set over the image — a tagline, a date, a way in."
+                  action={
+                    <Switch
+                      checked={draft.theme.poster.overlay}
+                      onCheckedChange={setThemePart("poster", "overlay")}
+                      aria-label="Show text overlay"
+                    />
+                  }
+                >
+                  {draft.theme.poster.overlay ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Eyebrow" hint="A small label above the title.">
+                        <Input
+                          value={draft.theme.poster.eyebrow}
+                          onChange={(e) => setThemePart("poster", "eyebrow")(e.target.value)}
+                          placeholder="Fight week"
+                          className="bg-surface-card"
+                        />
+                      </Field>
+                      <Field label="Title">
+                        <Input
+                          value={draft.theme.poster.title}
+                          onChange={(e) => setThemePart("poster", "title")(e.target.value)}
+                          placeholder={draft.name || "Title"}
+                          className="bg-surface-card"
+                        />
+                      </Field>
+                      <Field label="Subtitle" className="sm:col-span-2">
+                        <Textarea
+                          value={draft.theme.poster.subtitle}
+                          onChange={(e) => setThemePart("poster", "subtitle")(e.target.value)}
+                          placeholder="A line or two under the title."
+                          rows={2}
+                          className="bg-surface-card"
+                        />
+                      </Field>
+                      <Field label="Button" hint="Scrolls to the gallery. Leave empty for none.">
+                        <Input
+                          value={draft.theme.poster.button}
+                          onChange={(e) => setThemePart("poster", "button")(e.target.value)}
+                          placeholder="View gallery"
+                          className="bg-surface-card"
+                        />
+                      </Field>
+                      <Field label="Text size">
+                        <SegmentedTabs
+                          fullWidth
+                          tabs={POSTER_SIZE_OPTIONS}
+                          value={draft.theme.poster.size}
+                          onChange={setThemePart("poster", "size")}
+                        />
+                      </Field>
+                      <Field label="Position" className="sm:col-span-2">
+                        <SegmentedTabs
+                          fullWidth
+                          tabs={POSTER_POSITION_OPTIONS}
+                          value={draft.theme.poster.position}
+                          onChange={setThemePart("poster", "position")}
+                        />
+                      </Field>
+                      <Field label="Backdrop" hint="Darkens the image behind the text so it stays legible.">
+                        <SegmentedTabs
+                          fullWidth
+                          tabs={POSTER_SCRIM_OPTIONS}
+                          value={draft.theme.poster.scrim}
+                          onChange={setThemePart("poster", "scrim")}
+                        />
+                      </Field>
+                    </div>
+                  ) : (
+                    <p className="py-2 text-xs text-text-tertiary">
+                      Off — the poster shows the image alone.
+                    </p>
+                  )}
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {/* Header & footer ----------------------------------------------- */}
+            {active === "navigation" ? (
+              <div className="space-y-8">
+                <SectionCard
+                  bare
+                  title="Top bar"
+                  description="A slim bar above the title with your brand, links and a call to action."
+                  action={
+                    <Switch
+                      checked={draft.theme.header.show}
+                      onCheckedChange={setThemePart("header", "show")}
+                      aria-label="Show top bar"
+                    />
+                  }
+                >
+                  <div className="space-y-5">
+                    {draft.theme.header.show ? (
+                      <>
+                        <GroundPreview theme={draft.theme}>
+                          <GalleryTopbar
+                            gallery={draft}
+                            theme={draft.theme}
+                            tone={groundTone(draft.theme)}
+                            links={completeLinks(draft.nav)}
+                            preview
+                          />
+                        </GroundPreview>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Field label="Brand name" hint="Defaults to the gallery's name.">
+                            <Input
+                              value={draft.theme.header.brand}
+                              onChange={(e) => setThemePart("header", "brand")(e.target.value)}
+                              placeholder={draft.name || "Brand"}
+                              className="bg-surface-card"
+                            />
+                          </Field>
+                          <Field label="Logo" hint="Any image from the library.">
+                            <Select
+                              value={draft.theme.header.logoAssetId || "none"}
+                              onValueChange={(v) => {
+                                const logo = v === "none" ? null : assetById.get(v);
+                                patchThemePart("header", {
+                                  logoAssetId: logo?.id || "",
+                                  logoUrl: logo?.thumbnailUrl || "",
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="bg-surface-card">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No logo</SelectItem>
+                                <ImageAssetItems assets={imageAssets} />
+                              </SelectContent>
+                            </Select>
+                          </Field>
+                          <Field label="Button label" hint="A call to action on the right.">
+                            <Input
+                              value={draft.theme.header.ctaLabel}
+                              onChange={(e) => setThemePart("header", "ctaLabel")(e.target.value)}
+                              placeholder="Get in touch"
+                              className="bg-surface-card"
+                            />
+                          </Field>
+                          <Field label="Button link">
+                            <Input
+                              value={draft.theme.header.ctaHref}
+                              onChange={(e) => setThemePart("header", "ctaHref")(e.target.value)}
+                              placeholder="https:// or mailto:"
+                              className="bg-surface-card"
+                            />
+                          </Field>
+                          <Field label="Link placement">
+                            <SegmentedTabs
+                              fullWidth
+                              tabs={HEADER_ALIGN_OPTIONS}
+                              value={draft.theme.header.align}
+                              onChange={setThemePart("header", "align")}
+                            />
+                          </Field>
+                        </div>
+                      </>
+                    ) : null}
+
+                    <Field
+                      label="Header links"
+                      hint={
+                        draft.theme.header.show
+                          ? "Shown in the top bar."
+                          : "With the top bar off, these show as chips under the title."
+                      }
+                    >
+                      <LinkListEditor
+                        links={draft.nav || []}
+                        onChange={set("nav")}
+                        empty="No header links — a portfolio, a contact page, a brief."
+                      />
+                    </Field>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  bare
+                  title="Footer"
+                  description="The closing line of the page, with its own links."
+                  action={
+                    <Switch
+                      checked={draft.theme.footer.show}
+                      onCheckedChange={setThemePart("footer", "show")}
+                      aria-label="Show footer"
+                    />
+                  }
+                >
+                  {draft.theme.footer.show ? (
+                    <div className="space-y-5">
+                      <GroundPreview theme={draft.theme}>
+                        <GalleryFooter
+                          gallery={draft}
+                          theme={draft.theme}
+                          tone={groundTone(draft.theme)}
+                          preview
+                          className="border-t-0"
+                        />
+                      </GroundPreview>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Footer text" hint="Defaults to a copyright line.">
+                          <Input
+                            value={draft.theme.footer.text}
+                            onChange={(e) => setThemePart("footer", "text")(e.target.value)}
+                            placeholder={`© ${new Date().getFullYear()} ${draft.name || ""}`}
+                            className="bg-surface-card"
+                          />
+                        </Field>
+                        <Field label="Layout">
+                          <SegmentedTabs
+                            fullWidth
+                            tabs={FOOTER_ALIGN_OPTIONS}
+                            value={draft.theme.footer.align}
+                            onChange={setThemePart("footer", "align")}
+                          />
+                        </Field>
+                      </div>
+
+                      <Field label="Footer links">
+                        <LinkListEditor
+                          links={draft.theme.footer.links}
+                          onChange={setThemePart("footer", "links")}
+                          empty="No footer links — terms, a website, socials."
+                        />
+                      </Field>
+
+                      <SettingsList>
+                        <SettingRow
+                          title="Show the Geiger Assets credit"
+                          description="A small “Shared with Geiger Assets” note beside the footer text."
+                          control={
+                            <Switch
+                              checked={draft.theme.footer.credit}
+                              onCheckedChange={setThemePart("footer", "credit")}
+                            />
+                          }
+                        />
+                      </SettingsList>
+                    </div>
+                  ) : (
+                    <p className="py-2 text-xs text-text-tertiary">
+                      Off — the page ends with the gallery.
+                    </p>
+                  )}
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {/* Selling ------------------------------------------------------- */}
+            {active === "selling" ? (
+              <GallerySellingSection
+                projectId={projectId}
+                commerce={draft.commerce}
+                onChange={set("commerce")}
+                items={previewItems}
+              />
+            ) : null}
+
+            {/* Access -------------------------------------------------------- */}
+            {active === "access" ? (
+              <div className="space-y-8">
+                <SectionCard bare title="Who can see this" description="Applied by the public page.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      label="Visibility"
+                      hint="Unlisted stays reachable by link but is never indexed."
+                    >
+                      <Select value={draft.visibility} onValueChange={set("visibility")}>
+                        <SelectTrigger className="bg-surface-card">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VISIBILITY_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    <Field
+                      label="Password"
+                      hint={
+                        draft.hasPassword
+                          ? "A password is set. Type to replace it, or clear the field to remove it."
+                          : "Leave empty for no password."
+                      }
+                    >
+                      <Input
+                        type="password"
+                        value={draft.password ?? ""}
+                        onChange={(e) => set("password")(e.target.value)}
+                        placeholder={draft.hasPassword ? "••••••••" : "No password"}
+                        className="bg-surface-card"
+                      />
+                    </Field>
+
+                    <Field label="Access expires" hint="Leave empty to keep it open indefinitely.">
+                      <Input
+                        type="date"
+                        value={draft.expiresAt ? String(draft.expiresAt).slice(0, 10) : ""}
+                        onChange={(e) => set("expiresAt")(e.target.value)}
+                        className="bg-surface-card"
+                      />
+                    </Field>
+
+                    <Field label="Downloads" hint={DOWNLOAD_MODE_META[draft.downloadMode]?.hint}>
+                      <Select value={draft.downloadMode} onValueChange={set("downloadMode")}>
+                        <SelectTrigger className="bg-surface-card">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DOWNLOAD_MODE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                </SectionCard>
+
+                <SettingsList>
+                  <SettingRow
+                    title="Ask visitors for their details"
+                    description="Name and email before the gallery opens, so proofing shows who picked what."
+                    control={
+                      <Switch
+                        checked={Boolean(draft.requireEmail)}
+                        onCheckedChange={set("requireEmail")}
+                      />
+                    }
+                  />
+                  <SettingRow
+                    title="Allow favorites"
+                    description="Visitors can mark assets, and the picks land in your proofing inbox."
+                    control={
+                      <Switch
+                        checked={Boolean(draft.allowFavorites)}
+                        onCheckedChange={set("allowFavorites")}
+                      />
+                    }
+                  />
+                </SettingsList>
+              </div>
+            ) : null}
+
+            {/* SEO & Social -------------------------------------------------- */}
+            {active === "seo" ? (
+              <div className="space-y-8">
+                <SectionCard
+                  bare
+                  title="Search and social"
+                  description="How the gallery appears when it's shared or indexed."
+                >
+                  <div className="grid gap-4">
+                    <Field label="Page title" hint="Falls back to the gallery name.">
+                      <Input
+                        value={draft.seo?.title || ""}
+                        onChange={(e) => set("seo")({ ...draft.seo, title: e.target.value })}
+                        placeholder={draft.name}
+                        className="bg-surface-card"
+                      />
+                    </Field>
+                    <Field label="Meta description">
+                      <Textarea
+                        value={draft.seo?.description || ""}
+                        onChange={(e) => set("seo")({ ...draft.seo, description: e.target.value })}
+                        placeholder={draft.headline || "A short summary for search results."}
+                        rows={2}
+                        className="bg-surface-card"
+                      />
+                    </Field>
+                    <Field label="Social preview image URL" hint="Used for link previews.">
+                      <Input
+                        value={draft.seo?.ogImage || ""}
+                        onChange={(e) => set("seo")({ ...draft.seo, ogImage: e.target.value })}
+                        placeholder="https://"
+                        className="bg-surface-card"
+                      />
+                    </Field>
+                    {draft.visibility !== "public" ? (
+                      <p className="text-[11px] text-text-tertiary">
+                        This gallery is {draft.visibility}, so it carries a no-index tag regardless of
+                        these settings.
+                      </p>
+                    ) : null}
+                  </div>
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {/* Publish ------------------------------------------------------- */}
+            {active === "publish" ? (
+              <div className="space-y-8">
+                <SectionCard bare title="Public address" description="Where people will find this gallery.">
+                  <div className="grid gap-4">
+                    <Field label="URL slug">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-xs text-text-tertiary">/g/</span>
+                        <Input
+                          value={draft.slug}
+                          onChange={(e) => set("slug")(slugify(e.target.value))}
+                          placeholder="autumn-campaign-2026"
+                          className="bg-surface-card"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 shrink-0 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                          onClick={() => set("slug")(uniqueSlug(draft.name, galleries || [], id))}
+                        >
+                          From name
+                        </Button>
+                      </div>
+                    </Field>
+
+                    {draft.slug ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-card px-3 py-2">
+                        <Link2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
+                        <span className="min-w-0 flex-1 truncate text-xs text-text-secondary">
+                          {publicUrl(draft.slug)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Copy public link"
+                          className="h-7 w-7 text-text-secondary hover:bg-surface-active hover:text-foreground"
+                          onClick={handleCopy}
+                        >
+                          {copied ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  bare
+                  title="Publish state"
+                  description="Unpublishing takes the page down without deleting anything."
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <StatusPill status={draft.status} map={STATUS_META} className="text-[10px]" />
+                      {draft.publishedAt ? (
+                        <span className="text-xs text-text-tertiary">
+                          Last published {new Date(draft.publishedAt).toLocaleDateString()}
+                        </span>
+                      ) : null}
+                      {draft.expired ? (
+                        <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
+                          Past expiry
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <Button
+                      variant={published ? "outline" : "default"}
+                      className={cn(
+                        published
+                          ? "border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90",
+                      )}
+                      onClick={requestTogglePublish}
+                    >
+                      {published ? <EyeOff className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                      {published ? "Unpublish gallery" : "Publish gallery"}
                     </Button>
                   </div>
-                ))}
+                  {dirty ? (
+                    <p className="mt-3 text-[11px] text-amber-700 dark:text-amber-300">
+                      You have unsaved changes — save them before they reach the public page.
+                    </p>
+                  ) : null}
+                </SectionCard>
               </div>
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        {/* Access -------------------------------------------------------- */}
-        <TabsContent value="access" className="space-y-5">
-          <SectionCard title="Who can see this" description="Applied by the public page.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Visibility"
-                hint="Unlisted stays reachable by link but is never indexed."
-              >
-                <Select value={draft.visibility} onValueChange={set("visibility")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VISIBILITY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field
-                label="Password"
-                hint={
-                  draft.hasPassword
-                    ? "A password is set. Type to replace it, or clear the field to remove it."
-                    : "Leave empty for no password."
-                }
-              >
-                <Input
-                  type="password"
-                  value={draft.password ?? ""}
-                  onChange={(e) => set("password")(e.target.value)}
-                  placeholder={draft.hasPassword ? "••••••••" : "No password"}
-                  className="bg-surface-card"
-                />
-              </Field>
-
-              <Field label="Access expires" hint="Leave empty to keep it open indefinitely.">
-                <Input
-                  type="date"
-                  value={draft.expiresAt ? String(draft.expiresAt).slice(0, 10) : ""}
-                  onChange={(e) => set("expiresAt")(e.target.value)}
-                  className="bg-surface-card"
-                />
-              </Field>
-
-              <Field label="Downloads" hint={DOWNLOAD_MODE_META[draft.downloadMode]?.hint}>
-                <Select value={draft.downloadMode} onValueChange={set("downloadMode")}>
-                  <SelectTrigger className="bg-surface-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOWNLOAD_MODE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </SectionCard>
-
-          <SettingsList>
-            <SettingRow
-              title="Ask visitors for their details"
-              description="Name and email before the gallery opens, so proofing shows who picked what."
-              control={
-                <Switch
-                  checked={Boolean(draft.requireEmail)}
-                  onCheckedChange={set("requireEmail")}
-                />
-              }
-            />
-            <SettingRow
-              title="Allow favorites"
-              description="Visitors can mark assets, and the picks land in your proofing inbox."
-              control={
-                <Switch
-                  checked={Boolean(draft.allowFavorites)}
-                  onCheckedChange={set("allowFavorites")}
-                />
-              }
-            />
-          </SettingsList>
-        </TabsContent>
-
-        {/* SEO & Social -------------------------------------------------- */}
-        <TabsContent value="seo" className="space-y-5">
-          <SectionCard
-            title="Search and social"
-            description="How the gallery appears when it's shared or indexed."
-          >
-            <div className="grid gap-4">
-              <Field label="Page title" hint="Falls back to the gallery name.">
-                <Input
-                  value={draft.seo?.title || ""}
-                  onChange={(e) => set("seo")({ ...draft.seo, title: e.target.value })}
-                  placeholder={draft.name}
-                  className="bg-surface-card"
-                />
-              </Field>
-              <Field label="Meta description">
-                <Textarea
-                  value={draft.seo?.description || ""}
-                  onChange={(e) => set("seo")({ ...draft.seo, description: e.target.value })}
-                  placeholder={draft.headline || "A short summary for search results."}
-                  rows={2}
-                  className="bg-surface-card"
-                />
-              </Field>
-              <Field label="Social preview image URL" hint="Used for link previews.">
-                <Input
-                  value={draft.seo?.ogImage || ""}
-                  onChange={(e) => set("seo")({ ...draft.seo, ogImage: e.target.value })}
-                  placeholder="https://"
-                  className="bg-surface-card"
-                />
-              </Field>
-              {draft.visibility !== "public" ? (
-                <p className="text-[11px] text-text-tertiary">
-                  This gallery is {draft.visibility}, so it carries a no-index tag regardless of
-                  these settings.
-                </p>
-              ) : null}
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        {/* Publish ------------------------------------------------------- */}
-        <TabsContent value="publish" className="space-y-5">
-          <SectionCard title="Public address" description="Where people will find this gallery.">
-            <div className="grid gap-4">
-              <Field label="URL slug">
-                <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-xs text-text-tertiary">/g/</span>
-                  <Input
-                    value={draft.slug}
-                    onChange={(e) => set("slug")(slugify(e.target.value))}
-                    placeholder="autumn-campaign-2026"
-                    className="bg-surface-card"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 shrink-0 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                    onClick={() => set("slug")(uniqueSlug(draft.name, galleries || [], id))}
-                  >
-                    From name
-                  </Button>
-                </div>
-              </Field>
-
-              {draft.slug ? (
-                <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-card px-3 py-2">
-                  <Link2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
-                  <span className="min-w-0 flex-1 truncate text-xs text-text-secondary">
-                    {publicUrl(draft.slug)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Copy public link"
-                    className="h-7 w-7 text-text-secondary hover:bg-surface-active hover:text-foreground"
-                    onClick={handleCopy}
-                  >
-                    {copied ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Publish state"
-            description="Unpublishing takes the page down without deleting anything."
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <StatusPill status={draft.status} map={STATUS_META} className="text-[10px]" />
-                {draft.publishedAt ? (
-                  <span className="text-xs text-text-tertiary">
-                    Last published {new Date(draft.publishedAt).toLocaleDateString()}
-                  </span>
-                ) : null}
-                {draft.expired ? (
-                  <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
-                    Past expiry
-                  </Badge>
-                ) : null}
-              </div>
-              <Button
-                variant={published ? "outline" : "default"}
-                className={cn(
-                  published
-                    ? "border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90",
-                )}
-                onClick={handleTogglePublish}
-              >
-                {published ? <EyeOff className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-                {published ? "Unpublish gallery" : "Publish gallery"}
-              </Button>
-            </div>
-            {dirty ? (
-              <p className="mt-3 text-[11px] text-amber-300">
-                You have unsaved changes — save them before they reach the public page.
-              </p>
             ) : null}
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
+          </>
+        )}
+      </EditorShell>
 
       <AddAssetsDialog
         open={showAdd}
@@ -1133,7 +1860,29 @@ export function GalleryDetailScreen({ id, projectId, collections, galleries, onB
         existingIds={curatedIds}
         onAdd={handleAddAssets}
       />
-    </MainScreenWrapper>
+
+      <ConfirmDeleteDialog
+        open={publishConfirm}
+        onOpenChange={(next) => !publishing && setPublishConfirm(next)}
+        title={published ? "Unpublish this gallery?" : "Publish this gallery?"}
+        description={
+          published
+            ? "The page goes offline for everyone straight away — shared links, embeds and any live checkout. Nothing is deleted."
+            : draft.visibility === "public"
+              ? "Anyone can open it, and it can show up in search."
+              : draft.visibility === "unlisted"
+                ? "Anyone with the link can open it."
+                : "It's set to Private, so visitors still get a not-found page until you change Access."
+        }
+        confirmLabel={published ? "Unpublish gallery" : "Publish gallery"}
+        tone={published ? "danger" : "primary"}
+        pending={publishing}
+        onConfirm={handleTogglePublish}
+      >
+      </ConfirmDeleteDialog>
+
+      {guard.dialog}
+    </>
   );
 }
 

@@ -412,7 +412,7 @@ export function ApprovalPipelinesScreen({ projectId }) {
             {p.name}
             {p.isDefault ? (
               <Star
-                className="h-3 w-3 fill-emerald-400 text-emerald-400"
+                className="h-3 w-3 fill-emerald-400 text-emerald-600 dark:text-emerald-400"
                 aria-label="Default pipeline"
               />
             ) : null}

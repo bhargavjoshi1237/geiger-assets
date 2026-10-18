@@ -75,9 +75,9 @@ export function dayKey(value) {
 export function lastDays(n) {
   const out = [];
   const today = new Date();
+  const utcToday = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   for (let i = n - 1; i >= 0; i -= 1) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+    const d = new Date(utcToday - i * 86400000);
     out.push(d.toISOString().slice(0, 10));
   }
   return out;

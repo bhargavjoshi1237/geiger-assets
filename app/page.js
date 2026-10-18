@@ -112,7 +112,7 @@ export default function AssetsLandingPage() {
       <main className="relative z-10 flex flex-1 flex-col pt-16 sm:pt-20">
         <section className="mx-auto mb-10 mt-10 flex w-full max-w-6xl items-start px-4 sm:mt-16 sm:px-6">
           <div className="max-w-3xl">
-            <h1 className="mb-4 text-2xl font-semibold text-white sm:text-3xl">
+            <h1 className="mb-4 text-2xl font-semibold text-foreground sm:text-3xl">
               Organize, approve, and deliver every project asset from one place.
             </h1>
             <p className="mb-6 max-w-xl text-sm text-muted-foreground sm:text-base">
@@ -124,30 +124,27 @@ export default function AssetsLandingPage() {
               signedOutHref={loginHref}
               signedOutLabel="Log in to Start"
               signedInLabel="Open Assets"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-zinc-100 px-6 text-sm font-medium text-zinc-950 transition-colors hover:bg-white sm:text-base"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:text-base"
             >
               <ArrowRight className="h-4 w-4" />
             </LandingCta>
           </div>
         </section>
 
-        <div className="my-10 sm:my-20">
-          <section className="mx-auto w-[94%] md:w-[85%]">
-            <LandingAssetShowcase
-              backgroundImage={assetShowcaseBg}
-              ctaHref={loginHref}
-              ctaLabel="Check out Assets"
-            />
-          </section>
-        </div>
+        <section className="mx-auto my-10 w-full sm:my-20">
+          <LandingAssetShowcase
+            backgroundImage={assetShowcaseBg}
+            ctaHref={loginHref}
+          />
+        </section>
 
         <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 sm:px-6 md:grid-cols-3">
           {utilityCards.map(({ title, description, icon: Icon }) => (
             <article
               key={title}
-              className="rounded-sm border border-border bg-[#191919] p-5"
+              className="rounded-sm border border-border bg-card p-5"
             >
-              <Icon className="mb-3 h-5 w-5 text-muted-foreground" />
+              <Icon className="mb-3 h-5 w-5 text-foreground" />
               <h2 className="font-medium text-foreground">{title}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{description}</p>
             </article>
@@ -156,7 +153,7 @@ export default function AssetsLandingPage() {
 
         <section className="mx-auto mt-10 flex w-full max-w-6xl flex-col gap-6 px-4 sm:px-6 md:mt-16 md:flex-row">
           <div className="md:w-[35%]">
-            <h2 className="text-3xl font-semibold text-white">Questions & Answers</h2>
+            <h2 className="text-3xl font-semibold text-foreground">Questions &amp; Answers</h2>
           </div>
           <div className="md:w-[65%]">
             <Accordion type="single" collapsible className="w-full">
@@ -183,14 +180,14 @@ export default function AssetsLandingPage() {
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground sm:text-sm">
               Built for Geiger Studio
             </h3>
-            <h2 className="mb-8 bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-3xl font-black tracking-tighter text-transparent drop-shadow-lg sm:mb-10 sm:text-5xl lg:text-6xl">
+            <h2 className="mb-8 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-3xl font-black tracking-tighter text-transparent drop-shadow-lg sm:mb-10 sm:text-5xl lg:text-6xl">
               TRY GEIGER ASSETS
             </h2>
             <div className="flex w-full max-w-md flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <LandingCta
                 signedOutHref={loginHref}
                 signedOutLabel="Studio"
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-zinc-100 px-6 text-sm font-medium text-zinc-950 transition-colors hover:bg-white sm:w-auto"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
               >
                 <ArrowRight className="h-4 w-4" />
               </LandingCta>

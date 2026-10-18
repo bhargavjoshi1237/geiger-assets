@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok, normalizeAssetRow } from "@/lib/api/respond";
 
 export const runtime = "nodejs";
@@ -27,7 +27,6 @@ export async function GET(request, { params }) {
 
   const row = await loadAsset(supabase, key.projectId, id);
   if (!row) return apiError("not_found", "Asset not found.", 404);
-  countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/assets/[id]", method: "GET", status: 200, assetId: id }).catch(() => {});
   return ok(normalizeAssetRow(row));
 }
 
@@ -67,7 +66,6 @@ export async function PATCH(request, { params }) {
       return apiError("write_failed", "Could not update the asset.", 500);
     }
     if (!data) return apiError("not_found", "Asset not found.", 404);
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/assets/[id]", method: "PATCH", status: 200, assetId: id }).catch(() => {});
     return ok(normalizeAssetRow(data));
   } catch (e) {
     console.error("[v1.assets.patch]", e?.message || e);
@@ -96,7 +94,6 @@ export async function DELETE(request, { params }) {
       return apiError("write_failed", "Could not delete the asset.", 500);
     }
     if (!data) return apiError("not_found", "Asset not found.", 404);
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/assets/[id]", method: "DELETE", status: 200, assetId: id }).catch(() => {});
     return ok({ id, deleted: true });
   } catch (e) {
     console.error("[v1.assets.delete]", e?.message || e);

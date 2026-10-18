@@ -9,7 +9,6 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
   Archive as ArchiveIcon,
-  File,
 } from "lucide-react";
 import { Button } from "@geiger/ui/button";
 import { Badge } from "@geiger/ui/badge";
@@ -34,7 +33,6 @@ import {
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import {
-  TYPE_ICONS,
   FILE_TYPE_COLORS,
   TYPE_FILTER_OPTIONS,
   SORT_OPTIONS,
@@ -51,6 +49,7 @@ import {
 } from "@/lib/supabase/archive";
 import { ArchiveDetailScreen } from "./archive_detail";
 import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import { toast } from "sonner";
 import { deleteAssetFile } from "@/lib/storage/client";
 
@@ -58,18 +57,6 @@ const VIEWS = [
   { value: "archived", label: "Archived" },
   { value: "trash", label: "Trash" },
 ];
-
-function AssetThumb({ asset }) {
-  const Icon = TYPE_ICONS[asset.type] || File;
-  return (
-    <div
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-      style={{ background: `${asset.color}15`, borderColor: `${asset.color}25` }}
-    >
-      <Icon className="h-4 w-4" style={{ color: asset.color || "var(--color-text-secondary)" }} />
-    </div>
-  );
-}
 
 function RowActions({ asset, isTrash, onView, onRestore, onTrash, onPurge }) {
   return (
@@ -253,7 +240,7 @@ export function ArchiveTrashScreen({ projectId }) {
       header: "Name",
       render: (a) => (
         <div className="flex items-center gap-3">
-          <AssetThumb asset={a} />
+          <AssetThumbnail asset={a} />
           <div className="min-w-0">
             <p className="max-w-[260px] truncate text-sm font-medium text-foreground">{a.name}</p>
             <div className="mt-0.5 flex gap-1">

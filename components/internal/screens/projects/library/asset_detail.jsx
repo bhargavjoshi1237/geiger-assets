@@ -2,20 +2,15 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, File } from "lucide-react";
+import { Download, File } from "lucide-react";
 
-import { EditorShell } from "@/components/internal/shared/editor_shell";
-import { Button } from "@geiger/ui/button";
-import { LogoLoading } from "@geiger/ui";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@geiger/ui/dialog";
-import { EmptyState } from "@/components/internal/shared/screen_kit";
+  EditorLoading,
+  EditorNotFound,
+  EditorShell,
+} from "@/components/internal/shared/editor_shell";
+import { EditorSaveActions, useEditorGuard } from "@/components/internal/shared/unsaved_changes";
+import { Button } from "@geiger/ui/button";
 import { STATUS_META, formatBytes } from "./constants";
 import {
   getAsset,
@@ -27,7 +22,7 @@ import {
   listVersions,
   restoreVersion,
 } from "@/lib/supabase/assets";
-import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
+import { getDeliverySettings } from "@/lib/supabase/delivery";
 import { NAV_GROUPS } from "./asset_sections";
 import { assetFileUrl, uploadAsset, UPLOAD_PHASE_LABELS, UPLOAD_ERROR_MESSAGES } from "@/lib/storage/client";
 import { OverviewSection } from "./sections/overview_section";
@@ -55,7 +50,6 @@ function pickEditable(source) {
 }
 
 export function AssetEditScreen({ assetId, onBack, onUpdate }) {
-  const { section: active, setSection: setActive } = useWorkspaceUrl();
   const [loading, setLoading] = useState(true);
   const [asset, setAsset] = useState(null);
   const [form, setForm] = useState(null);
@@ -66,8 +60,6 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
   const [replacing, setReplacing] = useState(false);
   const [replaceProgress, setReplaceProgress] = useState(0);
   const [replacePhase, setReplacePhase] = useState("");
-
-  const [pendingNav, setPendingNav] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -94,6 +86,20 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
     let alive = true;
     listAssets(projectId).then((rows) => {
       if (alive) setCandidates(rows ?? []);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  // Fetched once here rather than inside the Delivery section, so switching
+  // tabs doesn't re-read the project's delivery settings each time.
+  const [transformsEnabled, setTransformsEnabled] = useState(false);
+  useEffect(() => {
+    if (!projectId) return undefined;
+    let alive = true;
+    getDeliverySettings(projectId).then((row) => {
+      if (alive) setTransformsEnabled(Boolean(row?.transformsEnabled));
     });
     return () => {
       alive = false;
@@ -135,96 +141,30 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
     return false;
   }, [assetId, dirty, form, onUpdate, saving]);
 
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        save();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [save]);
-
-  useEffect(() => {
-    if (!dirty) return undefined;
-    const onBeforeUnload = (e) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
-
-  const runNav = useCallback(
-    (nav) => {
-      if (!nav) return;
-      if (nav.type === "back") onBack?.();
-      else setActive(nav.key);
-    },
-    [onBack, setActive],
-  );
-
-  const guardedNav = (nav) => {
-    if (dirty) setPendingNav(nav);
-    else runNav(nav);
-  };
-
-  const discardPending = () => {
-    const nav = pendingNav;
-    setPendingNav(null);
-    setForm(asset);
-    runNav(nav);
-  };
-
-  const savePending = async () => {
-    const nav = pendingNav;
-    setPendingNav(null);
-    if (await save()) runNav(nav);
-  };
+  const guard = useEditorGuard({
+    dirty,
+    saving,
+    save,
+    discard: () => setForm(asset),
+    onBack,
+    name: form?.name || "this asset",
+    resetSection: false,
+  });
+  const back = { label: "Asset Library", onClick: guard.back };
 
   if (loading) {
-    return (
-      <EditorShell
-        back={{ label: "Asset Library", onClick: onBack }}
-        title="Loading asset…"
-        nav={NAV_GROUPS}
-        subject={null}
-        active={active}
-        onActiveChange={setActive}
-      >
-        <div className="flex h-64 items-center justify-center">
-          <LogoLoading size={72} />
-        </div>
-      </EditorShell>
-    );
+    return <EditorLoading back={back} title="Loading asset…" nav={NAV_GROUPS} />;
   }
 
   if (!asset || !form) {
     return (
-      <EditorShell
-        back={{ label: "Asset Library", onClick: onBack }}
-        title="Asset not found"
+      <EditorNotFound
+        back={back}
         nav={NAV_GROUPS}
-        subject={null}
-        active={active}
-        onActiveChange={setActive}
-      >
-        <EmptyState
-          icon={File}
-          title="Asset not found"
-          description="This asset may have been deleted or isn't available."
-          action={
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
-              onClick={onBack}
-            >
-              Back to Library
-            </Button>
-          }
-        />
-      </EditorShell>
+        icon={File}
+        title="Asset not found"
+        description="This asset may have been deleted or isn't available."
+      />
     );
   }
 
@@ -324,7 +264,7 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
     <>
       <EditorShell
         searchable
-        back={{ label: "Asset Library", onClick: () => guardedNav({ type: "back" }) }}
+        back={back}
         title={form.name || "Untitled asset"}
         status={form.status}
         statusMap={STATUS_META}
@@ -334,17 +274,12 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
             .join(" · ") || "No details set yet"
         }
         actions={
-          <>
-            {dirty ? (
-              <Button
-                variant="ghost"
-                className="text-text-secondary hover:text-foreground"
-                onClick={() => setForm(asset)}
-                disabled={saving}
-              >
-                Discard
-              </Button>
-            ) : null}
+          <EditorSaveActions
+            dirty={dirty}
+            saving={saving}
+            onSave={save}
+            onDiscard={() => setForm(asset)}
+          >
             <Button
               variant="outline"
               aria-label="Download asset"
@@ -359,20 +294,12 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
             >
               <Download className="h-4 w-4" />
             </Button>
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={save}
-              disabled={!dirty || saving}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {dirty ? "Save Changes" : "Saved"}
-            </Button>
-          </>
+          </EditorSaveActions>
         }
         nav={NAV_GROUPS}
         subject={form}
-        active={active}
-        onActiveChange={(key) => guardedNav({ type: "section", key })}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
       >
         {({ active: key }) => {
           const ActiveSection = SECTIONS[key] || SECTIONS.overview;
@@ -385,6 +312,7 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
               versions={versions}
               candidates={candidates}
               folders={folders}
+              transformsEnabled={transformsEnabled}
               onPatch={patch}
               onAdd={handleAddRelationship}
               onRemove={handleRemoveRelationship}
@@ -398,44 +326,7 @@ export function AssetEditScreen({ assetId, onBack, onUpdate }) {
         }}
       </EditorShell>
 
-      <Dialog open={!!pendingNav} onOpenChange={(open) => !open && setPendingNav(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Unsaved changes</DialogTitle>
-            <DialogDescription>
-              You have unsaved edits to{" "}
-              <span className="font-medium text-foreground">
-                {form.name || "this asset"}
-              </span>
-              . Save them before leaving?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              className="text-text-secondary hover:text-foreground"
-              onClick={() => setPendingNav(null)}
-            >
-              Keep editing
-            </Button>
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-              onClick={discardPending}
-            >
-              Discard
-            </Button>
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={savePending}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {guard.dialog}
     </>
   );
 }

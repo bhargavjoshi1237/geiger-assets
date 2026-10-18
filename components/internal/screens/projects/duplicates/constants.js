@@ -1,15 +1,15 @@
 export const MATCH_META = {
   exact: {
     label: "Exact",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
   },
   near: {
     label: "Near",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
   },
   visual: {
     label: "Visual",
-    className: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+    className: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
   },
 };
 
@@ -17,13 +17,13 @@ export const STATUS_META = {
   open: {
     variant: "warning",
     label: "Open",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   resolved: {
     variant: "success",
     label: "Resolved",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   ignored: {

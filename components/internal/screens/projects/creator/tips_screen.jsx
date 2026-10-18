@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { HandCoins, SlidersHorizontal } from "lucide-react";
 import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import {
   DataTable,
   EmptyState,
@@ -46,6 +47,8 @@ export function TipsScreen({ projectId }) {
     if (targetFilter !== "all") r = r.filter((t) => t.targetType === targetFilter);
     return r;
   }, [rows, search, statusFilter, targetFilter, memberById]);
+
+  const pager = usePagination(filtered, { resetKey: `${search}|${statusFilter}|${targetFilter}` });
 
   const stats = useMemo(() => {
     const ok = rows.filter((t) => t.status === "succeeded");
@@ -93,9 +96,9 @@ export function TipsScreen({ projectId }) {
       {loading ? (
         <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(t) => t.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={HandCoins} title="No tips yet" description={hasFilters ? "Try adjusting your filters." : "Tips from fans will land here with top-fan signals."} /></div>} />
+        <DataTable columns={columns} data={pager.pageItems} getRowKey={(t) => t.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={HandCoins} title="No tips yet" description={hasFilters ? "Try adjusting your filters." : "Tips from fans will land here with top-fan signals."} /></div>} />
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} tips · tips are read-only (created at checkout)</div> : null}
+      {!loading ? <ListPagination {...pager} itemLabel="tips" /> : null}
     </MainScreenWrapper>
   );
 }

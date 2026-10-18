@@ -12,6 +12,7 @@ import React, {
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/supabase/components/assets-client";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
+import { PLAYGROUND_PROJECT } from "@/lib/playground/mode";
 
 const ProjectContext = createContext(undefined);
 
@@ -41,7 +42,9 @@ export function pickDefaultProjectId(projects) {
   return projects[0].id;
 }
 
-export const PREVIEW_PROJECT = { id: "assets-preview", name: "Brand Assets" };
+// The landing playground opens this project; its seeded data lives in memory
+// (lib/playground), never in the real DB.
+export const PREVIEW_PROJECT = PLAYGROUND_PROJECT;
 
 export function ProjectProvider({ children, preview = false }) {
   const { projectId, setProject } = useWorkspaceUrl();
@@ -49,7 +52,8 @@ export function ProjectProvider({ children, preview = false }) {
   const [loading, setLoading] = useState(!preview);
 
   const fetchProjects = useCallback(async () => {
-    if (preview || !isSupabaseConfigured()) return [];
+    if (preview) return [PREVIEW_PROJECT];
+    if (!isSupabaseConfigured()) return [];
     try {
       const sb = createClient();
       const { data, error } = await sb
@@ -88,14 +92,14 @@ export function ProjectProvider({ children, preview = false }) {
   }, [fetchProjects]);
 
   useEffect(() => {
-    if (loading || !projectId) return;
+    if (preview || loading || !projectId) return;
     const open = resolveWorkspaceProject(projects, projectId);
     if (!open) return;
     try {
       window.localStorage.setItem(LAST_PROJECT_KEY, open.id);
     } catch {
     }
-  }, [loading, projects, projectId]);
+  }, [preview, loading, projects, projectId]);
 
   const project = useMemo(
     () =>

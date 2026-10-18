@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok, paginate, normalizeAssetRow } from "@/lib/api/respond";
 
 export const runtime = "nodejs";
@@ -39,7 +39,6 @@ export async function GET(request) {
       limit: params.get("limit"),
       cursor: params.get("cursor"),
     });
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/assets", method: "GET", status: 200 }).catch(() => {});
     return ok(page);
   } catch (e) {
     console.error("[v1.assets.list]", e?.message || e);
@@ -79,7 +78,6 @@ export async function POST(request) {
       console.error("[v1.assets.create]", error.message);
       return apiError("write_failed", "Could not create the asset.", 500);
     }
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/assets", method: "POST", status: 201, assetId: data.id }).catch(() => {});
     return ok(normalizeAssetRow(data), { status: 201 });
   } catch (e) {
     console.error("[v1.assets.create]", e?.message || e);

@@ -8,6 +8,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@geiger/ui/button";
 import {
@@ -39,6 +40,11 @@ import {
   updateProjectRecord,
   updateProjectSettingsColumns,
 } from "@/lib/supabase/project_settings";
+import {
+  DELIVERY_SETTINGS_DEFAULTS,
+  getDeliverySettings,
+  updateDeliverySettings,
+} from "@/lib/supabase/delivery";
 
 export function useProjectSettings(projectId) {
   const [settings, setSettings] = useState(() =>
@@ -129,6 +135,56 @@ export function useProjectSettings(projectId) {
   return { settings, loading, patchColumns, patchSection, patchProject };
 }
 
+// Delivery settings ---------------------------------------------------------
+
+// The two project-wide delivery switches live in assets.delivery_settings, not
+// assets.project_settings, because the /d/ route already loads that row for
+// every request through normalizePolicy() — putting them in project_settings
+// would cost a second server-side fetch per delivery. Same optimistic shape as
+// useProjectSettings: patch local state, persist, roll back with a toast.
+export function useDeliverySettings(projectId) {
+  const [settings, setSettings] = useState(DELIVERY_SETTINGS_DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const currentRef = useRef(settings);
+  useEffect(() => {
+    currentRef.current = settings;
+  });
+
+  useEffect(() => {
+    let alive = true;
+    getDeliverySettings(projectId).then((row) => {
+      if (!alive) return;
+      setSettings(row ?? DELIVERY_SETTINGS_DEFAULTS);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  const patchDelivery = useCallback(
+    async (partial) => {
+      const prev = currentRef.current;
+      if (!projectId) {
+        toast.error("Couldn't save the setting.");
+        return null;
+      }
+      setSettings({ ...prev, ...partial });
+      const saved = await updateDeliverySettings(projectId, partial);
+      if (saved) {
+        setSettings(saved);
+        return saved;
+      }
+      setSettings(prev);
+      toast.error("Couldn't save the setting.");
+      return null;
+    },
+    [projectId],
+  );
+
+  return { settings, loading, patchDelivery };
+}
+
 // Danger zone ---------------------------------------------------------------
 
 export function DangerZoneCard({ title, description, children, className }) {
@@ -143,20 +199,25 @@ export function DangerZoneCard({ title, description, children, className }) {
   );
 }
 
-// Type-to-confirm dialog for destructive actions. Confirm stays disabled
-// until the input exactly matches requireText.
+// Confirm dialog for destructive actions. With `requireText` it's
+// type-to-confirm: Confirm stays disabled until the input matches exactly.
+// Without it, it's a plain warning with Cancel / Confirm. `tone="primary"`
+// reuses it for weighty but non-destructive actions (e.g. publishing).
 export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   title,
   description,
   requireText,
+  hint = "This can't be undone.",
   confirmLabel = "Delete",
+  tone = "danger",
   onConfirm,
   pending = false,
+  children,
 }) {
   const [input, setInput] = useState("");
-  const matches = (input || "").trim() === (requireText || "").trim();
+  const matches = !requireText || (input || "").trim() === requireText.trim();
 
   return (
     <Dialog
@@ -175,17 +236,20 @@ export function ConfirmDeleteDialog({
             </DialogDescription>
           ) : null}
         </DialogHeader>
-        <Field
-          label={`Type "${requireText}" to confirm`}
-          hint="This can't be undone."
-        >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={requireText}
-            className="border-border bg-surface-card font-mono text-foreground"
-          />
-        </Field>
+        {children}
+        {requireText ? (
+          <Field
+            label={`Type "${requireText}" to confirm`}
+            hint={hint}
+          >
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={requireText}
+              className="border-border bg-surface-card font-mono text-foreground"
+            />
+          </Field>
+        ) : null}
         <DialogFooter className="gap-2 sm:justify-end">
           <Button
             variant="ghost"
@@ -197,8 +261,13 @@ export function ConfirmDeleteDialog({
           <Button
             onClick={onConfirm}
             disabled={!matches || pending}
-            className="bg-red-500/90 text-white hover:bg-red-500"
+            className={
+              tone === "primary"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-red-500/90 text-white hover:bg-red-500"
+            }
           >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {confirmLabel}
           </Button>
         </DialogFooter>

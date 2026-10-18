@@ -9,7 +9,7 @@ import React, { useState } from "react";
 import { toast } from "sonner";
 import { Check, Copy } from "lucide-react";
 
-import { SecondaryScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   Field,
   LoadingArea,
@@ -29,7 +29,11 @@ import {
   PROJECT_REGION_OPTIONS,
   PROJECT_VISIBILITY_OPTIONS,
 } from "./constants";
-import { SelectSettingRow, useProjectSettings } from "./settings_kit";
+import {
+  SelectSettingRow,
+  useDeliverySettings,
+  useProjectSettings,
+} from "./settings_kit";
 
 const SLUG_RE = /^[a-z0-9-]+$/;
 
@@ -51,7 +55,7 @@ export function CopyButton({ value, label }) {
       }}
     >
       {copied ? (
-        <Check className="h-3.5 w-3.5 text-emerald-400" />
+        <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
       ) : (
         <Copy className="h-3.5 w-3.5" />
       )}
@@ -80,6 +84,9 @@ export function GeneralSettingsScreen({ projectId }) {
   const { project, refresh, loading: projectLoading } = useProject();
   const { settings, loading: settingsLoading, patchColumns, patchProject } =
     useProjectSettings(projectId);
+  // Delivery switches come from assets.delivery_settings, a different row than
+  // the rest of this screen — see useDeliverySettings for why.
+  const { settings: delivery, patchDelivery } = useDeliverySettings(projectId);
   // Drafts are tagged with the project they belong to, so switching projects
   // discards a stale draft without a reset effect.
   const [nameDraft, setNameDraft] = useState({ id: null, value: null });
@@ -157,18 +164,18 @@ export function GeneralSettingsScreen({ projectId }) {
 
   if (loading) {
     return (
-      <SecondaryScreenWrapper>
+      <MainScreenWrapper>
         <ScreenHeader
           title="General"
           description="Name, identifiers, and the basics that describe this project."
         />
         <LoadingArea size={56} label="Loading project settings" />
-      </SecondaryScreenWrapper>
+      </MainScreenWrapper>
     );
   }
 
   return (
-    <SecondaryScreenWrapper>
+    <MainScreenWrapper>
       <ScreenHeader
         title="General"
         description="Name, identifiers, and the basics that describe this project."
@@ -269,6 +276,26 @@ export function GeneralSettingsScreen({ projectId }) {
       </SectionCard>
 
       <SectionCard
+        title="Delivery"
+        description="Project-wide defaults for the public /d/ delivery engine."
+      >
+        <SettingsList>
+          <SettingRow
+            title="URL transforms"
+            description="Let /d/ URLs resize, crop, and apply effects. Off means originals only — transform URLs are rejected."
+            checked={delivery.transformsEnabled}
+            onCheckedChange={(v) => patchDelivery({ transformsEnabled: v })}
+          />
+          <SettingRow
+            title="Deliver new assets by default"
+            description="New uploads arrive with delivery already on, so their /d/ URLs work immediately. Existing assets keep whatever they have."
+            checked={delivery.deliveryDefaultEnabled}
+            onCheckedChange={(v) => patchDelivery({ deliveryDefaultEnabled: v })}
+          />
+        </SettingsList>
+      </SectionCard>
+
+      <SectionCard
         title="Workspace defaults"
         description="Starting points for tables and navigation."
       >
@@ -289,7 +316,7 @@ export function GeneralSettingsScreen({ projectId }) {
           />
         </SettingsList>
       </SectionCard>
-    </SecondaryScreenWrapper>
+    </MainScreenWrapper>
   );
 }
 

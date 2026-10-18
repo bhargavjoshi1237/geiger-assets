@@ -20,6 +20,7 @@ import {
   Field,
 } from "@/components/internal/shared/screen_kit";
 import { cn } from "@/lib/utils";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import { TYPE_ICONS, RELATION_META, RELATION_OPTIONS, formatBytes } from "../constants";
 
 function TypeGlyph({ type, color, className }) {
@@ -255,13 +256,7 @@ export function RelationshipsSection({
             const name = rel.related?.name || rel.label || "Untitled";
             return (
               <div key={rel.id} className="group flex items-center gap-3 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
-                  <TypeGlyph
-                    type={rel.related?.type}
-                    color={rel.related?.color}
-                    className="h-4 w-4"
-                  />
-                </div>
+                <AssetThumbnail asset={rel.related} assetId={rel.relatedAssetId} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{name}</p>
                   <div className="mt-1 flex items-center gap-1.5">
@@ -277,7 +272,7 @@ export function RelationshipsSection({
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`Remove ${name}`}
-                  className="shrink-0 text-text-tertiary opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 focus-visible:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 text-text-tertiary opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 focus-visible:opacity-100 group-hover:opacity-100"
                   onClick={() => onRemove?.(rel.id)}
                 >
                   <X className="h-4 w-4" />

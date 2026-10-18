@@ -89,42 +89,6 @@ async function loadPolicy(projectId) {
   }
 }
 
-async function monthTransforms(projectId) {
-  try {
-    const sb = await createServerSupabase();
-    const start = new Date();
-    start.setDate(1);
-    start.setHours(0, 0, 0, 0);
-    const { data, error } = await sb
-      .schema("assets")
-      .from("api_usage")
-      .select("transforms")
-      .eq("project_id", projectId)
-      .gte("created_at", start.toISOString());
-    if (error) return 0;
-    return (data || []).reduce((n, r) => n + (Number(r.transforms) || 0), 0);
-  } catch {
-    return 0;
-  }
-}
-
-async function recordDelivery({ projectId, assetId, transforms, route }) {
-  try {
-    const sb = await createServerSupabase();
-    await sb.schema("assets").from("api_usage").insert({
-      project_id: projectId,
-      asset_id: assetId,
-      route: String(route || "").slice(0, 200),
-      method: "GET",
-      status: 200,
-      kind: "delivery",
-      transforms: Number(transforms) || 0,
-    });
-  } catch (e) {
-    console.error("[delivery.usage]", e?.message || e);
-  }
-}
-
 export async function GET(request, { params }) {
   const { projectId, assetId, rest } = await params;
   if (!isStorageConfigured()) {
@@ -228,6 +192,13 @@ export async function GET(request, { params }) {
     });
   }
 
+  // Everything below this line is the transform engine. The originals branch
+  // has already returned, so this gate costs a disabled project one cheap
+  // invocation and no sharp CPU, no storage read and no derivative write.
+  if (!policy.transformsEnabled) {
+    return NextResponse.json({ error: "transforms_disabled" }, { status: 403 });
+  }
+
   let steps;
   try {
     steps = parseTransformPath(segments);
@@ -237,13 +208,6 @@ export async function GET(request, { params }) {
   const plan = mergeSteps(steps);
   const policyError = validatePlan(plan, policy);
   if (policyError) return NextResponse.json({ error: "transform_rejected" }, { status: 400 });
-
-  if (policy.monthlyTransformBudget > 0) {
-    const used = await monthTransforms(projectId);
-    if (used >= policy.monthlyTransformBudget) {
-      return NextResponse.json({ error: "transform_budget_exceeded" }, { status: 429 });
-    }
-  }
 
   const format = resolveFormat(plan, request.headers.get("accept"));
   const quality = resolveQuality(plan);
@@ -289,7 +253,6 @@ export async function GET(request, { params }) {
   }
 
   await writeBe.put({ key, body: result.bytes, contentType: result.contentType });
-  recordDelivery({ projectId, assetId, transforms: result.transforms, route: `/d/${canonical}` }).catch(() => {});
 
   return new Response(result.bytes, {
     headers: {

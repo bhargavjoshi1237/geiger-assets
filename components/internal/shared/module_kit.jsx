@@ -263,10 +263,14 @@ export function TextAreaField({ label, value, onChange, placeholder, hint, rows 
 const NONE = "__none__";
 
 export function SelectField({ label, value, onChange, options, placeholder, hint, disabled }) {
+  // With no "unassigned" option, an empty value is Radix's "" so the trigger
+  // shows the placeholder instead of a blank sentinel.
+  const hasNone = (options || []).some((option) => option.value === "");
+  const empty = value === "" || value == null;
   return (
     <Field label={label} hint={hint}>
       <Select
-        value={value === "" || value == null ? NONE : String(value)}
+        value={empty ? (hasNone ? NONE : "") : String(value)}
         onValueChange={(next) => onChange(next === NONE ? "" : next)}
         disabled={disabled}
       >

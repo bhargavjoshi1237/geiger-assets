@@ -28,9 +28,9 @@ export const DOMAIN_STATUS_MAP = {
 
 export const SSL_STATUS_MAP = {
   none: { label: "No certificate", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
-  pending: { label: "Issuing", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  issued: { label: "Secured", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  error: { label: "Error", className: "bg-red-500/15 text-red-300 border-red-500/30" },
+  pending: { label: "Issuing", className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  issued: { label: "Secured", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  error: { label: "Error", className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" },
 };
 
 export const DOMAIN_KIND_OPTIONS = [

@@ -13,9 +13,9 @@ function NodeCard({ accent, kindLabel, data, selected, showTarget = true }) {
 
   const accentClass =
     {
-      amber: "border-amber-500/20 bg-amber-500/10 text-amber-400",
-      violet: "border-violet-500/20 bg-violet-500/10 text-violet-300",
-      sky: "border-sky-500/20 bg-sky-500/10 text-sky-400",
+      amber: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      violet: "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+      sky: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
     }[accent] || "border-border bg-surface-card text-muted-foreground";
 
   return (

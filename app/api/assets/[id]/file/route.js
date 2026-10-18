@@ -28,6 +28,14 @@ export async function GET(request, { params }) {
   const ref = refFromAssetRow(row) || { backend: "s3", key: row.storage_key };
   const backend = backendForRef(ref);
 
+  // In-app editors read pixels back from a canvas, which needs the bytes on
+  // this origin — a redirect to the storage backend would taint it.
+  if (searchParams.get("proxy") === "1" && !download) {
+    const res = await proxyStreamResponse(row.storage_key, { filename, request, ref });
+    if (!res) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    return res;
+  }
+
   // Pooled objects always read via the pool gateway, which is stable and
   // handles private objects. S3 keeps today's presigned/proxy branch.
   if (ref.backend === "pool") {

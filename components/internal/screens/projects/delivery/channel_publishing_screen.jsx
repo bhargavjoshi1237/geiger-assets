@@ -337,7 +337,7 @@ export function ChannelPublishingScreen({ projectId }) {
       key: "published",
       header: "Published",
       align: "right",
-      className: "text-right tabular-nums text-emerald-300",
+      className: "text-right tabular-nums text-emerald-700 dark:text-emerald-300",
       render: (r) => String(r.publishedCount),
     },
     {
@@ -453,7 +453,7 @@ export function ChannelPublishingScreen({ projectId }) {
                   <DataTable columns={runColumns} data={selectedRuns.slice(0, 8)} getRowKey={(r) => r.id} />
                 )}
                 {selectedRuns.some((r) => r.error) ? (
-                  <p className="mt-2 text-[11px] text-red-300">
+                  <p className="mt-2 text-[11px] text-red-700 dark:text-red-300">
                     {selectedRuns.find((r) => r.error)?.error}
                   </p>
                 ) : null}

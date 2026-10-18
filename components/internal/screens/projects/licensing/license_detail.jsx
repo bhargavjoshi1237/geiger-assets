@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   BadgeCheck,
   CalendarClock,
   CircleDollarSign,
@@ -17,8 +16,8 @@ import { Badge } from "@geiger/ui/badge";
 import { Button } from "@geiger/ui/button";
 import { Input } from "@geiger/ui/input";
 import { Switch } from "@geiger/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
+import { useEditorGuard } from "@/components/internal/shared/unsaved_changes";
 import {
   EmptyState,
   Field,
@@ -73,12 +72,47 @@ const STATUS_OPTIONS = optionsFromMeta(LICENSE_STATUS_META);
 const EXCLUSIVITY_OPTIONS = optionsFromMeta(EXCLUSIVITY_META);
 const USAGE_OPTIONS = optionsFromMeta(USAGE_TYPE_META);
 
-const TABS = [
-  { value: "scope", label: "Scope & terms", icon: ScrollText },
-  { value: "items", label: "Licensed items", icon: Layers },
-  { value: "financials", label: "Financials & royalties", icon: CircleDollarSign },
-  { value: "renewals", label: "Renewals & history", icon: CalendarClock },
-  { value: "certificate", label: "Certificate", icon: BadgeCheck },
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "scope",
+        label: "Scope & terms",
+        icon: ScrollText,
+        desc: "What the licensee may do, where, and for how long.",
+      },
+      {
+        key: "items",
+        label: "Licensed items",
+        icon: Layers,
+        desc: "The assets, collections, and external material this licence covers.",
+      },
+    ],
+  },
+  {
+    group: "Commercial",
+    items: [
+      {
+        key: "financials",
+        label: "Financials & royalties",
+        icon: CircleDollarSign,
+        desc: "Fees, pricing breakdown, and accrued royalties.",
+      },
+      {
+        key: "renewals",
+        label: "Renewals & history",
+        icon: CalendarClock,
+        desc: "Renewal actions and the licence's history.",
+      },
+      {
+        key: "certificate",
+        label: "Certificate",
+        icon: BadgeCheck,
+        desc: "The rendered licence certificate.",
+      },
+    ],
+  },
 ];
 
 function AddItemDialog({ open, onOpenChange, assets, collections, rightsRecords, onSubmit }) {
@@ -207,7 +241,6 @@ export function LicenseDetailScreen({
   const [license, setLicense] = useState(initialLicense);
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(true);
-  const [tab, setTab] = useState("scope");
   const [showAddItem, setShowAddItem] = useState(false);
   const [showRenew, setShowRenew] = useState(false);
   const [fee, setFee] = useState(centsToDollarString(initialLicense?.feeCents ?? 0));
@@ -359,475 +392,481 @@ export function LicenseDetailScreen({
     return <Badge variant="outline">External</Badge>;
   };
 
+  const guard = useEditorGuard({ onBack });
+  const expiry = license.isPerpetual
+    ? "perpetual"
+    : days === null
+      ? "no end date"
+      : days >= 0
+        ? `${days} days left`
+        : `expired ${Math.abs(days)} days ago`;
+
   return (
-    <MainScreenWrapper>
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
-        <div className="min-w-0 space-y-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-2 h-7 gap-1 px-2 text-xs text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            All licences
-          </Button>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-semibold text-foreground">{license.title || "Untitled licence"}</h1>
-            <StatusPill status={license.status} map={LICENSE_STATUS_META} />
-            <Badge variant="outline" className="font-mono">{license.reference || "no reference"}</Badge>
-          </div>
-          <p className="text-sm text-text-secondary">
-            {licensee?.name || "Unassigned licensee"} · {labelFor(USAGE_TYPE_META, license.usageType)} ·{" "}
-            {license.isPerpetual
-              ? "perpetual"
-              : days === null
-                ? "no end date"
-                : days >= 0
-                  ? `${days} days left`
-                  : `expired ${Math.abs(days)} days ago`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <FilterDropdown
-            value={license.status}
-            onValueChange={(status) => save({ status }, "Status updated")}
-            options={STATUS_OPTIONS}
-            placeholder="Status"
-          />
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowRenew(true)}>
-            <CalendarClock className="h-4 w-4" />
-            Renew
-          </Button>
-        </div>
-      </div>
-
-      <FindingsBanner findings={findings} title="Rights review" />
-
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex-wrap bg-surface-subtle">
-          {TABS.map(({ value, label, icon: Icon }) => (
-            <TabsTrigger key={value} value={value} className="gap-1.5 text-xs">
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="scope" className="mt-4 space-y-4">
-          <SectionCard title="Grant" description="What the licensee may do, where, and for how long.">
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <SelectField
-                  label="Licensee"
-                  value={license.licenseeId || ""}
-                  onChange={(licenseeId) => save({ licenseeId: licenseeId || null }, "Licensee updated")}
-                  options={[{ value: "", label: "Unassigned" }, ...licensees.map((l) => ({ value: l.id, label: l.name }))]}
-                  placeholder="Unassigned"
-                />
-                <SelectField
-                  label="Template"
-                  value={license.templateId || ""}
-                  onChange={(templateId) => save({ templateId: templateId || null }, "Template updated")}
-                  options={[{ value: "", label: "Bespoke" }, ...templates.map((t) => ({ value: t.id, label: `${t.name} (v${t.version})` }))]}
-                  placeholder="Bespoke"
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <SelectField
-                  label="Usage type"
-                  value={license.usageType}
-                  onChange={(usageType) => save({ usageType }, "Usage updated")}
-                  options={USAGE_OPTIONS}
-                  placeholder="Usage"
-                />
-                <SelectField
-                  label="Exclusivity"
-                  value={license.exclusivity}
-                  onChange={(exclusivity) => save({ exclusivity }, "Exclusivity updated")}
-                  options={EXCLUSIVITY_OPTIONS}
-                  placeholder="Exclusivity"
-                />
-              </div>
-              <ChipSelect
-                label="Territories"
-                options={TERRITORIES}
-                values={license.territories}
-                onChange={(territories) => save({ territories })}
-              />
-              <ChipSelect
-                label="Channels"
-                options={CHANNELS}
-                values={license.channels}
-                onChange={(channels) => save({ channels })}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Term" description="Start, end, grace and renewal behaviour.">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <DateField
-                label="Start date"
-                value={license.startDate}
-                onChange={(startDate) => save({ startDate })}
-              />
-              <DateField
-                label="End date"
-                value={license.endDate}
-                onChange={(endDate) => save({ endDate })}
-                disabled={license.isPerpetual}
-                hint={license.isPerpetual ? "Ignored while perpetual" : undefined}
-                placeholder="No end date"
-              />
-              <Field label="Grace days" stepper value={license.graceDays ?? 0} onValueChange={(v) => save({ graceDays: Number(v) || 0 })} min={0}>
-                <Input
-                  inputMode="numeric"
-                  value={String(license.graceDays ?? 0)}
-                  onChange={(e) => save({ graceDays: Number(e.target.value) || 0 })}
-                  className="bg-surface-card tabular-nums"
-                />
-              </Field>
-              <div className="space-y-3">
-                <Field label="Perpetual">
-                  <div className="flex h-10 items-center">
-                    <Switch
-                      checked={license.isPerpetual}
-                      onCheckedChange={(isPerpetual) => save({ isPerpetual }, isPerpetual ? "Now perpetual" : "Term restored")}
-                    />
-                  </div>
-                </Field>
-                <Field label="Auto-renew">
-                  <div className="flex h-10 items-center">
-                    <Switch
-                      checked={license.autoRenew}
-                      onCheckedChange={(autoRenew) => save({ autoRenew })}
-                    />
-                  </div>
-                </Field>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Restrictions & terms" description="What the certificate will carry.">
-            <div className="space-y-4">
-              <TagListField
-                label="Restrictions"
-                values={license.restrictions}
-                onChange={(restrictions) => save({ restrictions })}
-                placeholder="e.g. No resale or sublicensing"
-              />
-              <TextAreaField
-                label="Terms body"
-                hint="Tokens {{exclusivity}}, {{usage}}, {{territories}}, {{channels}} and {{duration}} render on the certificate."
-                value={license.termsBody}
-                onChange={(termsBody) => setLicense((l) => ({ ...l, termsBody }))}
-                rows={5}
-              />
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-border bg-surface-card text-xs hover:bg-surface-hover"
-                  onClick={() => save({ termsBody: license.termsBody }, "Terms saved")}
-                >
-                  Save terms
-                </Button>
-              </div>
-              <TextAreaField
-                label="Internal notes"
-                value={license.notes}
-                onChange={(notes) => setLicense((l) => ({ ...l, notes }))}
-                rows={3}
-                placeholder="Not shown to the licensee."
-              />
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-border bg-surface-card text-xs hover:bg-surface-hover"
-                  onClick={() => save({ notes: license.notes }, "Notes saved")}
-                >
-                  Save notes
-                </Button>
-              </div>
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="items" className="mt-4 space-y-4">
-          <SectionCard
-            title="Licensed items"
-            description="Assets, collections, or off-DAM material this grant covers."
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-border bg-surface-card text-xs hover:bg-surface-hover"
-                onClick={() => setShowAddItem(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add item
-              </Button>
-            }
-            bodyPadding={false}
-          >
-            {loadingItems ? (
-              <LoadingArea className="h-40 py-0" label="Loading licensed items" />
-            ) : items.length ? (
-              <ul className="divide-y divide-border">
-                {items.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{itemLabel(item)}</p>
-                      <p className="truncate text-[11px] text-text-tertiary">
-                        {item.versionLabel ? `${item.versionLabel} · ` : ""}
-                        {item.rightsRecordId
-                          ? `backed by ${rightsRecords.find((r) => r.id === item.rightsRecordId)?.title || "a right"}`
-                          : "no backing right"}
-                      </p>
+    <>
+      <EditorShell
+        back={{ label: "All licences", onClick: guard.back }}
+        title={license.title || "Untitled licence"}
+        status={license.status}
+        statusMap={LICENSE_STATUS_META}
+        badges={
+          <Badge variant="outline" className="font-mono">
+            {license.reference || "no reference"}
+          </Badge>
+        }
+        meta={`${licensee?.name || "Unassigned licensee"} · ${labelFor(USAGE_TYPE_META, license.usageType)} · ${expiry}`}
+        actions={
+          <>
+            <FilterDropdown
+              value={license.status}
+              onValueChange={(status) => save({ status }, "Status updated")}
+              options={STATUS_OPTIONS}
+              placeholder="Status"
+            />
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => setShowRenew(true)}
+            >
+              <CalendarClock className="h-4 w-4" />
+              Renew
+            </Button>
+          </>
+        }
+        beforeBody={
+          findings.length ? <FindingsBanner findings={findings} title="Rights review" /> : null
+        }
+        nav={NAV_GROUPS}
+        subject={license}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
+      >
+        {({ active }) => (
+          <>
+            {active === "scope" ? (
+              <div className="space-y-4">
+                <SectionCard title="Grant" description="What the licensee may do, where, and for how long.">
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <SelectField
+                        label="Licensee"
+                        value={license.licenseeId || ""}
+                        onChange={(licenseeId) => save({ licenseeId: licenseeId || null }, "Licensee updated")}
+                        options={[{ value: "", label: "Unassigned" }, ...licensees.map((l) => ({ value: l.id, label: l.name }))]}
+                        placeholder="Unassigned"
+                      />
+                      <SelectField
+                        label="Template"
+                        value={license.templateId || ""}
+                        onChange={(templateId) => save({ templateId: templateId || null }, "Template updated")}
+                        options={[{ value: "", label: "Bespoke" }, ...templates.map((t) => ({ value: t.id, label: `${t.name} (v${t.version})` }))]}
+                        placeholder="Bespoke"
+                      />
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {itemKindBadge(item)}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <SelectField
+                        label="Usage type"
+                        value={license.usageType}
+                        onChange={(usageType) => save({ usageType }, "Usage updated")}
+                        options={USAGE_OPTIONS}
+                        placeholder="Usage"
+                      />
+                      <SelectField
+                        label="Exclusivity"
+                        value={license.exclusivity}
+                        onChange={(exclusivity) => save({ exclusivity }, "Exclusivity updated")}
+                        options={EXCLUSIVITY_OPTIONS}
+                        placeholder="Exclusivity"
+                      />
+                    </div>
+                    <ChipSelect
+                      label="Territories"
+                      options={TERRITORIES}
+                      values={license.territories}
+                      onChange={(territories) => save({ territories })}
+                    />
+                    <ChipSelect
+                      label="Channels"
+                      options={CHANNELS}
+                      values={license.channels}
+                      onChange={(channels) => save({ channels })}
+                    />
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="Term" description="Start, end, grace and renewal behaviour.">
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <DateField
+                      label="Start date"
+                      value={license.startDate}
+                      onChange={(startDate) => save({ startDate })}
+                    />
+                    <DateField
+                      label="End date"
+                      value={license.endDate}
+                      onChange={(endDate) => save({ endDate })}
+                      disabled={license.isPerpetual}
+                      hint={license.isPerpetual ? "Ignored while perpetual" : undefined}
+                      placeholder="No end date"
+                    />
+                    <Field label="Grace days" stepper value={license.graceDays ?? 0} onValueChange={(v) => save({ graceDays: Number(v) || 0 })} min={0}>
+                      <Input
+                        inputMode="numeric"
+                        value={String(license.graceDays ?? 0)}
+                        onChange={(e) => save({ graceDays: Number(e.target.value) || 0 })}
+                        className="bg-surface-card tabular-nums"
+                      />
+                    </Field>
+                    <div className="space-y-3">
+                      <Field label="Perpetual">
+                        <div className="flex h-10 items-center">
+                          <Switch
+                            checked={license.isPerpetual}
+                            onCheckedChange={(isPerpetual) => save({ isPerpetual }, isPerpetual ? "Now perpetual" : "Term restored")}
+                          />
+                        </div>
+                      </Field>
+                      <Field label="Auto-renew">
+                        <div className="flex h-10 items-center">
+                          <Switch
+                            checked={license.autoRenew}
+                            onCheckedChange={(autoRenew) => save({ autoRenew })}
+                          />
+                        </div>
+                      </Field>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="Restrictions & terms" description="What the certificate will carry.">
+                  <div className="space-y-4">
+                    <TagListField
+                      label="Restrictions"
+                      values={license.restrictions}
+                      onChange={(restrictions) => save({ restrictions })}
+                      placeholder="e.g. No resale or sublicensing"
+                    />
+                    <TextAreaField
+                      label="Terms body"
+                      hint="Tokens {{exclusivity}}, {{usage}}, {{territories}}, {{channels}} and {{duration}} render on the certificate."
+                      value={license.termsBody}
+                      onChange={(termsBody) => setLicense((l) => ({ ...l, termsBody }))}
+                      rows={5}
+                    />
+                    <div className="flex justify-end">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Remove ${itemLabel(item)}`}
-                        className="h-8 w-8 text-text-tertiary hover:bg-red-500/10 hover:text-red-400"
-                        onClick={() => handleRemoveItem(item)}
+                        variant="outline"
+                        size="sm"
+                        className="border-border bg-surface-card text-xs hover:bg-surface-hover"
+                        onClick={() => save({ termsBody: license.termsBody }, "Terms saved")}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        Save terms
                       </Button>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                icon={FileStack}
-                title="No items on this licence"
-                description="Add the material being licensed so conflict and coverage checks can run."
-                action={
-                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowAddItem(true)}>
-                    <Plus className="h-4 w-4" />
-                    Add item
-                  </Button>
-                }
-              />
-            )}
-          </SectionCard>
-        </TabsContent>
+                    <TextAreaField
+                      label="Internal notes"
+                      value={license.notes}
+                      onChange={(notes) => setLicense((l) => ({ ...l, notes }))}
+                      rows={3}
+                      placeholder="Not shown to the licensee."
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-border bg-surface-card text-xs hover:bg-surface-hover"
+                        onClick={() => save({ notes: license.notes }, "Notes saved")}
+                      >
+                        Save notes
+                      </Button>
+                    </div>
+                  </div>
+                </SectionCard>
+              </div>
+            ) : null}
 
-        <TabsContent value="financials" className="mt-4 space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SectionCard title="Fee" description="What the licensee pays for this grant.">
+            {active === "items" ? (
               <div className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Licence fee (USD)">
-                    <Input
-                      value={fee}
-                      onChange={(e) => setFee(e.target.value)}
-                      onBlur={() => {
-                        const cents = parseDollarsToCents(fee);
-                        if (cents !== license.feeCents) save({ feeCents: cents }, "Fee updated");
-                      }}
-                      className="bg-surface-card text-right tabular-nums"
+                <SectionCard
+                  title="Licensed items"
+                  description="Assets, collections, or off-DAM material this grant covers."
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 border-border bg-surface-card text-xs hover:bg-surface-hover"
+                      onClick={() => setShowAddItem(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add item
+                    </Button>
+                  }
+                  bodyPadding={false}
+                >
+                  {loadingItems ? (
+                    <LoadingArea className="h-40 py-0" label="Loading licensed items" />
+                  ) : items.length ? (
+                    <ul className="divide-y divide-border">
+                      {items.map((item) => (
+                        <li key={item.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">{itemLabel(item)}</p>
+                            <p className="truncate text-[11px] text-text-tertiary">
+                              {item.versionLabel ? `${item.versionLabel} · ` : ""}
+                              {item.rightsRecordId
+                                ? `backed by ${rightsRecords.find((r) => r.id === item.rightsRecordId)?.title || "a right"}`
+                                : "no backing right"}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {itemKindBadge(item)}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Remove ${itemLabel(item)}`}
+                              className="h-8 w-8 text-text-tertiary hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+                              onClick={() => handleRemoveItem(item)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <EmptyState
+                      icon={FileStack}
+                      title="No items on this licence"
+                      description="Add the material being licensed so conflict and coverage checks can run."
+                      action={
+                        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowAddItem(true)}>
+                          <Plus className="h-4 w-4" />
+                          Add item
+                        </Button>
+                      }
                     />
-                  </Field>
-                  <Field label="Royalty rate (%)" hint="Share of this fee owed onward.">
-                    <Input
-                      value={royaltyRate}
-                      onChange={(e) => setRoyaltyRate(e.target.value)}
-                      onBlur={() => {
-                        const rate = Number(royaltyRate) || 0;
-                        if (rate !== license.royaltyRate) save({ royaltyRate: rate }, "Royalty rate updated");
-                      }}
-                      className="bg-surface-card text-right tabular-nums"
+                  )}
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {active === "financials" ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <SectionCard title="Fee" description="What the licensee pays for this grant.">
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Licence fee (USD)">
+                          <Input
+                            value={fee}
+                            onChange={(e) => setFee(e.target.value)}
+                            onBlur={() => {
+                              const cents = parseDollarsToCents(fee);
+                              if (cents !== license.feeCents) save({ feeCents: cents }, "Fee updated");
+                            }}
+                            className="bg-surface-card text-right tabular-nums"
+                          />
+                        </Field>
+                        <Field label="Royalty rate (%)" hint="Share of this fee owed onward.">
+                          <Input
+                            value={royaltyRate}
+                            onChange={(e) => setRoyaltyRate(e.target.value)}
+                            onBlur={() => {
+                              const rate = Number(royaltyRate) || 0;
+                              if (rate !== license.royaltyRate) save({ royaltyRate: rate }, "Royalty rate updated");
+                            }}
+                            className="bg-surface-card text-right tabular-nums"
+                          />
+                        </Field>
+                      </div>
+                      <div className="divide-y divide-border border-t border-border pt-1">
+                        <DetailRow label="Fee on file" value={formatMoney(license.feeCents, license.currency)} />
+                        <DetailRow label="Rate card today" value={formatMoney(recomputed.totalCents, license.currency)} />
+                        <DetailRow
+                          label="Drift"
+                          value={
+                            <span className={recomputed.totalCents > license.feeCents ? "text-amber-700 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
+                              {formatMoney(recomputed.totalCents - license.feeCents, license.currency)}
+                            </span>
+                          }
+                        />
+                      </div>
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard title="Price breakdown" description="The factors frozen in when this licence was issued.">
+                    {describeBreakdown(license.priceBreakdown).length ? (
+                      <div className="divide-y divide-border">
+                        <DetailRow label="Base fee" value={formatMoney(license.priceBreakdown.baseCents, license.currency)} />
+                        {describeBreakdown(license.priceBreakdown).map((factor, i) => (
+                          <DetailRow key={`${factor.label}-${i}`} label={`${factor.kind} · ${factor.label}`} value={factor.detail || "—"} />
+                        ))}
+                        <DetailRow label="Total" value={formatMoney(license.priceBreakdown.totalCents, license.currency)} />
+                      </div>
+                    ) : (
+                      <p className="py-2 text-xs text-text-tertiary">
+                        This licence was priced by hand — no rate-card breakdown was stored.
+                      </p>
+                    )}
+                  </SectionCard>
+                </div>
+
+                <SectionCard
+                  title="Royalties on this licence"
+                  description="Accruals owed to rights holders from this fee."
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 border-border bg-surface-card text-xs hover:bg-surface-hover"
+                      onClick={handleAccrue}
+                    >
+                      <CircleDollarSign className="h-3.5 w-3.5" />
+                      Accrue royalties
+                    </Button>
+                  }
+                  bodyPadding={false}
+                >
+                  {licenseLines.length ? (
+                    <ul className="divide-y divide-border">
+                      {licenseLines.map((line) => (
+                        <li key={line.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {line.note || holderById.get(line.rightsHolderId)?.label || "Royalty"}
+                            </p>
+                            <p className="text-[11px] text-text-tertiary">
+                              {formatPercent(line.ratePercent)} of {formatMoney(line.basisCents, line.currency)} ·{" "}
+                              {line.periodStart ? formatDate(line.periodStart) : "no period"}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <StatusPill status={line.status} map={ROYALTY_LINE_STATUS_META} className="text-[10px]" />
+                            <span className="text-sm font-medium tabular-nums text-foreground">
+                              {formatMoney(line.amountCents, line.currency)}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <EmptyState
+                      icon={CircleDollarSign}
+                      title="No royalties accrued"
+                      description="Accrue from the licence fee once a royalty rule covers the rights holder."
                     />
-                  </Field>
-                </div>
-                <div className="divide-y divide-border border-t border-border pt-1">
-                  <DetailRow label="Fee on file" value={formatMoney(license.feeCents, license.currency)} />
-                  <DetailRow label="Rate card today" value={formatMoney(recomputed.totalCents, license.currency)} />
-                  <DetailRow
-                    label="Drift"
-                    value={
-                      <span className={recomputed.totalCents > license.feeCents ? "text-amber-400" : "text-emerald-400"}>
-                        {formatMoney(recomputed.totalCents - license.feeCents, license.currency)}
-                      </span>
-                    }
-                  />
-                </div>
+                  )}
+                </SectionCard>
               </div>
-            </SectionCard>
+            ) : null}
 
-            <SectionCard title="Price breakdown" description="The factors frozen in when this licence was issued.">
-              {describeBreakdown(license.priceBreakdown).length ? (
-                <div className="divide-y divide-border">
-                  <DetailRow label="Base fee" value={formatMoney(license.priceBreakdown.baseCents, license.currency)} />
-                  {describeBreakdown(license.priceBreakdown).map((factor, i) => (
-                    <DetailRow key={`${factor.label}-${i}`} label={`${factor.kind} · ${factor.label}`} value={factor.detail || "—"} />
-                  ))}
-                  <DetailRow label="Total" value={formatMoney(license.priceBreakdown.totalCents, license.currency)} />
-                </div>
-              ) : (
-                <p className="py-2 text-xs text-text-tertiary">
-                  This licence was priced by hand — no rate-card breakdown was stored.
-                </p>
-              )}
-            </SectionCard>
-          </div>
+            {active === "renewals" ? (
+              <div className="space-y-4">
+                <SectionCard title="Renewal actions" description="Every action writes an entry in the history below.">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border bg-surface-card text-xs hover:bg-surface-hover"
+                      onClick={() => setShowRenew(true)}
+                    >
+                      <CalendarClock className="h-3.5 w-3.5" />
+                      Renew term
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border bg-surface-card text-xs hover:bg-surface-hover"
+                      onClick={() => runRenewalAction(extendGrace, { days: 30 }, "Grace extended by 30 days")}
+                    >
+                      Extend grace 30 days
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border bg-surface-card text-xs hover:bg-surface-hover"
+                      onClick={() => runRenewalAction(lapseLicense, {}, "Licence lapsed")}
+                    >
+                      Mark lapsed
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border bg-surface-card text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+                      onClick={() => runRenewalAction(terminateLicense, {}, "Licence terminated")}
+                    >
+                      Terminate
+                    </Button>
+                  </div>
+                </SectionCard>
 
-          <SectionCard
-            title="Royalties on this licence"
-            description="Accruals owed to rights holders from this fee."
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-border bg-surface-card text-xs hover:bg-surface-hover"
-                onClick={handleAccrue}
-              >
-                <CircleDollarSign className="h-3.5 w-3.5" />
-                Accrue royalties
-              </Button>
-            }
-            bodyPadding={false}
-          >
-            {licenseLines.length ? (
-              <ul className="divide-y divide-border">
-                {licenseLines.map((line) => (
-                  <li key={line.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {line.note || holderById.get(line.rightsHolderId)?.label || "Royalty"}
-                      </p>
-                      <p className="text-[11px] text-text-tertiary">
-                        {formatPercent(line.ratePercent)} of {formatMoney(line.basisCents, line.currency)} ·{" "}
-                        {line.periodStart ? formatDate(line.periodStart) : "no period"}
-                      </p>
+                <SectionCard title="History" description="Renewals, lapses, terminations and grace extensions." bodyPadding={false}>
+                  {licenseRenewals.length ? (
+                    <ul className="divide-y divide-border">
+                      {licenseRenewals.map((entry) => (
+                        <li key={entry.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {labelFor(RENEWAL_ACTION_META, entry.action)}
+                            </p>
+                            <p className="truncate text-[11px] text-text-tertiary">
+                              {entry.previousEndDate ? formatDate(entry.previousEndDate) : "—"} →{" "}
+                              {entry.newEndDate ? formatDate(entry.newEndDate) : "—"}
+                              {entry.note ? ` · ${entry.note}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <span className="text-xs tabular-nums text-text-secondary">
+                              {formatMoney(entry.feeCents, entry.currency)}
+                            </span>
+                            <span className="text-[11px] text-text-tertiary">{formatDate(entry.createdAt)}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <EmptyState
+                      icon={CalendarClock}
+                      title="No renewal history"
+                      description="Renew, lapse or terminate this licence and the audit trail starts here."
+                    />
+                  )}
+                </SectionCard>
+
+                {license.renewalOf || license.renewedTo ? (
+                  <SectionCard title="Chain" description="How this licence relates to its neighbours.">
+                    <div className="divide-y divide-border">
+                      {license.renewalOf ? (
+                        <DetailRow
+                          label="Renewal of"
+                          value={licenses.find((l) => l.id === license.renewalOf)?.reference || license.renewalOf}
+                        />
+                      ) : null}
+                      {license.renewedTo ? (
+                        <DetailRow
+                          label="Renewed to"
+                          value={licenses.find((l) => l.id === license.renewedTo)?.reference || license.renewedTo}
+                        />
+                      ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <StatusPill status={line.status} map={ROYALTY_LINE_STATUS_META} className="text-[10px]" />
-                      <span className="text-sm font-medium tabular-nums text-foreground">
-                        {formatMoney(line.amountCents, line.currency)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                icon={CircleDollarSign}
-                title="No royalties accrued"
-                description="Accrue from the licence fee once a royalty rule covers the rights holder."
-              />
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="renewals" className="mt-4 space-y-4">
-          <SectionCard title="Renewal actions" description="Every action writes an entry in the history below.">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-border bg-surface-card text-xs hover:bg-surface-hover"
-                onClick={() => setShowRenew(true)}
-              >
-                <CalendarClock className="h-3.5 w-3.5" />
-                Renew term
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-border bg-surface-card text-xs hover:bg-surface-hover"
-                onClick={() => runRenewalAction(extendGrace, { days: 30 }, "Grace extended by 30 days")}
-              >
-                Extend grace 30 days
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-border bg-surface-card text-xs hover:bg-surface-hover"
-                onClick={() => runRenewalAction(lapseLicense, {}, "Licence lapsed")}
-              >
-                Mark lapsed
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-border bg-surface-card text-xs text-red-400 hover:bg-red-500/10 hover:text-red-400"
-                onClick={() => runRenewalAction(terminateLicense, {}, "Licence terminated")}
-              >
-                Terminate
-              </Button>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="History" description="Renewals, lapses, terminations and grace extensions." bodyPadding={false}>
-            {licenseRenewals.length ? (
-              <ul className="divide-y divide-border">
-                {licenseRenewals.map((entry) => (
-                  <li key={entry.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {labelFor(RENEWAL_ACTION_META, entry.action)}
-                      </p>
-                      <p className="truncate text-[11px] text-text-tertiary">
-                        {entry.previousEndDate ? formatDate(entry.previousEndDate) : "—"} →{" "}
-                        {entry.newEndDate ? formatDate(entry.newEndDate) : "—"}
-                        {entry.note ? ` · ${entry.note}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-xs tabular-nums text-text-secondary">
-                        {formatMoney(entry.feeCents, entry.currency)}
-                      </span>
-                      <span className="text-[11px] text-text-tertiary">{formatDate(entry.createdAt)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                icon={CalendarClock}
-                title="No renewal history"
-                description="Renew, lapse or terminate this licence and the audit trail starts here."
-              />
-            )}
-          </SectionCard>
-
-          {license.renewalOf || license.renewedTo ? (
-            <SectionCard title="Chain" description="How this licence relates to its neighbours.">
-              <div className="divide-y divide-border">
-                {license.renewalOf ? (
-                  <DetailRow
-                    label="Renewal of"
-                    value={licenses.find((l) => l.id === license.renewalOf)?.reference || license.renewalOf}
-                  />
-                ) : null}
-                {license.renewedTo ? (
-                  <DetailRow
-                    label="Renewed to"
-                    value={licenses.find((l) => l.id === license.renewedTo)?.reference || license.renewedTo}
-                  />
+                  </SectionCard>
                 ) : null}
               </div>
-            </SectionCard>
-          ) : null}
-        </TabsContent>
+            ) : null}
 
-        <TabsContent value="certificate" className="mt-4">
-          <LicenseCertificate
-            license={license}
-            licensee={licensee}
-            template={template}
-            items={items}
-            assetById={assetById}
-            collectionById={collectionById}
-          />
-        </TabsContent>
-      </Tabs>
+            {active === "certificate" ? (
+              <>
+                <LicenseCertificate
+                  license={license}
+                  licensee={licensee}
+                  template={template}
+                  items={items}
+                  assetById={assetById}
+                  collectionById={collectionById}
+                />
+              </>
+            ) : null}
+          </>
+        )}
+      </EditorShell>
 
       {showAddItem ? (
         <AddItemDialog
@@ -850,7 +889,7 @@ export function LicenseDetailScreen({
           }}
         />
       ) : null}
-    </MainScreenWrapper>
+    </>
   );
 }
 

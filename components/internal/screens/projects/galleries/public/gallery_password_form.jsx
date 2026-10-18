@@ -65,7 +65,7 @@ export function GalleryPasswordForm({ slug, name }) {
           autoComplete="current-password"
           className="mt-4 bg-surface-card"
         />
-        {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}
+        {error ? <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p> : null}
 
         <Button
           type="submit"

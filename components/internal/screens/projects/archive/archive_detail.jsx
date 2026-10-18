@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  ArrowLeft,
   Loader2,
   RotateCcw,
   Trash2,
@@ -10,11 +9,11 @@ import {
   Clock,
   ShieldAlert,
   Activity,
+  LayoutDashboard,
 } from "lucide-react";
 
 import { Button } from "@geiger/ui/button";
 import { Badge } from "@geiger/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -24,16 +23,14 @@ import {
   DialogTitle,
 } from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
-  EmptyState,
-  Field,
-  LoadingArea,
-  SectionCard,
-  StatusPill,
-} from "@/components/internal/shared/screen_kit";
+  EditorLoading,
+  EditorNotFound,
+  EditorShell,
+} from "@/components/internal/shared/editor_shell";
+import { useEditorGuard } from "@/components/internal/shared/unsaved_changes";
+import { Field, SectionCard } from "@/components/internal/shared/screen_kit";
 import {
-  TYPE_ICONS,
   FILE_TYPE_COLORS,
   STATUS_META,
   formatBytes,
@@ -50,10 +47,46 @@ import { AssetPreview } from "@/components/internal/shared/asset_preview";
 import { toast } from "sonner";
 import { deleteAssetFile } from "@/lib/storage/client";
 
-function TypeGlyph({ type, color, className }) {
-  const Icon = TYPE_ICONS[type] || File;
-  return <Icon className={className} style={{ color: color || "var(--color-text-secondary)" }} />;
-}
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "overview",
+        label: "Overview",
+        icon: LayoutDashboard,
+        desc: "A preview and the key details of this asset.",
+      },
+    ],
+  },
+  {
+    group: "Lifecycle",
+    items: [
+      {
+        key: "retention",
+        label: "Retention",
+        icon: ShieldAlert,
+        desc: "How long this asset is kept before it's removed.",
+      },
+      {
+        key: "activity",
+        label: "Activity",
+        icon: Activity,
+        desc: "When this asset was created, archived, or trashed.",
+      },
+    ],
+  },
+];
+
+const ARCHIVE_STATUS_META = {
+  ...STATUS_META,
+  trashed: {
+    variant: "danger",
+    label: "In Trash",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+    dotClass: "bg-red-400",
+  },
+};
 
 function ReadField({ label, value }) {
   return (
@@ -102,9 +135,12 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
     };
   }, [id]);
 
+  const guard = useEditorGuard({ onBack });
+  const back = { label: isTrash ? "Trash" : "Archive", onClick: guard.back };
+
   const finish = () => {
     onChange?.(id);
-    onBack?.();
+    guard.back();
   };
 
   const handleRestore = async () => {
@@ -133,230 +169,190 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
   };
 
   if (loading) {
-    return (
-      <MainScreenWrapper>
-        <LoadingArea className="h-64 py-0" />
-      </MainScreenWrapper>
-    );
+    return <EditorLoading back={back} title="Loading asset…" nav={NAV_GROUPS} />;
   }
 
   if (!asset) {
     return (
-      <MainScreenWrapper>
-        <EmptyState
-          icon={File}
-          title="Asset not found"
-          description="This asset may have been permanently removed or isn't available."
-          action={
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
-              onClick={onBack}
-            >
-              Back to Archive
-            </Button>
-          }
-        />
-      </MainScreenWrapper>
+      <EditorNotFound
+        back={back}
+        nav={NAV_GROUPS}
+        icon={File}
+        title="Asset not found"
+        description="This asset may have been permanently removed or isn't available."
+      />
     );
   }
 
   const retentionDate = isTrash ? asset.deletedAt : asset.updatedAt;
 
   return (
-    <MainScreenWrapper>
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to archive"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
-            style={{ background: `${asset.color}15`, borderColor: `${asset.color}25` }}
-          >
-            <TypeGlyph type={asset.type} color={asset.color} className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              {asset.name || "Untitled asset"}
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <StatusPill
-                status={isTrash ? "trashed" : asset.status}
-                map={{
-                  ...STATUS_META,
-                  trashed: {
-                    variant: "danger",
-                    label: "In Trash",
-                    className: "bg-red-500/15 text-red-300 border-red-500/30",
-                    dotClass: "bg-red-400",
-                  },
-                }}
-                className="text-[10px]"
-              />
-              <span className="text-xs text-text-secondary">
-                {asset.format || asset.type} · {formatBytes(asset.sizeBytes)}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="outline"
-            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-            onClick={handleRestore}
-            disabled={busy}
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="h-4 w-4" />
-            )}
-            Restore
-          </Button>
-          {isTrash ? (
-            <Button
-              className="h-9 bg-red-500/90 text-xs text-white hover:bg-red-500"
-              onClick={() => setConfirmPurge(true)}
-              disabled={busy}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete permanently
-            </Button>
-          ) : (
+    <>
+      <EditorShell
+        back={back}
+        title={asset.name || "Untitled asset"}
+        status={isTrash ? "trashed" : asset.status}
+        statusMap={ARCHIVE_STATUS_META}
+        meta={`${asset.format || asset.type} · ${formatBytes(asset.sizeBytes)}`}
+        actions={
+          <>
             <Button
               variant="outline"
-              className="h-9 border-red-500/30 bg-transparent text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
-              onClick={handleTrash}
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+              onClick={handleRestore}
               disabled={busy}
             >
-              <Trash2 className="h-4 w-4" />
-              Move to Trash
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              Restore
             </Button>
-          )}
-        </div>
-      </div>
+            {isTrash ? (
+              <Button
+                className="bg-red-500/90 text-white hover:bg-red-500"
+                onClick={() => setConfirmPurge(true)}
+                disabled={busy}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete permanently
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="border-red-500/30 bg-transparent text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
+                onClick={handleTrash}
+                disabled={busy}
+              >
+                <Trash2 className="h-4 w-4" />
+                Move to Trash
+              </Button>
+            )}
+          </>
+        }
+        nav={NAV_GROUPS}
+        subject={asset}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
+      >
+        {({ active }) => (
+          <>
+            {active === "overview" ? (
+              <>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.9fr)]">
+                  <SectionCard title="Preview">
+                    <AssetPreview asset={asset} />
+                  </SectionCard>
 
-      <Tabs defaultValue="overview" className="gap-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="retention">Retention</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.9fr)]">
-            <SectionCard title="Preview">
-              <AssetPreview asset={asset} />
-            </SectionCard>
-
-            <SectionCard title="Details">
-              <div className="grid gap-4">
-                <ReadField label="Name" value={asset.name} />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Type">
-                    <Badge
-                      className={cn(
-                        "border px-1.5 py-0 text-[10px]",
-                        FILE_TYPE_COLORS[asset.type],
-                      )}
-                    >
-                      {asset.format || asset.type}
-                    </Badge>
-                  </Field>
-                  <ReadField label="Format" value={asset.format} />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ReadField label="Size" value={formatBytes(asset.sizeBytes)} />
-                  <ReadField label="Folder" value={asset.folder} />
-                </div>
-                <Field label="Tags">
-                  {asset.tags.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {asset.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="outline"
-                          className="border-border bg-surface-subtle text-[11px] text-muted-foreground"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
+                  <SectionCard title="Details">
+                    <div className="grid gap-4">
+                      <ReadField label="Name" value={asset.name} />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Type">
+                          <Badge
+                            className={cn(
+                              "border px-1.5 py-0 text-[10px]",
+                              FILE_TYPE_COLORS[asset.type],
+                            )}
+                          >
+                            {asset.format || asset.type}
+                          </Badge>
+                        </Field>
+                        <ReadField label="Format" value={asset.format} />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <ReadField label="Size" value={formatBytes(asset.sizeBytes)} />
+                        <ReadField label="Folder" value={asset.folder} />
+                      </div>
+                      <Field label="Tags">
+                        {asset.tags.length ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {asset.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="outline"
+                                className="border-border bg-surface-subtle text-[11px] text-muted-foreground"
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-text-tertiary">No tags</p>
+                        )}
+                      </Field>
                     </div>
-                  ) : (
-                    <p className="text-sm text-text-tertiary">No tags</p>
-                  )}
-                </Field>
-              </div>
-            </SectionCard>
-          </div>
-        </TabsContent>
+                  </SectionCard>
+                </div>
+              </>
+            ) : null}
 
-        <TabsContent value="retention">
-          <SectionCard
-            title={isTrash ? "Trash retention" : "Archive retention"}
-            description={
-              isTrash
-                ? "Items in Trash can be restored or permanently deleted."
-                : "Archived items are retired from the active library but kept intact."
-            }
-          >
-            <div className="space-y-5">
-              <TimelineRow
-                icon={isTrash ? Trash2 : ShieldAlert}
-                label={isTrash ? "Moved to Trash" : "Archived"}
-                value={formatDate(retentionDate)}
-                accent={
-                  isTrash
-                    ? "border-red-500/30 bg-red-500/10 text-red-400"
-                    : "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                }
-              />
-              <div className="rounded-lg border border-border bg-surface-card p-4">
-                <p className="text-sm font-medium text-foreground">
-                  {isTrash ? "Auto-delete policy" : "Retention policy"}
-                </p>
-                <p className="mt-1 text-xs text-text-secondary">
-                  {isTrash
-                    ? "Trashed assets are retained until you permanently delete them. Restoring returns the asset to its previous state."
-                    : "Archived assets remain stored indefinitely and never count against active library limits. Restore one to return it to a draft state."}
-                </p>
-              </div>
-            </div>
-          </SectionCard>
-        </TabsContent>
+            {active === "retention" ? (
+              <>
+                <SectionCard
+                  title={isTrash ? "Trash retention" : "Archive retention"}
+                  description={
+                    isTrash
+                      ? "Items in Trash can be restored or permanently deleted."
+                      : "Archived items are retired from the active library but kept intact."
+                  }
+                >
+                  <div className="space-y-5">
+                    <TimelineRow
+                      icon={isTrash ? Trash2 : ShieldAlert}
+                      label={isTrash ? "Moved to Trash" : "Archived"}
+                      value={formatDate(retentionDate)}
+                      accent={
+                        isTrash
+                          ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      }
+                    />
+                    <div className="rounded-lg border border-border bg-surface-card p-4">
+                      <p className="text-sm font-medium text-foreground">
+                        {isTrash ? "Auto-delete policy" : "Retention policy"}
+                      </p>
+                      <p className="mt-1 text-xs text-text-secondary">
+                        {isTrash
+                          ? "Trashed assets are retained until you permanently delete them. Restoring returns the asset to its previous state."
+                          : "Archived assets remain stored indefinitely and never count against active library limits. Restore one to return it to a draft state."}
+                      </p>
+                    </div>
+                  </div>
+                </SectionCard>
+              </>
+            ) : null}
 
-        <TabsContent value="activity">
-          <SectionCard title="Activity" description="A timeline of this asset's lifecycle.">
-            <div className="space-y-5">
-              <TimelineRow
-                icon={Activity}
-                label="Created"
-                value={formatDate(asset.createdAt)}
-              />
-              <TimelineRow
-                icon={Clock}
-                label="Last updated"
-                value={formatDate(asset.updatedAt)}
-              />
-              {asset.deletedAt ? (
-                <TimelineRow
-                  icon={Trash2}
-                  label="Moved to Trash"
-                  value={formatDate(asset.deletedAt)}
-                  accent="border-red-500/30 bg-red-500/10 text-red-400"
-                />
-              ) : null}
-            </div>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
+            {active === "activity" ? (
+              <>
+                <SectionCard title="Activity" description="A timeline of this asset's lifecycle.">
+                  <div className="space-y-5">
+                    <TimelineRow
+                      icon={Activity}
+                      label="Created"
+                      value={formatDate(asset.createdAt)}
+                    />
+                    <TimelineRow
+                      icon={Clock}
+                      label="Last updated"
+                      value={formatDate(asset.updatedAt)}
+                    />
+                    {asset.deletedAt ? (
+                      <TimelineRow
+                        icon={Trash2}
+                        label="Moved to Trash"
+                        value={formatDate(asset.deletedAt)}
+                        accent="border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                      />
+                    ) : null}
+                  </div>
+                </SectionCard>
+              </>
+            ) : null}
+          </>
+        )}
+      </EditorShell>
 
       <Dialog open={confirmPurge} onOpenChange={setConfirmPurge}>
         <DialogContent className="max-w-md border-border bg-surface-subtle text-foreground">
@@ -388,7 +384,7 @@ export function ArchiveDetailScreen({ id, mode, onBack, onChange }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </MainScreenWrapper>
+    </>
   );
 }
 

@@ -6,18 +6,20 @@ import {
   ArrowDown,
   CheckCircle2,
   GripVertical,
+  ListOrdered,
   MoveDown,
   MoveUp,
   Pause,
   Play,
   Plus,
+  SquarePen,
   Star,
   Trash2,
   Users,
 } from "lucide-react";
 
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
-import { EditorHeader } from "@/components/internal/shared/editor_shell";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
+import { useEditorGuard } from "@/components/internal/shared/unsaved_changes";
 import {
   EditorSectionHeader,
   Field,
@@ -31,7 +33,6 @@ import { Badge } from "@geiger/ui/badge";
 import { Input } from "@geiger/ui/input";
 import { Textarea } from "@geiger/ui/textarea";
 import { Checkbox } from "@geiger/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui";
 import {
   Select,
   SelectContent,
@@ -57,6 +58,49 @@ import {
   newStage,
   subjectEntry,
 } from "./constants";
+
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "stages",
+        label: "Stages",
+        icon: ListOrdered,
+        desc: "The approval route work follows.",
+        ownHeader: true,
+      },
+    ],
+  },
+  {
+    group: "Settings",
+    items: [
+      {
+        key: "general",
+        label: "General",
+        icon: SquarePen,
+        desc: "What this pipeline is called and what it routes.",
+      },
+      {
+        key: "completion",
+        label: "On final approval",
+        icon: CheckCircle2,
+        desc: "What happens the moment the last stage signs off.",
+      },
+    ],
+  },
+  {
+    group: "Danger zone",
+    items: [
+      {
+        key: "danger",
+        label: "Delete",
+        icon: Trash2,
+        desc: "Deleting a pipeline leaves reviews already in flight untouched — they carry their own copy of the stages.",
+      },
+    ],
+  },
+];
 
 const MODE_TABS = [
   { value: "sequential", label: "Sequential" },
@@ -148,7 +192,7 @@ function StageCard({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+            className="h-7 w-7 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
             aria-label="Remove stage"
             onClick={() => onRemove(index)}
           >
@@ -290,7 +334,6 @@ export function PipelineBuilderScreen({
   onSetDefault,
 }) {
   const [form, setForm] = useState(pipeline);
-  const [activeTab, setActiveTab] = useState("stages");
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Re-seed when the editor is pointed at a different pipeline.
@@ -298,8 +341,9 @@ export function PipelineBuilderScreen({
   if (pipeline && pipeline.id !== seedId) {
     setSeedId(pipeline.id);
     setForm(pipeline);
-    setActiveTab("stages");
   }
+
+  const guard = useEditorGuard({ onBack });
 
   if (!pipeline) return null;
 
@@ -353,9 +397,9 @@ export function PipelineBuilderScreen({
   const subject = subjectEntry(form.subjectType);
 
   return (
-    <MainScreenWrapper>
-      <EditorHeader
-        back={{ label: "All pipelines", onClick: onBack }}
+    <>
+      <EditorShell
+        back={{ label: "All pipelines", onClick: guard.back }}
         title={form.name || "Untitled pipeline"}
         status={form.status}
         statusMap={PIPELINE_STATUS_MAP}
@@ -400,179 +444,186 @@ export function PipelineBuilderScreen({
             </Button>
           </div>
         }
-      />
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="stages">Stages</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="stages" className="space-y-4 pt-4">
-          <EditorSectionHeader
-            title="Approval route"
-            description={
-              form.mode === "sequential"
-                ? "Work moves down this list. A stage opens only once the one above it has the sign-offs it needs."
-                : "Every stage is open at once — approvers can act in any order, and the review completes when all stages are satisfied."
-            }
-            action={
-              <Button
-                variant="outline"
-                className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                onClick={handleAdd}
-              >
-                <Plus className="h-4 w-4" /> Add stage
-              </Button>
-            }
-          />
-
-          {stages.length ? (
-            <div>
-              {stages.map((stage, index) => (
-                <div key={stage.id || index}>
-                  {index > 0 ? <Connector /> : null}
-                  <StageCard
-                    stage={stage}
-                    index={index}
-                    total={stages.length}
-                    roles={roles}
-                    members={members}
-                    pipelineMode={form.mode}
-                    onChange={(s) => handleStageChange(index, s)}
-                    onMove={handleMove}
-                    onRemove={handleRemove}
-                  />
-                </div>
-              ))}
-              <Connector />
-              <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-surface-subtle px-4 py-3.5 text-sm text-text-secondary">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden="true" />
-                Review completes — {subject?.label?.toLowerCase() || "the subject"} is marked
-                approved
-                {form.autoLockVersion !== false ? " and its current version is locked" : ""}.
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-surface-subtle px-6 py-14 text-center">
-              <Users className="h-8 w-8 text-text-tertiary" aria-hidden="true" />
-              <div>
-                <p className="font-medium text-foreground">No stages yet</p>
-                <p className="mt-1 text-sm text-text-secondary">
-                  Add the first group of approvers — who sees this before anyone else.
-                </p>
-              </div>
-              <Button
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={handleAdd}
-              >
-                <Plus className="h-4 w-4" /> Add stage
-              </Button>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4 pt-4">
-          <SectionCard
-            title="General"
-            description="What this pipeline is called and what it routes."
-          >
-            <div className="grid gap-4">
-              <Field label="Name" htmlFor="pipeline-name">
-                <Input
-                  id="pipeline-name"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  onBlur={() => onUpdate(form)}
+        nav={NAV_GROUPS}
+        subject={form}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
+      >
+        {({ active }) => (
+          <>
+            {active === "stages" ? (
+              <div className="space-y-4">
+                <EditorSectionHeader
+                  title="Approval route"
+                  description={
+                    form.mode === "sequential"
+                      ? "Work moves down this list. A stage opens only once the one above it has the sign-offs it needs."
+                      : "Every stage is open at once — approvers can act in any order, and the review completes when all stages are satisfied."
+                  }
+                  action={
+                    <Button
+                      variant="outline"
+                      className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                      onClick={handleAdd}
+                    >
+                      <Plus className="h-4 w-4" /> Add stage
+                    </Button>
+                  }
                 />
-              </Field>
-              <Field label="Description" htmlFor="pipeline-description">
-                <Textarea
-                  id="pipeline-description"
-                  value={form.description || ""}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  onBlur={() => onUpdate(form)}
-                  placeholder="When should someone use this pipeline?"
-                  className="h-[84px] min-h-0 resize-none"
-                />
-              </Field>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field
-                  label="Applies to"
-                  hint="Reviews of this subject can use this pipeline."
-                >
-                  <Select
-                    value={form.subjectType}
-                    onValueChange={(v) => commit({ subjectType: v, isDefault: false })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groupedSubjects(PIPELINE_SUBJECTS).map(({ group, items }) => (
-                        <React.Fragment key={group}>
-                          <div className="px-2 py-1.5 text-xs font-medium text-text-tertiary">
-                            {group}
-                          </div>
-                          {items.map((s) => (
-                            <SelectItem key={s.key} value={s.key}>
-                              {s.label}
-                              {s.available ? "" : " (planned)"}
-                            </SelectItem>
+
+                {stages.length ? (
+                  <div>
+                    {stages.map((stage, index) => (
+                      <div key={stage.id || index}>
+                        {index > 0 ? <Connector /> : null}
+                        <StageCard
+                          stage={stage}
+                          index={index}
+                          total={stages.length}
+                          roles={roles}
+                          members={members}
+                          pipelineMode={form.mode}
+                          onChange={(s) => handleStageChange(index, s)}
+                          onMove={handleMove}
+                          onRemove={handleRemove}
+                        />
+                      </div>
+                    ))}
+                    <Connector />
+                    <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-surface-subtle px-4 py-3.5 text-sm text-text-secondary">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                      Review completes — {subject?.label?.toLowerCase() || "the subject"} is marked
+                      approved
+                      {form.autoLockVersion !== false ? " and its current version is locked" : ""}.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-surface-subtle px-6 py-14 text-center">
+                    <Users className="h-8 w-8 text-text-tertiary" aria-hidden="true" />
+                    <div>
+                      <p className="font-medium text-foreground">No stages yet</p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        Add the first group of approvers — who sees this before anyone else.
+                      </p>
+                    </div>
+                    <Button
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={handleAdd}
+                    >
+                      <Plus className="h-4 w-4" /> Add stage
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {active === "general" ? (
+              <SectionCard
+                title="General"
+                description="What this pipeline is called and what it routes."
+              >
+                <div className="grid gap-4">
+                  <Field label="Name" htmlFor="pipeline-name">
+                    <Input
+                      id="pipeline-name"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      onBlur={() => onUpdate(form)}
+                    />
+                  </Field>
+                  <Field label="Description" htmlFor="pipeline-description">
+                    <Textarea
+                      id="pipeline-description"
+                      value={form.description || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                      onBlur={() => onUpdate(form)}
+                      placeholder="When should someone use this pipeline?"
+                      className="h-[84px] min-h-0 resize-none"
+                    />
+                  </Field>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field
+                      label="Applies to"
+                      hint="Reviews of this subject can use this pipeline."
+                    >
+                      <Select
+                        value={form.subjectType}
+                        onValueChange={(v) => commit({ subjectType: v, isDefault: false })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groupedSubjects(PIPELINE_SUBJECTS).map(({ group, items }) => (
+                            <React.Fragment key={group}>
+                              <div className="px-2 py-1.5 text-xs font-medium text-text-tertiary">
+                                {group}
+                              </div>
+                              {items.map((s) => (
+                                <SelectItem key={s.key} value={s.key}>
+                                  {s.label}
+                                  {s.available ? "" : " (planned)"}
+                                </SelectItem>
+                              ))}
+                            </React.Fragment>
                           ))}
-                        </React.Fragment>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field
-                  label="Stage order"
-                  hint={PIPELINE_MODE_MAP[form.mode]?.description}
-                >
-                  <SegmentedTabs
-                    fullWidth
-                    tabs={MODE_TABS}
-                    value={form.mode}
-                    onChange={(v) => commit({ mode: v })}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field
+                      label="Stage order"
+                      hint={PIPELINE_MODE_MAP[form.mode]?.description}
+                    >
+                      <SegmentedTabs
+                        fullWidth
+                        tabs={MODE_TABS}
+                        value={form.mode}
+                        onChange={(v) => commit({ mode: v })}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </SectionCard>
+            ) : null}
+
+            {active === "completion" ? (
+              <SectionCard
+                title="On final approval"
+                description="What happens the moment the last stage signs off."
+              >
+                <SettingsList>
+                  <SettingRow
+                    title="Mark the subject approved"
+                    description="Stamps the approved status so the library can filter and badge by it."
+                    checked={form.autoStampStatus !== false}
+                    onCheckedChange={(v) => commit({ autoStampStatus: v })}
                   />
-                </Field>
-              </div>
-            </div>
-          </SectionCard>
+                  <SettingRow
+                    title="Lock the approved version"
+                    description="The current version can't be replaced without a new review."
+                    checked={form.autoLockVersion !== false}
+                    onCheckedChange={(v) => commit({ autoLockVersion: v })}
+                  />
+                </SettingsList>
+              </SectionCard>
+            ) : null}
 
-          <SectionCard
-            title="On final approval"
-            description="What happens the moment the last stage signs off."
-          >
-            <SettingsList>
-              <SettingRow
-                title="Mark the subject approved"
-                description="Stamps the approved status so the library can filter and badge by it."
-                checked={form.autoStampStatus !== false}
-                onCheckedChange={(v) => commit({ autoStampStatus: v })}
-              />
-              <SettingRow
-                title="Lock the approved version"
-                description="The current version can't be replaced without a new review."
-                checked={form.autoLockVersion !== false}
-                onCheckedChange={(v) => commit({ autoLockVersion: v })}
-              />
-            </SettingsList>
-          </SectionCard>
-
-          <SectionCard
-            title="Danger zone"
-            description="Deleting a pipeline leaves reviews already in flight untouched — they carry their own copy of the stages."
-          >
-            <Button
-              className="bg-red-500/90 text-white hover:bg-red-500"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 className="h-4 w-4" /> Delete pipeline
-            </Button>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
+            {active === "danger" ? (
+              <SectionCard
+                title="Danger zone"
+                description="Deleting a pipeline leaves reviews already in flight untouched — they carry their own copy of the stages."
+              >
+                <Button
+                  className="bg-red-500/90 text-white hover:bg-red-500"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete pipeline
+                </Button>
+              </SectionCard>
+            ) : null}
+          </>
+        )}
+      </EditorShell>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">
@@ -599,7 +650,7 @@ export function PipelineBuilderScreen({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </MainScreenWrapper>
+    </>
   );
 }
 

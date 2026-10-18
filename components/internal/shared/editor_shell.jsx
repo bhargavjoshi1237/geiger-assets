@@ -6,9 +6,11 @@ import { ArrowLeft } from "lucide-react";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   EditorSectionHeader,
+  EmptyState,
   StatusPill,
 } from "@/components/internal/shared/screen_kit";
-import { ExpandableSearch } from "@geiger/ui";
+import { Button } from "@geiger/ui/button";
+import { ExpandableSearch, LogoLoading } from "@geiger/ui";
 import { cn } from "@/lib/utils";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { useIdleRecenter } from "@/lib/hooks/use-idle-recenter";
@@ -424,6 +426,41 @@ export function EditorShell({
 
       {after}
     </MainScreenWrapper>
+  );
+}
+
+// Loading placeholder for an editor whose record hasn't resolved yet.
+export function EditorLoading({ back, title = "Loading…", nav }) {
+  return (
+    <EditorShell back={back} title={title} nav={nav} subject={null}>
+      <div className="flex h-64 items-center justify-center">
+        <LogoLoading size={72} />
+      </div>
+    </EditorShell>
+  );
+}
+
+// Not-found placeholder for an editor whose record is missing or deleted.
+export function EditorNotFound({ back, nav, icon, title, description }) {
+  return (
+    <EditorShell back={back} title={title} nav={nav} subject={null}>
+      <EmptyState
+        icon={icon}
+        title={title}
+        description={description}
+        action={
+          back ? (
+            <Button
+              variant="outline"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
+              onClick={back.onClick}
+            >
+              Back to {back.label}
+            </Button>
+          ) : null
+        }
+      />
+    </EditorShell>
   );
 }
 

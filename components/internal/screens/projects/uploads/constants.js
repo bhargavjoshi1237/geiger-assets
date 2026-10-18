@@ -21,15 +21,16 @@ export const TYPE_ICONS = {
   archive: File,
 };
 
+// Neutral on purpose: badges carry no per-type colour (see globals.css).
 export const FILE_TYPE_COLORS = {
-  image: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-  video: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  audio: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  document: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  "3d": "bg-rose-500/15 text-rose-300 border-rose-500/30",
-  raw: "bg-orange-500/15 text-orange-300 border-orange-500/30",
-  archive: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30",
-  pdf: "bg-red-500/15 text-red-300 border-red-500/30",
+  image: "border-border bg-surface-card text-muted-foreground",
+  video: "border-border bg-surface-card text-muted-foreground",
+  audio: "border-border bg-surface-card text-muted-foreground",
+  document: "border-border bg-surface-card text-muted-foreground",
+  "3d": "border-border bg-surface-card text-muted-foreground",
+  raw: "border-border bg-surface-card text-muted-foreground",
+  archive: "border-border bg-surface-card text-muted-foreground",
+  pdf: "border-border bg-surface-card text-muted-foreground",
 };
 
 export const STATUS_META = {
@@ -42,32 +43,32 @@ export const STATUS_META = {
   uploading: {
     variant: "info",
     label: "Uploading",
-    className: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
     dotClass: "bg-blue-400",
   },
   processing: {
     variant: "purple",
     label: "Processing",
-    className: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+    className: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
     dotClass: "bg-violet-400",
   },
   completed: {
     variant: "success",
     label: "Completed",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
 
   complete: {
     variant: "success",
     label: "Completed",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   failed: {
     variant: "danger",
     label: "Failed",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
     dotClass: "bg-red-400",
   },
 };

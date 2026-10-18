@@ -241,7 +241,7 @@ function DnsInstructions({ domain }) {
             onClick={() => copy(row.field, row.value)}
           >
             {copied === row.field ? (
-              <Check className="h-3.5 w-3.5 text-emerald-400" />
+              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
@@ -409,7 +409,7 @@ export function GalleryDomainsScreen({ projectId }) {
                 {d.hostname}
               </p>
               {d.isPrimary ? (
-                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-700 dark:text-amber-400" />
               ) : null}
             </div>
             <p className="max-w-[240px] truncate text-[11px] text-text-tertiary">

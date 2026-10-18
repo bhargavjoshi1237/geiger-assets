@@ -83,7 +83,7 @@ export function VersionsSection({
                 className={cn(
                   "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-xs font-semibold tabular-nums",
                   v.isCurrent
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                     : "border-border bg-surface-card text-text-secondary",
                 )}
               >
@@ -95,7 +95,7 @@ export function VersionsSection({
                     {v.label || `Version ${v.versionNumber}`}
                   </p>
                   {v.isCurrent ? (
-                    <Badge className="border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-300">
+                    <Badge className="border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-700 dark:text-emerald-300">
                       <Check className="h-2.5 w-2.5" />
                       Current
                     </Badge>

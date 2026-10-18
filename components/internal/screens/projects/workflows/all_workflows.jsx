@@ -50,10 +50,10 @@ import {
   SCOPE_MAP,
   STATUS_FILTER_OPTIONS,
   TRIGGER_FILTER_OPTIONS,
-  TRIGGER_CATALOG,
   catalogEntry,
   formatRelativeDate,
 } from "./constants";
+import { TriggerOptions } from "./trigger_options";
 import { WorkflowBuilderScreen } from "./workflow_builder";
 import { uniqueId } from "@/lib/utils";
 
@@ -115,16 +115,12 @@ function CreateWorkflowDialog({ open, onOpenChange, onCreate, collections }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TRIGGER_CATALOG.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
+                <TriggerOptions />
               </SelectContent>
             </Select>
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Scope">
               <Select value={draft.scope} onValueChange={set("scope")}>
                 <SelectTrigger>

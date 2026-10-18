@@ -28,7 +28,7 @@ import {
   TextField,
   useModuleRows,
 } from "@/components/internal/shared/module_kit";
-import { ChipSelect, ExportButton, ScopeChips } from "./licensing_kit";
+import { ChipSelect, ExportButton, MultiSelect, ScopeChips } from "./licensing_kit";
 import {
   ACQUISITION_META,
   CHANNELS,
@@ -135,7 +135,7 @@ function RecordDialog({ open, onOpenChange, initial, holders, assets, onSubmit, 
       </FormSection>
 
       <FormSection title="Coverage" description="Where and how this right may be exercised.">
-        <ChipSelect label="Territories held" options={TERRITORIES} values={draft.territories} onChange={set("territories")} emptyHint="No territory held yet." />
+        <MultiSelect label="Territories held" options={TERRITORIES} values={draft.territories} onChange={set("territories")} placeholder="Pick the territories held" emptyHint="No territory held yet." />
         <ChipSelect label="Channels held" options={CHANNELS} values={draft.channels} onChange={set("channels")} emptyHint="No channel held yet." />
         <FieldRow columns={3}>
           <TextField label="Ownership share (%)" value={draft.ownershipShare} onChange={set("ownershipShare")} placeholder="100" inputMode="decimal" />

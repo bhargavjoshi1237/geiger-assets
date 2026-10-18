@@ -14,13 +14,14 @@ export function navPermissionKey(title) {
 
 const NAV_SECTIONS = [
   "Overview",
+  "All Media",
   "Assets",
   "Media",
   "Collaboration",
   "Workflows",
   "Delivery",
   "Galleries",
-  "Memberships",
+  "Membership",
   "Licensing",
   "Governance",
   "Platform",
@@ -31,10 +32,12 @@ const NAV_SECTIONS = [
 const CREATOR_SECTIONS = [
   "Membership Tiers",
   "Members",
-  "Member Registry",
   "Subscriptions",
   "Recurring Billing",
-  "Pay-Per-View",
+  "Posts",
+  "Creator Page",
+  "Inbox",
+  "Bundles",
   "Paid Messages",
   "Tips",
   "Payouts",
@@ -60,7 +63,19 @@ const DELIVERY_SECTIONS = [
   "Delivery Analytics",
 ];
 
-const navPermissions = [...NAV_SECTIONS, ...CREATOR_SECTIONS, ...LICENSING_SECTIONS, ...DELIVERY_SECTIONS].map((title) => ({
+const GALLERY_SECTIONS = [
+  "Gallery Builder",
+  "Showcase Galleries",
+  "Gallery Domains",
+  "Storefront",
+  "Digital Downloads",
+  "Products & Pricing",
+  "Cart & Checkout",
+  "Orders & Invoices",
+  "Customers",
+];
+
+const navPermissions = [...NAV_SECTIONS, ...CREATOR_SECTIONS, ...LICENSING_SECTIONS, ...DELIVERY_SECTIONS, ...GALLERY_SECTIONS].map((title) => ({
   key: navPermissionKey(title),
   label: title,
   group: "Workspace views",
@@ -200,11 +215,12 @@ const systemRoles = [
     color: "amber",
     permissions: [
       "assets.overview.view",
+      "assets.all_media.view",
       "assets.assets.view",
-      "assets.memberships.view",
+      "assets.membership.view",
       "assets.membership_tiers.view",
       "assets.members.view",
-      "assets.pay_per_view.view",
+      "assets.posts.view",
       "assets.analytics.view",
       "assets.asset.edit",
     ],

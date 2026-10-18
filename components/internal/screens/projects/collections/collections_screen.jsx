@@ -351,7 +351,7 @@ export function CollectionsScreen({ projectId }) {
             <div className="flex items-center gap-1.5">
               <p className="max-w-[240px] truncate text-sm font-medium text-foreground">{c.name}</p>
               {c.isFavorite ? (
-                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-700 dark:text-amber-400" />
               ) : null}
             </div>
             {c.description ? (

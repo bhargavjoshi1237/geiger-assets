@@ -148,7 +148,7 @@ function CreateReviewDialog({ open, onOpenChange, onCreate, pipelines, assets })
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Reviewing">
               <Select value={draft.subjectType} onValueChange={set("subjectType")}>
                 <SelectTrigger>
@@ -193,7 +193,7 @@ function CreateReviewDialog({ open, onOpenChange, onCreate, pipelines, assets })
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Priority">
               <Select value={draft.priority} onValueChange={set("priority")}>
                 <SelectTrigger>
@@ -484,7 +484,7 @@ export function ApprovalsScreen({ projectId }) {
           new Date(r.dueAt) < new Date() &&
           !["Approved", "Rejected", "Cancelled"].includes(r.status);
         return (
-          <span className={overdue ? "text-red-400" : undefined}>
+          <span className={overdue ? "text-red-600 dark:text-red-400" : undefined}>
             {formatRelative(r.dueAt)}
           </span>
         );

@@ -7,6 +7,7 @@ import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import { ScreenHeader, StatsBar } from "@/components/internal/shared/screen_kit";
 import { FolderExplorer } from "@/components/internal/shared/folder_explorer";
+import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { formatBytes } from "./constants";
 import { FolderDetailScreen } from "./folder_detail";
 
@@ -14,6 +15,8 @@ export function FoldersScreen({ projectId }) {
   const [folders, setFolders] = useState([]);
   const [openFolderId, setOpenFolderId] = useState(null);
   const explorerRef = useRef(null);
+  // "Open containing folder" from an asset lands here with ?folder=<path>.
+  const { folder: initialFolder } = useWorkspaceUrl();
 
   const handleFoldersChange = useCallback((rows) => setFolders(rows), []);
 
@@ -51,7 +54,7 @@ export function FoldersScreen({ projectId }) {
     <MainScreenWrapper className="flex min-h-full flex-col space-y-6">
       <ScreenHeader
         className="shrink-0"
-        title="Folders & Storage"
+        title="Folders"
         description="Browse the whole tree, reorganize by drag, and control where source files live."
         actions={
           <Button
@@ -69,6 +72,7 @@ export function FoldersScreen({ projectId }) {
       <FolderExplorer
         ref={explorerRef}
         projectId={projectId}
+        value={initialFolder}
         onFoldersChange={handleFoldersChange}
         onOpenDetails={(folder) => setOpenFolderId(folder.id)}
         className="min-h-[24rem] flex-1 rounded-xl border border-border bg-surface-subtle p-3"

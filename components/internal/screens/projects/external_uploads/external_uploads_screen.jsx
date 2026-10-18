@@ -15,6 +15,7 @@ import {
   Blocks,
   AlertTriangle,
   ExternalLink,
+  CloudDownload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,9 +58,21 @@ import {
 } from "@/lib/supabase/uploads";
 import {
   importAssetFromUrl,
+  uploadAsset,
   REMOTE_IMPORT_MAX_BYTES,
   UPLOAD_ERROR_MESSAGES,
 } from "@/lib/storage/client";
+import {
+  DRIVE_ERROR_MESSAGES,
+  connectDrive,
+  disconnectDrive,
+  downloadDriveFile,
+  driveFileType,
+  driveFilename,
+  getDriveAccessToken,
+  getDriveStatus,
+  pickDriveFiles,
+} from "@/lib/integrations/google_drive";
 import {
   REMOTE_STATUS_FILTER_OPTIONS,
   REMOTE_SORT_OPTIONS,
@@ -75,6 +88,8 @@ import { CsvLinkDialog } from "./csv_link_dialog";
 import { UploadPortalDetailScreen } from "./upload_portal_detail";
 
 const IMPORT_CONCURRENCY = 2;
+
+const isDriveJob = (job) => job.source === "cloud" && job.provider === "google-drive";
 
 const PLACEHOLDER = `https://images.example.com/hero-shot.jpg
 https://cdn.example.com/brand/logo.svg
@@ -94,18 +109,18 @@ function StagedLinkRow({ item, onRemove }) {
       {item.valid ? (
         <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
       ) : (
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-foreground">{item.filename}</p>
         <p className="truncate text-xs text-text-tertiary">{item.host || item.url}</p>
       </div>
       {!item.valid ? (
-        <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+        <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
           Invalid link
         </Badge>
       ) : item.duplicate ? (
-        <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+        <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
           Already imported
         </Badge>
       ) : null}
@@ -146,12 +161,38 @@ export function ExternalUploadsScreen({ projectId }) {
 
   const [portalsVersion, setPortalsVersion] = useState(0);
 
+  const [drive, setDrive] = useState({ loading: true, configured: false, connected: false, email: "" });
+  const [driveImporting, setDriveImporting] = useState(false);
+
   useEffect(() => {
     listUploadJobs(projectId).then((rows) => {
-      setJobs((rows ?? []).filter((j) => j.source === "url"));
+      setJobs((rows ?? []).filter((j) => j.source === "url" || isDriveJob(j)));
       setLoadingJobs(false);
     });
   }, [projectId]);
+
+  useEffect(() => {
+    getDriveStatus().then((status) => {
+      setDrive({
+        loading: false,
+        configured: Boolean(status?.configured),
+        connected: Boolean(status?.connected),
+        email: status?.email || "",
+      });
+    });
+  }, []);
+
+  // The OAuth callback lands back here with ?drive=<outcome>; surface it once
+  // and strip the param so a refresh doesn't repeat the toast.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const outcome = url.searchParams.get("drive");
+    if (!outcome) return;
+    if (outcome === "connected") toast.success(DRIVE_ERROR_MESSAGES.connected);
+    else toast.error(DRIVE_ERROR_MESSAGES[outcome] || DRIVE_ERROR_MESSAGES.failed);
+    url.searchParams.delete("drive");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
 
   const importedUrls = useMemo(
     () => new Set(jobs.map((j) => j.sourceUrl).filter(Boolean)),
@@ -323,22 +364,184 @@ export function ExternalUploadsScreen({ projectId }) {
     else toast.error("Couldn't import those links.");
   };
 
-  const handleRetry = async (job) => {
-    if (!job.sourceUrl) {
-      toast.error("That job has no source link to retry.");
+  // Drive files are downloaded in the browser with a short-lived token, then go
+  // through uploadAsset() like a local file — so large files, thumbnails and
+  // quality presets all behave exactly as a drag-and-drop upload.
+  const runDriveImport = useCallback(
+    async ({ id, file, destination, accessToken }) => {
+      const markFailed = async (message) => {
+        setJobs((rows) =>
+          rows.map((j) => (j.id === id ? { ...j, status: "failed", progress: 0, error: message } : j)),
+        );
+        await updateUploadJob(id, { status: "failed", progress: 0, error: message });
+        return false;
+      };
+
+      const downloaded = await downloadDriveFile(file, accessToken);
+      if (downloaded.error) {
+        if (downloaded.error === "not_connected") setDrive((d) => ({ ...d, connected: false }));
+        return markFailed(DRIVE_ERROR_MESSAGES[downloaded.error] || "Import failed");
+      }
+
+      let failure = null;
+      const asset = await uploadAsset(downloaded.file, {
+        projectId,
+        uploadJobId: id,
+        folder: destination,
+        tags,
+        quality,
+        onError: (code) => {
+          failure = code;
+        },
+      });
+      if (!asset) return markFailed(UPLOAD_ERROR_MESSAGES[failure] || "Import failed");
+
+      setJobs((rows) =>
+        rows.map((j) =>
+          j.id === id
+            ? {
+                ...j,
+                status: "completed",
+                progress: 100,
+                error: "",
+                assetId: asset.id,
+                filename: asset.name || j.filename,
+                fileType: asset.type || j.fileType,
+                sizeBytes: asset.sizeBytes ?? downloaded.file.size,
+              }
+            : j,
+        ),
+      );
+      return true;
+    },
+    [projectId, quality, tags],
+  );
+
+  const driveToken = async () => {
+    const { accessToken, error } = await getDriveAccessToken();
+    if (error === "not_connected") setDrive((d) => ({ ...d, connected: false }));
+    if (error) toast.error(DRIVE_ERROR_MESSAGES[error] || DRIVE_ERROR_MESSAGES.failed);
+    return accessToken || null;
+  };
+
+  const handleImportFromDrive = async () => {
+    if (driveImporting) return;
+    if (!projectId) {
+      toast.error("Open a project before importing from Drive.");
       return;
     }
+    if (!drive.connected) {
+      connectDrive();
+      return;
+    }
+
+    const accessToken = await driveToken();
+    if (!accessToken) return;
+
+    let picked;
+    try {
+      picked = await pickDriveFiles(accessToken);
+    } catch (e) {
+      console.error("[drive.picker]", e);
+      toast.error("Couldn't open Google Drive — try again.");
+      return;
+    }
+    if (!picked.length) return;
+
+    const destination = folder ? folderPath(folder) : "root";
+    const batch = picked.map((file) => ({ id: crypto.randomUUID(), file, destination, accessToken }));
+
+    setDriveImporting(true);
+    setProgress({ done: 0, total: batch.length });
+
+    let done = 0;
+    let failed = 0;
+    for (let i = 0; i < batch.length; i += IMPORT_CONCURRENCY) {
+      const slice = batch.slice(i, i + IMPORT_CONCURRENCY);
+      const results = await Promise.all(
+        slice.map(async (item) => {
+          const now = new Date().toISOString();
+          const metadata = {
+            provider: "google-drive",
+            driveFileId: item.file.id,
+            mimeType: item.file.mimeType,
+            sourceUrl: item.file.url,
+            destination: item.destination,
+          };
+          const fields = {
+            filename: driveFilename(item.file),
+            fileType: driveFileType(item.file.mimeType),
+            sizeBytes: item.file.sizeBytes,
+            status: "uploading",
+            progress: 0,
+            source: "cloud",
+          };
+          setJobs((rows) => [
+            { id: item.id, projectId, ...fields, ...metadata, error: "", assetId: null, createdAt: now, updatedAt: now },
+            ...rows,
+          ]);
+          const created = await createUploadJob({ id: item.id, projectId, ...fields, metadata });
+          if (!created) {
+            setJobs((rows) => rows.filter((j) => j.id !== item.id));
+            return false;
+          }
+          return runDriveImport(item);
+        }),
+      );
+      for (const ok of results) {
+        if (ok) done += 1;
+        else failed += 1;
+      }
+      setProgress({ done: done + failed, total: batch.length });
+    }
+
+    setDriveImporting(false);
+    setProgress({ done: 0, total: 0 });
+    if (done > 0 && failed === 0) toast.success(`${done} file${done !== 1 ? "s" : ""} imported from Drive`);
+    else if (done > 0) toast.warning(`${done} imported, ${failed} failed`);
+    else toast.error("Couldn't import those Drive files.");
+  };
+
+  const handleDisconnectDrive = async () => {
+    const prev = drive;
+    setDrive((d) => ({ ...d, connected: false, email: "" }));
+    const ok = await disconnectDrive();
+    if (!ok) {
+      setDrive(prev);
+      toast.error("Couldn't disconnect Google Drive.");
+      return;
+    }
+    toast.success("Google Drive disconnected.");
+  };
+
+  const handleRetry = async (job) => {
+    const fromDrive = isDriveJob(job);
+    if (fromDrive ? !job.driveFileId : !job.sourceUrl) {
+      toast.error("That job has no source to retry.");
+      return;
+    }
+    const accessToken = fromDrive ? await driveToken() : null;
+    if (fromDrive && !accessToken) return;
+
     setJobs((rows) =>
       rows.map((j) => (j.id === job.id ? { ...j, status: "uploading", progress: 0, error: "" } : j)),
     );
     await updateUploadJob(job.id, { status: "uploading", progress: 0, error: "" });
-    const ok = await runImport({
-      id: job.id,
-      url: job.sourceUrl,
-      filename: job.filename,
-      fileType: job.fileType,
-      destination: job.destination || "root",
-    });
+    const destination = job.destination || "root";
+    const ok = fromDrive
+      ? await runDriveImport({
+          id: job.id,
+          file: { id: job.driveFileId, name: job.filename, mimeType: job.mimeType || "" },
+          destination,
+          accessToken,
+        })
+      : await runImport({
+          id: job.id,
+          url: job.sourceUrl,
+          filename: job.filename,
+          fileType: job.fileType,
+          destination,
+        });
     if (ok) toast.success("Import finished.");
   };
 
@@ -449,7 +652,7 @@ export function ExternalUploadsScreen({ projectId }) {
             <Loader2 className="h-3.5 w-3.5 animate-spin text-text-tertiary" />
           ) : null}
           {j.status === "failed" && j.error ? (
-            <span className="max-w-[160px] truncate text-[11px] text-red-400">{j.error}</span>
+            <span className="max-w-[160px] truncate text-[11px] text-red-600 dark:text-red-400">{j.error}</span>
           ) : null}
         </div>
       ),
@@ -532,16 +735,37 @@ export function ExternalUploadsScreen({ projectId }) {
     <MainScreenWrapper>
       <ScreenHeader
         title="External Uploads"
-        description="Pull files into the library straight from a public link — paste a batch, or bring a column of URLs in from a CSV."
+        description="Pull files into the library from Google Drive or a public link — paste a batch, or bring a column of URLs in from a CSV."
         actions={
-          <Button
-            variant="outline"
-            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-            onClick={() => setShowSources(true)}
-          >
-            <Blocks className="h-4 w-4" />
-            Sources &amp; Portals
-          </Button>
+          <>
+            {drive.configured ? (
+              <Button
+                variant="outline"
+                className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                onClick={handleImportFromDrive}
+                disabled={driveImporting || importing}
+              >
+                {driveImporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CloudDownload className="h-4 w-4" />
+                )}
+                {driveImporting
+                  ? `Importing ${progress.done}/${progress.total}…`
+                  : drive.connected
+                    ? "Import from Drive"
+                    : "Connect Google Drive"}
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+              onClick={() => setShowSources(true)}
+            >
+              <Blocks className="h-4 w-4" />
+              Sources &amp; Portals
+            </Button>
+          </>
         }
       />
 
@@ -613,7 +837,7 @@ export function ExternalUploadsScreen({ projectId }) {
                 <p className="text-sm font-medium text-foreground">
                   {ready.length} ready
                   {invalidCount > 0 ? (
-                    <span className="ml-2 text-xs font-normal text-amber-400">
+                    <span className="ml-2 text-xs font-normal text-amber-700 dark:text-amber-400">
                       {invalidCount} skipped
                     </span>
                   ) : null}
@@ -635,7 +859,7 @@ export function ExternalUploadsScreen({ projectId }) {
               <Button
                 className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={handleImportAll}
-                disabled={importing || !ready.length}
+                disabled={importing || driveImporting || !ready.length}
               >
                 {importing ? (
                   <>
@@ -728,7 +952,7 @@ export function ExternalUploadsScreen({ projectId }) {
                     description={
                       filtersActive
                         ? "Try adjusting your filters."
-                        : "Paste a link above to pull your first file in from the web."
+                        : "Paste a link above or import from Google Drive to pull your first file in."
                     }
                     action={
                       filtersActive ? (
@@ -760,6 +984,14 @@ export function ExternalUploadsScreen({ projectId }) {
         onOpenPortal={(id) => {
           setShowSources(false);
           setOpenPortalId(id);
+        }}
+        drive={drive}
+        onConnectDrive={connectDrive}
+        onDisconnectDrive={handleDisconnectDrive}
+        onImportDrive={() => {
+          // The Picker can't take clicks under a modal Sheet — close it first.
+          setShowSources(false);
+          setTimeout(handleImportFromDrive, 300);
         }}
       />
     </MainScreenWrapper>

@@ -5,6 +5,7 @@ import { CheckCircle2, Landmark, SlidersHorizontal, Wallet } from "lucide-react"
 import { toast } from "sonner";
 import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import {
   DataTable,
   EmptyState,
@@ -15,8 +16,8 @@ import {
   StatusPill,
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
-import { PAYOUT_STATUS_META, statusFilterOptions, formatMoney, formatDate } from "./constants";
-import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
+import { PAYOUT_STATUS_META, statusFilterOptions, formatMoney, formatDate, parseDollarsToCents } from "./constants";
+import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, MoneyField, TextField } from "./creator_kit";
 import { listPayouts, createPayout, updatePayout, deletePayout, listTips, listPpvPosts, listSubscriptions } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(PAYOUT_STATUS_META, "All statuses");
@@ -24,11 +25,15 @@ const STATUS_FILTERS = statusFilterOptions(PAYOUT_STATUS_META, "All statuses");
 function PayoutDialog({ open, onOpenChange, onSubmit }) {
   const [destination, setDestination] = useState("");
   const [net, setNet] = useState("");
-  React.useEffect(() => { setDestination(""); setNet(""); }, [open]);
+  React.useEffect(() => {
+    if (!open) return;
+    setDestination("");
+    setNet("");
+  }, [open]);
   return (
-    <CreateDialog open={open} onOpenChange={onOpenChange} title="New payout" description="Settle collected revenue — gross minus platform and processing fees." submitLabel="Create payout" onSubmit={() => onSubmit({ destination, netCents: Math.round(Number(net.replace(/[^0-9.]/g, "")) * 100) || 0 })}>
-      <TextField label="Destination" value={destination} onChange={setDestination} placeholder="e.g. bank ••4242" />
-      <TextField label="Net amount (USD)" value={net} onChange={setNet} placeholder="1,250.00" />
+    <CreateDialog open={open} onOpenChange={onOpenChange} title="New payout" description="Settle collected revenue — gross minus platform and processing fees." submitLabel="Create payout" onSubmit={() => onSubmit({ destination, netCents: parseDollarsToCents(net) })}>
+      <TextField label="Destination" value={destination} onChange={setDestination} placeholder="e.g. Bank •••• 4242" />
+      <MoneyField label="Net amount (USD)" value={net} onChange={setNet} placeholder="1,250.00" />
     </CreateDialog>
   );
 }
@@ -51,6 +56,8 @@ export function PayoutsScreen({ projectId }) {
     if (statusFilter !== "all") r = r.filter((p) => p.status === statusFilter);
     return r;
   }, [rows, search, statusFilter]);
+
+  const pager = usePagination(filtered, { resetKey: `${search}|${statusFilter}` });
 
   const stats = useMemo(() => {
     const grossTips = tips.filter((t) => t.status === "succeeded").reduce((s, t) => s + t.amountCents, 0);
@@ -126,9 +133,9 @@ export function PayoutsScreen({ projectId }) {
       {loading ? (
         <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={Wallet} title="No payouts yet" description={hasFilters ? "Try adjusting your filters." : "Settle collected revenue to a destination."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="h-4 w-4" />New payout</Button>} /></div>} />
+        <DataTable columns={columns} data={pager.pageItems} getRowKey={(p) => p.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={Wallet} title="No payouts yet" description={hasFilters ? "Try adjusting your filters." : "Settle collected revenue to a destination."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Wallet className="h-4 w-4" />New payout</Button>} /></div>} />
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} payouts · click a row to mark paid</div> : null}
+      {!loading ? <ListPagination {...pager} itemLabel="payouts" /> : null}
       <PayoutDialog open={showCreate} onOpenChange={setShowCreate} onSubmit={handleCreate} />
     </MainScreenWrapper>
   );

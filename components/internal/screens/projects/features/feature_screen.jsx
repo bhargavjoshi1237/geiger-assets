@@ -23,8 +23,8 @@ import {
 } from "@/components/internal/sidebar/projects/feature_registry";
 
 const maturityStyles = {
-  "In progress": "border-blue-400/20 bg-blue-400/10 text-blue-300",
-  Planned: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+  "In progress": "border-blue-400/20 bg-blue-400/10 text-blue-700 dark:text-blue-300",
+  Planned: "border-amber-400/20 bg-amber-400/10 text-amber-700 dark:text-amber-300",
 };
 
 export function FeatureScreen({ title, onNavigate }) {

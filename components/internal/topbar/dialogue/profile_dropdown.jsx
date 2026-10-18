@@ -28,7 +28,7 @@ import {
   BookMarked,
   ExternalLink,
 } from "lucide-react";
-import { getUser, invalidateUserCache } from "@/lib/supabase/user";
+import { getUser, invalidateUserCache, profilePictureUrl } from "@/lib/supabase/user";
 import { createClient } from "@/lib/supabase/client";
 import { useOptionalProject } from "@/context/project-context";
 import { goToSuiteLogin } from "@/lib/workspace/suite_session";
@@ -53,9 +53,7 @@ export function ProfileDropdown({ children }) {
     });
   }, []);
 
-  const pfpUrl = user?.id
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pfp/${user.id}/latest.jpg`
-    : null;
+  const pfpUrl = profilePictureUrl(user?.id);
 
   const displayName = user?.name || "User";
   const displayEmail = user?.email || "user@email.com";
@@ -204,9 +202,9 @@ export function ProfileDropdown({ children }) {
 
             <DropdownMenuItem
               onSelect={handleSignOut}
-              className={`${itemBaseStyle} text-muted-foreground hover:bg-red-500/10 focus:bg-red-500/10 hover:text-red-400 focus:text-red-400 group`}
+              className={`${itemBaseStyle} text-muted-foreground hover:bg-red-500/10 focus:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 focus:text-red-600 dark:focus:text-red-400 group`}
             >
-              <LogOut className="size-4 group-hover:text-red-400 group-focus:text-red-400" />
+              <LogOut className="size-4 group-hover:text-red-600 dark:group-hover:text-red-400 group-focus:text-red-600 dark:group-focus:text-red-400" />
               <span>Sign out</span>
             </DropdownMenuItem>
           </DropdownMenuGroup>

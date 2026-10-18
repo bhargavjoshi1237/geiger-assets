@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
-  ArrowLeft,
   Loader2,
-  Save,
   Plus,
   X,
   Layers,
@@ -12,7 +11,8 @@ import {
   Link2,
   Copy,
   Check,
-  File,
+  Share2,
+  SquarePen,
 } from "lucide-react";
 
 import { Button } from "@geiger/ui/button";
@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@geiger/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -36,17 +35,21 @@ import {
   DialogTitle,
 } from "@geiger/ui/dialog";
 import { cn } from "@/lib/utils";
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
+import {
+  EditorLoading,
+  EditorNotFound,
+  EditorShell,
+} from "@/components/internal/shared/editor_shell";
+import { EditorSaveActions, useEditorGuard } from "@/components/internal/shared/unsaved_changes";
 import {
   EmptyState,
   Field,
   LoadingArea,
   SearchInput,
   SectionCard,
-  StatusPill,
 } from "@/components/internal/shared/screen_kit";
 import {
-  TYPE_ICONS,
   FILE_TYPE_COLORS,
   formatBytes,
 } from "@/components/internal/screens/projects/library/constants";
@@ -68,10 +71,36 @@ import { listAssets } from "@/lib/supabase/assets";
 import { useCopied } from "@/lib/use-copied";
 import { collectionShareUrl } from "@/lib/share";
 
-function AssetGlyph({ type, color, className }) {
-  const Icon = TYPE_ICONS[type] || File;
-  return <Icon className={className} style={{ color: color || "var(--color-text-secondary)" }} />;
-}
+const NAV_GROUPS = [
+  {
+    group: null,
+    items: [
+      {
+        key: "assets",
+        label: "Assets",
+        icon: Layers,
+        desc: "Members of this collection — removing here doesn't delete the asset.",
+      },
+    ],
+  },
+  {
+    group: "Manage",
+    items: [
+      {
+        key: "settings",
+        label: "Collection details",
+        icon: SquarePen,
+        desc: "Name, description, type, visibility, status, and favorite.",
+      },
+      {
+        key: "sharing",
+        label: "Sharing",
+        icon: Share2,
+        desc: "Control who can see this collection and share a link.",
+      },
+    ],
+  },
+];
 
 function AddAssetsDialog({ open, onOpenChange, existingIds, onAdd, projectId }) {
   const [assets, setAssets] = useState([]);
@@ -138,12 +167,7 @@ function AddAssetsDialog({ open, onOpenChange, existingIds, onAdd, projectId }) 
                   disabled={pending === asset.id}
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover disabled:opacity-50"
                 >
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
-                    style={{ background: `${asset.color}15`, borderColor: `${asset.color}25` }}
-                  >
-                    <AssetGlyph type={asset.type} color={asset.color} className="h-4 w-4" />
-                  </div>
+                  <AssetThumbnail asset={asset} className="h-8 w-8" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{asset.name}</p>
                     <p className="text-[11px] text-text-tertiary">
@@ -202,28 +226,33 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
 
   const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const handleSave = async () => {
-    if (!dirty) return;
+  const save = useCallback(async () => {
+    if (!dirty || saving || !draft) return false;
+    if (!draft.name?.trim()) {
+      toast.error("Give the collection a name before saving.");
+      return false;
+    }
     setSaving(true);
-    const patch = {
+    const updated = await updateCollection(id, {
       name: draft.name,
       description: draft.description,
       type: draft.type,
       visibility: draft.visibility,
       status: draft.status,
       isFavorite: draft.isFavorite,
-    };
-    const updated = await updateCollection(id, patch);
+    });
     setSaving(false);
     if (updated) {
       const merged = { ...updated, assetCount: members.length };
       setCollection(merged);
       setDraft(merged);
       onChange?.(merged);
-    } else {
-      setDraft(collection);
+      toast.success("Changes saved.");
+      return true;
     }
-  };
+    toast.error("Couldn't save your changes to the server.");
+    return false;
+  }, [dirty, draft, id, members.length, onChange, saving]);
 
   const existingIds = useMemo(
     () => new Set(members.map((m) => m.assetId)),
@@ -282,296 +311,269 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
     }
   };
 
+  const guard = useEditorGuard({
+    dirty,
+    saving,
+    save,
+    discard: () => setDraft(collection),
+    onBack,
+    name: draft?.name || "this collection",
+  });
+  const back = { label: "Collections", onClick: guard.back };
+
   if (loading) {
-    return (
-      <MainScreenWrapper>
-        <LoadingArea className="h-64 py-0" />
-      </MainScreenWrapper>
-    );
+    return <EditorLoading back={back} title="Loading collection…" nav={NAV_GROUPS} />;
   }
 
   if (!collection || !draft) {
     return (
-      <MainScreenWrapper>
-        <EmptyState
-          icon={Layers}
-          title="Collection not found"
-          description="This collection may have been deleted or isn't available."
-          action={
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active"
-              onClick={onBack}
-            >
-              Back to Collections
-            </Button>
-          }
-        />
-      </MainScreenWrapper>
+      <EditorNotFound
+        back={back}
+        nav={NAV_GROUPS}
+        icon={Layers}
+        title="Collection not found"
+        description="This collection may have been deleted or isn't available."
+      />
     );
   }
 
   return (
-    <MainScreenWrapper>
-      <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to collections"
-            className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
-            style={{
-              background: `${draft.coverColor}25`,
-              borderColor: `${draft.coverColor}40`,
-            }}
-          >
-            <Layers className="h-5 w-5" style={{ color: draft.coverColor || "var(--color-text-secondary)" }} />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              {draft.name || "Untitled collection"}
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <Badge className={cn("border px-1.5 py-0 text-[10px]", TYPE_META[draft.type]?.className)}>
-                {TYPE_META[draft.type]?.label || draft.type}
-              </Badge>
-              <StatusPill status={draft.visibility} map={VISIBILITY_META} className="text-[10px]" />
-              <span className="text-xs text-text-secondary">{members.length} assets</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={handleSave}
-            disabled={!dirty || saving}
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {dirty ? "Save changes" : "Saved"}
-          </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="assets" className="gap-6">
-        <TabsList>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="sharing">Sharing</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="assets">
-          <SectionCard
-            title="Assets"
-            description="Members of this collection — removing here doesn't delete the asset."
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                onClick={() => setShowAdd(true)}
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                Add assets
-              </Button>
-            }
-            bodyPadding={false}
-          >
-            {members.length === 0 ? (
-              <EmptyState
-                icon={ImagePlus}
-                title="No assets yet"
-                description="Add assets from your library to start building this collection."
-                action={
-                  <Button
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowAdd(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add assets
-                  </Button>
-                }
-                className="py-12"
-              />
-            ) : (
-              <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
-                {members.map((m) => {
-                  const asset = m.asset || {};
-                  return (
-                    <div
-                      key={m.id}
-                      className="group relative overflow-hidden rounded-xl border border-border bg-surface-card"
+    <>
+      <EditorShell
+        back={back}
+        title={draft.name || "Untitled collection"}
+        status={draft.visibility}
+        statusMap={VISIBILITY_META}
+        badges={
+          <Badge className={cn("border px-1.5 py-0 text-[10px]", TYPE_META[draft.type]?.className)}>
+            {TYPE_META[draft.type]?.label || draft.type}
+          </Badge>
+        }
+        meta={`${members.length} asset${members.length === 1 ? "" : "s"}`}
+        actions={
+          <EditorSaveActions
+            dirty={dirty}
+            saving={saving}
+            onSave={save}
+            onDiscard={() => setDraft(collection)}
+          />
+        }
+        nav={NAV_GROUPS}
+        subject={draft}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
+      >
+        {({ active }) => (
+          <>
+            {active === "assets" ? (
+              <>
+                <SectionCard
+                  title="Assets"
+                  description="Members of this collection — removing here doesn't delete the asset."
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-border bg-transparent text-xs text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                      onClick={() => setShowAdd(true)}
                     >
-                      <div
-                        className="flex aspect-square items-center justify-center"
-                        style={{
-                          background: `linear-gradient(135deg, ${asset.color}15 0%, ${asset.color}08 100%)`,
-                        }}
-                      >
-                        <AssetGlyph type={asset.type} color={asset.color} className="h-10 w-10" />
-                      </div>
-                      <div className="border-t border-border px-3 py-2">
-                        <p className="truncate text-xs font-medium text-foreground">
-                          {asset.name || "Untitled"}
-                        </p>
-                        <Badge
-                          className={cn(
-                            "mt-1 border px-1.5 py-0 text-[10px]",
-                            FILE_TYPE_COLORS[asset.type],
-                          )}
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add assets
+                    </Button>
+                  }
+                  bodyPadding={false}
+                >
+                  {members.length === 0 ? (
+                    <EmptyState
+                      icon={ImagePlus}
+                      title="No assets yet"
+                      description="Add assets from your library to start building this collection."
+                      action={
+                        <Button
+                          className="bg-primary text-primary-foreground hover:bg-primary/90"
+                          onClick={() => setShowAdd(true)}
                         >
-                          {asset.format || asset.type}
-                        </Badge>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Remove ${asset.name || "asset"} from collection`}
-                        className="absolute right-1.5 top-1.5 h-7 w-7 bg-surface-subtle/80 text-text-tertiary opacity-0 backdrop-blur transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-                        onClick={() => handleRemoveAsset(m.id)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <SectionCard title="Details">
-            <div className="grid gap-4">
-              <Field label="Name" htmlFor="settings-name">
-                <Input
-                  id="settings-name"
-                  value={draft.name}
-                  onChange={(e) => set("name")(e.target.value)}
-                  className="border-border bg-surface-card text-foreground"
-                />
-              </Field>
-              <Field label="Description" htmlFor="settings-desc">
-                <Textarea
-                  id="settings-desc"
-                  value={draft.description}
-                  onChange={(e) => set("description")(e.target.value)}
-                  placeholder="Add a description…"
-                  className="min-h-20 border-border bg-surface-card text-foreground"
-                />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Type">
-                  <Select value={draft.type} onValueChange={set("type")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {TYPE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Visibility">
-                  <Select value={draft.visibility} onValueChange={set("visibility")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {VISIBILITY_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Status">
-                  <Select value={draft.status} onValueChange={set("status")}>
-                    <SelectTrigger className="border-border bg-surface-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface-subtle text-foreground">
-                      {STATUS_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-border bg-surface-card px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Favorite</p>
-                  <p className="text-xs text-text-secondary">Pin this collection for quick access.</p>
-                </div>
-                <Switch checked={draft.isFavorite} onCheckedChange={set("isFavorite")} />
-              </div>
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="sharing">
-          <SectionCard
-            title="Sharing"
-            description="Control who can see this collection and share a link."
-          >
-            <div className="grid gap-4">
-              <Field label="Visibility" hint="Save changes to apply the new visibility.">
-                <Select value={draft.visibility} onValueChange={set("visibility")}>
-                  <SelectTrigger className="border-border bg-surface-card sm:max-w-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="border-border bg-surface-subtle text-foreground">
-                    {VISIBILITY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="text-xs">
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Share link">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Link2 className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
-                    <Input
-                      readOnly
-                      value={shareLink}
-                      className="pl-8 border-border bg-surface-card text-foreground"
+                          <Plus className="h-4 w-4" />
+                          Add assets
+                        </Button>
+                      }
+                      className="py-12"
                     />
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
+                      {members.map((m) => {
+                        const asset = m.asset || {};
+                        return (
+                          <div
+                            key={m.id}
+                            className="group relative overflow-hidden rounded-xl border border-border bg-surface-card"
+                          >
+                            <AssetThumbnail
+                              asset={asset}
+                              large
+                              className="aspect-square h-auto w-full rounded-none border-0"
+                              iconClassName="h-10 w-10"
+                            />
+                            <div className="border-t border-border px-3 py-2">
+                              <p className="truncate text-xs font-medium text-foreground">
+                                {asset.name || "Untitled"}
+                              </p>
+                              <Badge
+                                className={cn(
+                                  "mt-1 border px-1.5 py-0 text-[10px]",
+                                  FILE_TYPE_COLORS[asset.type],
+                                )}
+                              >
+                                {asset.format || asset.type}
+                              </Badge>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Remove ${asset.name || "asset"} from collection`}
+                              className="absolute right-1.5 top-1.5 h-7 w-7 bg-surface-subtle/80 text-text-tertiary opacity-0 backdrop-blur transition-opacity hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 group-hover:opacity-100"
+                              onClick={() => handleRemoveAsset(m.id)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </SectionCard>
+              </>
+            ) : null}
+
+            {active === "settings" ? (
+              <>
+                <SectionCard title="Details">
+                  <div className="grid gap-4">
+                    <Field label="Name" htmlFor="settings-name">
+                      <Input
+                        id="settings-name"
+                        value={draft.name}
+                        onChange={(e) => set("name")(e.target.value)}
+                        className="border-border bg-surface-card text-foreground"
+                      />
+                    </Field>
+                    <Field label="Description" htmlFor="settings-desc">
+                      <Textarea
+                        id="settings-desc"
+                        value={draft.description}
+                        onChange={(e) => set("description")(e.target.value)}
+                        placeholder="Add a description…"
+                        className="min-h-20 border-border bg-surface-card text-foreground"
+                      />
+                    </Field>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field label="Type">
+                        <Select value={draft.type} onValueChange={set("type")}>
+                          <SelectTrigger className="border-border bg-surface-card">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="border-border bg-surface-subtle text-foreground">
+                            {TYPE_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Visibility">
+                        <Select value={draft.visibility} onValueChange={set("visibility")}>
+                          <SelectTrigger className="border-border bg-surface-card">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="border-border bg-surface-subtle text-foreground">
+                            {VISIBILITY_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Status">
+                        <Select value={draft.status} onValueChange={set("status")}>
+                          <SelectTrigger className="border-border bg-surface-card">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="border-border bg-surface-subtle text-foreground">
+                            {STATUS_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border border-border bg-surface-card px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">Favorite</p>
+                        <p className="text-xs text-text-secondary">Pin this collection for quick access.</p>
+                      </div>
+                      <Switch checked={draft.isFavorite} onCheckedChange={set("isFavorite")} />
+                    </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-                    onClick={handleCopy}
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-              </Field>
-            </div>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
+                </SectionCard>
+              </>
+            ) : null}
+
+            {active === "sharing" ? (
+              <>
+                <SectionCard
+                  title="Sharing"
+                  description="Control who can see this collection and share a link."
+                >
+                  <div className="grid gap-4">
+                    <Field label="Visibility" hint="Save changes to apply the new visibility.">
+                      <Select value={draft.visibility} onValueChange={set("visibility")}>
+                        <SelectTrigger className="border-border bg-surface-card sm:max-w-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="border-border bg-surface-subtle text-foreground">
+                          {VISIBILITY_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value} className="text-xs">
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Share link">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Link2 className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
+                          <Input
+                            readOnly
+                            value={shareLink}
+                            className="pl-8 border-border bg-surface-card text-foreground"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="shrink-0 border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+                          onClick={handleCopy}
+                        >
+                          {copied ? (
+                            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                          {copied ? "Copied" : "Copy"}
+                        </Button>
+                      </div>
+                    </Field>
+                  </div>
+                </SectionCard>
+              </>
+            ) : null}
+          </>
+        )}
+      </EditorShell>
 
       <AddAssetsDialog
         open={showAdd}
@@ -580,7 +582,9 @@ export function CollectionDetailScreen({ id, onBack, onChange, projectId }) {
         onAdd={handleAddAsset}
         projectId={projectId}
       />
-    </MainScreenWrapper>
+
+      {guard.dialog}
+    </>
   );
 }
 

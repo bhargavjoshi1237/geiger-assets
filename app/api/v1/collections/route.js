@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok, paginate } from "@/lib/api/respond";
 
 export const runtime = "nodejs";
@@ -43,7 +43,6 @@ export async function GET(request) {
       ...normalize(row),
       assetCount: Array.isArray(row.items) ? row.items?.[0]?.count ?? 0 : 0,
     }));
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/collections", method: "GET", status: 200 }).catch(() => {});
     return ok(paginate(rows, { limit: params.get("limit"), cursor: params.get("cursor") }));
   } catch (e) {
     console.error("[v1.collections.list]", e?.message || e);
@@ -81,7 +80,6 @@ export async function POST(request) {
       console.error("[v1.collections.create]", error.message);
       return apiError("write_failed", "Could not create the collection.", 500);
     }
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/collections", method: "POST", status: 201 }).catch(() => {});
     return ok({ ...normalize(data), assetCount: 0 }, { status: 201 });
   } catch (e) {
     console.error("[v1.collections.create]", e?.message || e);

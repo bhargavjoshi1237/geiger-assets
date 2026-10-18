@@ -93,7 +93,7 @@ function LadderEditor({ ladder, setLadder }) {
               variant="ghost"
               size="icon-sm"
               aria-label={`Remove ${rung.label}`}
-              className="h-7 w-7 shrink-0 text-text-secondary hover:bg-surface-active hover:text-red-300"
+              className="h-7 w-7 shrink-0 text-text-secondary hover:bg-surface-active hover:text-red-700 dark:hover:text-red-300"
               onClick={() => setLadder(ladder.filter((_, j) => j !== i))}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ function CaptionsEditor({ captions, setCaptions }) {
             variant="ghost"
             size="icon-sm"
             aria-label={`Remove ${c.label} captions`}
-            className="h-7 w-7 shrink-0 text-text-secondary hover:bg-surface-active hover:text-red-300"
+            className="h-7 w-7 shrink-0 text-text-secondary hover:bg-surface-active hover:text-red-700 dark:hover:text-red-300"
             onClick={() => setCaptions(captions.filter((_, j) => j !== i))}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -289,7 +289,7 @@ function DeliveryPanel({ asset, delivery, posters, onSave, onRemove, saving }) {
 
       <div>
         <p className="mb-1.5 text-xs font-medium text-foreground">Embed snippet</p>
-        <pre className="overflow-x-auto rounded-lg border border-border bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{snippet}</pre>
+        <pre className="overflow-x-auto rounded-lg border border-border bg-muted dark:bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{snippet}</pre>
         <Button
           variant="outline"
           size="sm"
@@ -308,7 +308,7 @@ function DeliveryPanel({ asset, delivery, posters, onSave, onRemove, saving }) {
         {delivery ? "Save delivery" : "Enable delivery"}
       </Button>
       {delivery ? (
-        <Button variant="ghost" size="sm" className="w-full text-red-400 hover:bg-red-500/10 hover:text-red-300" onClick={() => onRemove(delivery)}>
+        <Button variant="ghost" size="sm" className="w-full text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300" onClick={() => onRemove(delivery)}>
           <Trash2 className="h-3.5 w-3.5" /> Remove delivery
         </Button>
       ) : null}
@@ -409,7 +409,7 @@ export function VideoDeliveryScreen({ projectId }) {
       header: "Video",
       render: (a) => (
         <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-black/50">
+          <div className="relative flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted dark:bg-black/50">
             {a.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={a.thumbnailUrl} alt="" className="h-full w-full object-cover" />

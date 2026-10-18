@@ -172,7 +172,7 @@ function InviteDialog({ open, onOpenChange, onInvite, roles }) {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Access level" hint={INVITE_KIND_MAP[draft.kind]?.description}>
               <Select value={draft.kind} onValueChange={set("kind")}>
                 <SelectTrigger>
@@ -239,7 +239,7 @@ function InviteDialog({ open, onOpenChange, onInvite, roles }) {
   );
 }
 
-export function TeamScreen({ projectId }) {
+export function TeamScreen({ projectId, title = "Team", description = "Who can reach this workspace and what they're allowed to do — members on the org, guests with scoped access, and external reviewers who only see what they're asked to approve.", intro }) {
   const [members, setMembers] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -620,8 +620,8 @@ export function TeamScreen({ projectId }) {
   return (
     <MainScreenWrapper>
       <ScreenHeader
-        title="Team"
-        description="Who can reach this workspace and what they're allowed to do — members on the org, guests with scoped access, and external reviewers who only see what they're asked to approve."
+        title={title}
+        description={description}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -637,6 +637,8 @@ export function TeamScreen({ projectId }) {
           </div>
         }
       />
+
+      {intro}
 
       <StatsBar stats={stats} />
 

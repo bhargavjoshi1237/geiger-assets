@@ -20,6 +20,8 @@ import {
   Shield,
   FolderOpen,
   AlertCircle,
+  Download,
+  Unplug,
 } from "lucide-react";
 import { ActionMenu } from "@geiger/ui/action-menu";
 import { toast } from "sonner";
@@ -105,14 +107,6 @@ const PROVIDERS = [
     category: "cloud",
   },
   {
-    id: "box",
-    name: "Box",
-    desc: "Pull assets from Box enterprise content management",
-    color: "#0061D5",
-    letter: "Bx",
-    category: "cloud",
-  },
-  {
     id: "s3",
     name: "Amazon S3",
     desc: "Connect an S3 bucket to import or sync assets",
@@ -135,46 +129,6 @@ const PROVIDERS = [
     color: "#64748b",
     letter: "FTP",
     category: "storage",
-  },
-  {
-    id: "unsplash",
-    name: "Unsplash",
-    desc: "Search and import from 3M+ free high-res photos",
-    color: "#111111",
-    letter: "Un",
-    category: "stock",
-  },
-  {
-    id: "pexels",
-    name: "Pexels",
-    desc: "Free stock photos, videos and music",
-    color: "#05A081",
-    letter: "Px",
-    category: "stock",
-  },
-  {
-    id: "shutterstock",
-    name: "Shutterstock",
-    desc: "Licensed stock imagery and footage",
-    color: "#EE2E24",
-    letter: "Ss",
-    category: "stock",
-  },
-  {
-    id: "getty",
-    name: "Getty Images",
-    desc: "Premium stock content and editorial media",
-    color: "#CC0000",
-    letter: "Gi",
-    category: "stock",
-  },
-  {
-    id: "adobe-stock",
-    name: "Adobe Stock",
-    desc: "Creative assets from Adobe's stock library",
-    color: "#FF0000",
-    letter: "As",
-    category: "stock",
   },
 ];
 
@@ -222,7 +176,7 @@ function ProviderIcon({ provider }) {
   );
 }
 
-function ProviderCard({ provider, connected, onConnect, onDisconnect }) {
+function ProviderCard({ provider, connected, detail, onConnect, onDisconnect, onImport }) {
   return (
     <div
       className={cn(
@@ -235,7 +189,7 @@ function ProviderCard({ provider, connected, onConnect, onDisconnect }) {
       <div className="flex items-start justify-between">
         <ProviderIcon provider={provider} />
         {connected ? (
-          <Badge className="border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-300">
+          <Badge className="border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-700 dark:text-emerald-300">
             Connected
           </Badge>
         ) : null}
@@ -243,38 +197,64 @@ function ProviderCard({ provider, connected, onConnect, onDisconnect }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">{provider.name}</p>
         <p className="mt-0.5 text-xs text-text-secondary">{provider.desc}</p>
+        {detail ? <p className="mt-1 truncate text-[11px] text-text-tertiary">{detail}</p> : null}
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className={cn(
-          "h-7 w-full text-xs",
-          connected
-            ? "border-border text-text-secondary hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-            : "border-border bg-surface-card text-foreground hover:bg-surface-hover",
-        )}
-        onClick={() =>
-          connected ? onDisconnect(provider.id) : onConnect(provider.id)
-        }
-      >
-        {connected ? "Disconnect" : "Connect"}
-      </Button>
+      {connected && onImport ? (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="h-7 min-w-0 flex-1 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+            onClick={() => onImport(provider.id)}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Import
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={`Disconnect ${provider.name}`}
+            title="Disconnect"
+            className="h-7 w-7 shrink-0 border-border text-text-secondary hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+            onClick={() => onDisconnect(provider.id)}
+          >
+            <Unplug className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-7 w-full text-xs",
+            connected
+              ? "border-border text-text-secondary hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+              : "border-border bg-surface-card text-foreground hover:bg-surface-hover",
+          )}
+          onClick={() =>
+            connected ? onDisconnect(provider.id) : onConnect(provider.id)
+          }
+        >
+          {connected ? "Disconnect" : "Connect"}
+        </Button>
+      )}
     </div>
   );
 }
 
-function ProviderSection({ title, providers, connected, onConnect, onDisconnect }) {
+function ProviderSection({ title, providers, isConnected, detailFor, canImport, onConnect, onDisconnect, onImport }) {
   return (
     <div>
       <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {providers.map((provider) => (
           <ProviderCard
             key={provider.id}
             provider={provider}
-            connected={connected.has(provider.id)}
+            connected={isConnected(provider.id)}
+            detail={detailFor(provider.id)}
             onConnect={onConnect}
             onDisconnect={onDisconnect}
+            onImport={canImport(provider.id) ? onImport : undefined}
           />
         ))}
       </div>
@@ -403,7 +383,7 @@ function CreatePortalDialog({ open, onOpenChange, onCreate }) {
             </div>
             <Switch checked={draft.requireMetadata} onCheckedChange={set("requireMetadata")} />
           </div>
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
+          {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
         </div>
         <DialogFooter>
           <Button
@@ -431,6 +411,10 @@ export function ExternalSourcesSheet({
   onOpenChange,
   onOpenPortal,
   reloadKey = 0,
+  drive,
+  onConnectDrive,
+  onDisconnectDrive,
+  onImportDrive,
 }) {
   const [portals, setPortals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -466,13 +450,34 @@ export function ExternalSourcesSheet({
     });
   }, [open, projectId, reloadKey]);
 
-  const handleConnect = (id) => setConnected((prev) => new Set([...prev, id]));
-  const handleDisconnect = (id) =>
+  // Google Drive is a real OAuth link owned by the screen; the other
+  // providers are still local placeholders.
+  const isDrive = (id) => id === "google-drive";
+  const isConnected = (id) => (isDrive(id) ? Boolean(drive?.connected) : connected.has(id));
+  const detailFor = (id) => (isDrive(id) && drive?.connected ? drive.email : "");
+  const connectedCount = connected.size + (drive?.connected ? 1 : 0);
+
+  const handleConnect = (id) => {
+    if (isDrive(id)) {
+      if (!drive?.configured) {
+        toast.error("Google Drive isn't configured — check the GOOGLE_* env vars and restart the server.");
+        return;
+      }
+      return onConnectDrive?.();
+    }
+    setConnected((prev) => new Set([...prev, id]));
+  };
+  const handleDisconnect = (id) => {
+    if (isDrive(id)) return onDisconnectDrive?.();
     setConnected((prev) => {
       const next = new Set(prev);
       next.delete(id);
       return next;
     });
+  };
+  const handleImport = (id) => {
+    if (isDrive(id)) onImportDrive?.();
+  };
 
   const toggleAllowedType = (value) => {
     setAllowedTypes((prev) => {
@@ -649,7 +654,6 @@ export function ExternalSourcesSheet({
 
   const cloudProviders = PROVIDERS.filter((p) => p.category === "cloud");
   const storageProviders = PROVIDERS.filter((p) => p.category === "storage");
-  const stockProviders = PROVIDERS.filter((p) => p.category === "stock");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -664,7 +668,7 @@ export function ExternalSourcesSheet({
                 Sources &amp; Portals
               </SheetTitle>
               <SheetDescription className="mt-1 text-sm text-text-secondary">
-                Connect the cloud drives, buckets and stock libraries you import from.
+                Connect the cloud drives and buckets you import from.
               </SheetDescription>
             </div>
             <Button
@@ -676,15 +680,15 @@ export function ExternalSourcesSheet({
               <SlidersHorizontal className="h-4 w-4" />
               Portals &amp; settings
               {pendingSubmissions > 0 ? (
-                <Badge className="ml-1 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+                <Badge className="ml-1 border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
                   {pendingSubmissions}
                 </Badge>
               ) : null}
             </Button>
           </div>
-          {connected.size > 0 ? (
-            <Badge className="mt-2 w-fit border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-300">
-              {connected.size} provider{connected.size !== 1 ? "s" : ""} connected
+          {connectedCount > 0 ? (
+            <Badge className="mt-2 w-fit border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
+              {connectedCount} provider{connectedCount !== 1 ? "s" : ""} connected
             </Badge>
           ) : null}
         </SheetHeader>
@@ -695,23 +699,22 @@ export function ExternalSourcesSheet({
             <ProviderSection
               title="Cloud Storage"
               providers={cloudProviders}
-              connected={connected}
+              isConnected={isConnected}
+              detailFor={detailFor}
+              canImport={isDrive}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
+              onImport={handleImport}
             />
             <ProviderSection
               title="Object Storage & FTP"
               providers={storageProviders}
-              connected={connected}
+              isConnected={isConnected}
+              detailFor={detailFor}
+              canImport={isDrive}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
-            />
-            <ProviderSection
-              title="Stock Libraries"
-              providers={stockProviders}
-              connected={connected}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
+              onImport={handleImport}
             />
           </div>
         </div>
@@ -735,7 +738,7 @@ export function ExternalSourcesSheet({
                     <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                       Upload Portals
                       {pendingSubmissions > 0 ? (
-                        <Badge className="border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+                        <Badge className="border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
                           {pendingSubmissions} pending
                         </Badge>
                       ) : null}

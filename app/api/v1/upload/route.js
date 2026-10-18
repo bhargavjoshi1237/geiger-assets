@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok } from "@/lib/api/respond";
 import { isStorageConfigured, issueUploadUrl } from "@/lib/storage/service";
 
@@ -38,7 +38,6 @@ export async function POST(request) {
   if (result.error === "too_large") return apiError("too_large", "File exceeds the size limit.", 413);
   if (result.error === "unsupported_type") return apiError("unsupported_type", "File type is not supported.", 415);
   if (result.error) return apiError("bad_request", "Could not start the upload.", 400);
-  countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/upload", method: "POST", status: 201 }).catch(() => {});
   return ok(
     {
       uploadJobId,

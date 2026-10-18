@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
+import { isPlaygroundActive } from "@/lib/playground/mode";
 
 export function isSupabaseConfigured() {
+  // The landing playground serves an in-memory DB, so it never needs the env.
+  if (isPlaygroundActive()) return true;
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

@@ -160,7 +160,7 @@ function ShareLinkDialog({ open, onOpenChange, onSubmit, assets, collections, in
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Shares">
               <Select
                 value={draft.subjectType}
@@ -194,7 +194,7 @@ function ShareLinkDialog({ open, onOpenChange, onSubmit, assets, collections, in
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Visibility" hint="Restricted links still need the URL.">
               <Select value={draft.visibility} onValueChange={set("visibility")}>
                 <SelectTrigger>
@@ -492,7 +492,7 @@ export function SharedLinksScreen({ projectId }) {
         if (!l.expiresAt) return "Never";
         const soon = isExpiringSoon(l.expiresAt);
         return (
-          <span className={soon ? "text-amber-400" : undefined}>
+          <span className={soon ? "text-amber-700 dark:text-amber-400" : undefined}>
             {formatRelative(l.expiresAt)}
           </span>
         );

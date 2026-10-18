@@ -16,7 +16,7 @@ import {
   LucidePackagePlus,
 } from "lucide-react";
 
-import { SecondaryScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   EmptyState,
   LoadingArea,
@@ -116,7 +116,7 @@ function AddonCard({
 
         <div className="flex shrink-0 items-center gap-2">
           {enabled ? (
-            <div className="mr-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-green-400">
+            <div className="mr-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">
               <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
               Active
             </div>
@@ -333,18 +333,18 @@ export function AddonsSettingsScreen({ projectId }) {
 
   if (loading) {
     return (
-      <SecondaryScreenWrapper>
+      <MainScreenWrapper>
         <ScreenHeader
           title="Add-ons"
           description="Optional modules that add screens and capabilities."
         />
         <LoadingArea size={56} label="Loading add-ons" />
-      </SecondaryScreenWrapper>
+      </MainScreenWrapper>
     );
   }
 
   return (
-    <SecondaryScreenWrapper>
+    <MainScreenWrapper>
       <ScreenHeader
         title="Add-ons"
         description="Optional modules that add screens and capabilities."
@@ -412,7 +412,7 @@ export function AddonsSettingsScreen({ projectId }) {
           })}
         </div>
       )}
-    </SecondaryScreenWrapper>
+    </MainScreenWrapper>
   );
 }
 

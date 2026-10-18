@@ -22,6 +22,7 @@ import {
 } from "@/components/internal/shared/screen_kit";
 import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import { STATUS_META, STATUS_FILTER_OPTIONS, formatBytes, formatDate } from "@/components/internal/screens/projects/library/constants";
 import { assetFileUrl } from "@/lib/storage/client";
 import { listAssets } from "@/lib/supabase/assets";
@@ -37,12 +38,8 @@ const TRANSCRIPT_FILTER = [
 
 function VideoThumb({ asset }) {
   return (
-    <div className="relative flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-black/50">
-      {asset.thumbnailUrl ? (
-        <img src={asset.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <Film className="h-4 w-4 text-text-secondary" />
-      )}
+    <div className="relative h-9 w-14 shrink-0">
+      <AssetThumbnail asset={asset} className="h-9 w-14" />
       <span className="absolute bottom-0.5 right-1 rounded bg-black/70 px-1 text-[9px] tabular-nums text-white">
         {formatDuration(mockDurationSeconds(asset))}
       </span>
@@ -162,7 +159,7 @@ function VideoDetail({ asset, onBack }) {
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {storyboard.map((f, i) => (
                   <button key={i} type="button" onClick={() => toast.success(`Jumped to ${formatDuration(duration * f)}.`)} className="group overflow-hidden rounded-lg border border-border bg-surface-card text-left">
-                    <div className="flex aspect-video items-center justify-center bg-black/50">
+                    <div className="flex aspect-video items-center justify-center bg-muted dark:bg-black/50">
                       {asset.thumbnailUrl ? <img src={asset.thumbnailUrl} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100" /> : <Film className="h-4 w-4 text-text-tertiary" />}
                     </div>
                     <p className="px-1.5 py-1 font-mono text-[10px] tabular-nums text-text-secondary">{formatDuration(duration * f)}</p>

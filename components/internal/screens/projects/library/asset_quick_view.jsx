@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, File, Pencil, Trash2 } from "lucide-react";
+import { Copy, Download, Pencil, Trash2 } from "lucide-react";
 
 import {
   Sheet,
@@ -26,12 +26,12 @@ import {
   SettingsList,
 } from "@/components/internal/shared/screen_kit";
 import { AssetPreview } from "@/components/internal/shared/asset_preview";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import { cn } from "@/lib/utils";
 import { assetFileUrl } from "@/lib/storage/client";
 import { listRelationships, listVersions, updateAsset } from "@/lib/supabase/assets";
 import { TagInput } from "./tag_input";
 import {
-  TYPE_ICONS,
   STATUS_META,
   STATUS_OPTIONS,
   formatBytes,
@@ -85,7 +85,6 @@ export function AssetQuickViewSheet({
 
   if (!asset) return null;
 
-  const Icon = TYPE_ICONS[asset.type] || File;
   const statusMeta = STATUS_META[asset.status] || STATUS_META.draft;
   const hasFile = Boolean(asset.storageKey);
 
@@ -109,15 +108,7 @@ export function AssetQuickViewSheet({
       >
         <SheetHeader className="gap-3 border-b border-border p-6 pb-4">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-              style={{
-                background: `${asset.color || "#737373"}15`,
-                borderColor: `${asset.color || "#737373"}25`,
-              }}
-            >
-              <Icon className="h-4 w-4" style={{ color: asset.color || "#737373" }} />
-            </div>
+            <AssetThumbnail asset={asset} />
             <div className="min-w-0 flex-1 pr-6">
               <SheetTitle className="truncate text-base leading-snug">
                 {asset.name || "Untitled asset"}
@@ -132,7 +123,7 @@ export function AssetQuickViewSheet({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
-          <AssetPreview asset={asset} frameless className="border-b border-border" />
+          <AssetPreview key={asset.id} asset={asset} frameless className="border-b border-border" />
 
           <div className="grid gap-5 p-6">
             <Field label="Status">
@@ -210,7 +201,7 @@ export function AssetQuickViewSheet({
           </Button>
           <Button
             variant="ghost"
-            className="ml-auto text-red-400 hover:bg-red-500/10 hover:text-red-400"
+            className="ml-auto text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
             onClick={() => onDelete?.(asset)}
           >
             <Trash2 className="h-4 w-4" /> Delete

@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowUpDown,
-  ArrowUpRight,
   Copy,
   Eye,
   Globe,
@@ -12,6 +11,8 @@ import {
   Layers,
   Link2,
   Loader2,
+  PanelRight,
+  Pencil,
   Plus,
   SlidersHorizontal,
   Trash2,
@@ -43,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import {
   DataTable,
   EmptyState,
@@ -68,8 +70,8 @@ import {
   VISIBILITY_OPTIONS,
   formatDate,
 } from "./constants";
-import { ThemeSwatch } from "./galleries_kit";
 import { GalleryDetailScreen } from "./gallery_detail";
+import { GalleryQuickViewSheet } from "./gallery_quick_view";
 import {
   createGallery,
   deleteGallery,
@@ -256,13 +258,14 @@ function CreateDialog({ open, onOpenChange, onCreate, collections }) {
   );
 }
 
-function RowActions({ gallery, onOpen, onCopyLink, onDuplicate, onTogglePublish, onDelete }) {
+function RowActions({ gallery, onView, onEdit, onCopyLink, onDuplicate, onTogglePublish, onDelete }) {
   const published = gallery.status === "published";
   return (
     <ActionMenu
       label="Gallery actions"
       items={[
-        { icon: ArrowUpRight, label: "Open", onSelect: () => onOpen(gallery) },
+        { icon: PanelRight, label: "Quick view", onSelect: () => onView(gallery) },
+        { icon: Pencil, label: "Edit", onSelect: () => onEdit(gallery) },
         {
           icon: Link2,
           label: "Copy public link",
@@ -297,6 +300,7 @@ export function GalleryBuilderScreen({ projectId }) {
   const [layoutFilter, setLayoutFilter] = useState("all");
   const [sortValue, setSortValue] = useState("modified-desc");
   const [openId, setOpenId] = useState(null);
+  const [quickId, setQuickId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
@@ -449,6 +453,7 @@ export function GalleryBuilderScreen({ projectId }) {
       downloadMode: gallery.downloadMode,
       allowFavorites: gallery.allowFavorites,
       seo: gallery.seo,
+      commerce: gallery.commerce,
       // A duplicate always starts as a draft — never silently republish a copy.
       status: "draft",
     };
@@ -492,6 +497,26 @@ export function GalleryBuilderScreen({ projectId }) {
     }
   };
 
+  // Inline edits from the quick-view sheet: optimistic, rolled back on failure.
+  const handleQuickUpdate = async (gallery, patch) => {
+    const previous = {};
+    for (const key of Object.keys(patch)) previous[key] = gallery[key];
+    setGalleries((rows) => rows.map((g) => (g.id === gallery.id ? { ...g, ...patch } : g)));
+    const updated = await updateGallery(gallery.id, patch);
+    if (updated) {
+      setGalleries((rows) => rows.map((g) => (g.id === gallery.id ? updated : g)));
+    } else {
+      setGalleries((rows) =>
+        rows.map((g) => (g.id === gallery.id ? { ...g, ...previous } : g)),
+      );
+      toast.error("Couldn't save that change.");
+    }
+  };
+
+  const handleOpenPublic = (gallery) => {
+    window.open(galleryUrl(gallery.slug), "_blank", "noopener,noreferrer");
+  };
+
   const handleDelete = async (gallery) => {
     const prev = galleries;
     setGalleries((rows) => rows.filter((g) => g.id !== gallery.id));
@@ -512,7 +537,13 @@ export function GalleryBuilderScreen({ projectId }) {
       header: "Gallery",
       render: (g) => (
         <div className="flex items-center gap-3">
-          <ThemeSwatch theme={g.theme} />
+          {g.coverAssetId ? (
+            <AssetThumbnail assetId={g.coverAssetId} />
+          ) : (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-card">
+              <Images className="h-4 w-4 text-text-tertiary" />
+            </span>
+          )}
           <div className="min-w-0">
             <p className="max-w-[240px] truncate text-sm font-medium text-foreground">
               {g.name}
@@ -539,7 +570,7 @@ export function GalleryBuilderScreen({ projectId }) {
         <div className="flex items-center gap-1.5">
           <StatusPill status={g.visibility} map={VISIBILITY_META} className="text-[10px]" />
           {g.hasPassword ? (
-            <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+            <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
               Password
             </Badge>
           ) : null}
@@ -568,7 +599,8 @@ export function GalleryBuilderScreen({ projectId }) {
         <div onClick={(e) => e.stopPropagation()}>
           <RowActions
             gallery={g}
-            onOpen={(x) => setOpenId(x.id)}
+            onView={(x) => setQuickId(x.id)}
+            onEdit={(x) => setOpenId(x.id)}
             onCopyLink={handleCopyLink}
             onDuplicate={handleDuplicate}
             onTogglePublish={handleTogglePublish}
@@ -578,6 +610,8 @@ export function GalleryBuilderScreen({ projectId }) {
       ),
     },
   ];
+
+  const quickGallery = quickId ? galleries.find((g) => g.id === quickId) ?? null : null;
 
   if (openId) {
     return (
@@ -669,7 +703,7 @@ export function GalleryBuilderScreen({ projectId }) {
             columns={columns}
             data={pager.pageItems}
             getRowKey={(g) => g.id}
-            onRowClick={(g) => setOpenId(g.id)}
+            onRowClick={(g) => setQuickId(g.id)}
             empty={
               <div className="rounded-xl border border-border bg-surface-subtle">
                 <EmptyState
@@ -706,6 +740,24 @@ export function GalleryBuilderScreen({ projectId }) {
           <ListPagination {...pager} itemLabel="galleries" />
         </div>
       )}
+
+      <GalleryQuickViewSheet
+        gallery={quickGallery}
+        projectId={projectId}
+        collectionName={collectionName}
+        open={Boolean(quickGallery)}
+        onOpenChange={(next) => (next ? null : setQuickId(null))}
+        onEdit={(g) => {
+          setQuickId(null);
+          setOpenId(g.id);
+        }}
+        onUpdate={handleQuickUpdate}
+        onCopyLink={handleCopyLink}
+        onOpenPublic={handleOpenPublic}
+        onDuplicate={handleDuplicate}
+        onTogglePublish={handleTogglePublish}
+        onDelete={handleDelete}
+      />
 
       <CreateDialog
         open={showCreate}

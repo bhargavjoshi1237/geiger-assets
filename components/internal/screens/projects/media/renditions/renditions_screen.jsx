@@ -26,10 +26,10 @@ import { RENDITION_PRESETS, formatDuration, mockDurationSeconds } from "../share
 import { cn } from "@/lib/utils";
 
 const RENDITION_STATUS = {
-  ready: { label: "Ready", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  ready: { label: "Ready", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
   queued: { label: "Queued", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
-  processing: { label: "Processing", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  failed: { label: "Failed", className: "bg-red-500/15 text-red-300 border-red-500/30" },
+  processing: { label: "Processing", className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  failed: { label: "Failed", className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" },
 };
 
 const FORMAT_FILTER = [
@@ -148,7 +148,7 @@ export function RenditionsScreen({ projectId }) {
     {
       key: "savings",
       header: "Savings",
-      className: "tabular-nums text-xs text-emerald-300 hidden md:table-cell",
+      className: "tabular-nums text-xs text-emerald-700 dark:text-emerald-300 hidden md:table-cell",
       headClassName: "hidden md:table-cell",
       render: (r) => `−${r.savings}%`,
     },
@@ -210,7 +210,7 @@ export function RenditionsScreen({ projectId }) {
               {selected ? <p className="mt-2 text-[11px] text-text-tertiary">~{savingsFor(RENDITION_PRESETS[0], selected)}% average savings at default quality.</p> : null}
             </SectionCard>
             <SectionCard title="Responsive set" description="Drop-in srcset for the web." action={<Code2 className="h-4 w-4 text-text-tertiary" />}>
-              <pre className="overflow-x-auto rounded-lg border border-border bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{srcset || "Enable a preset to build the set."}</pre>
+              <pre className="overflow-x-auto rounded-lg border border-border bg-muted dark:bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{srcset || "Enable a preset to build the set."}</pre>
               <Button variant="outline" size="sm" className="mt-2 w-full border-border bg-transparent" onClick={() => { if (!srcset) return; navigator.clipboard?.writeText(`<img srcset="${srcset}" alt="${selected?.name || ""}" />`); toast.success("Snippet copied."); }}>
                 <Copy className="h-3.5 w-3.5" /> Copy snippet
               </Button>

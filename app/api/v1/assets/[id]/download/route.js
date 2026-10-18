@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError } from "@/lib/api/respond";
 import { isStorageConfigured } from "@/lib/storage/service";
 import { backendForRef, refFromAssetRow } from "@/lib/storage/backends/index.js";
@@ -34,7 +34,6 @@ export async function GET(request, { params }) {
       filename: data.original_filename || data.name,
     });
     if (!url) return apiError("sign_failed", "Could not sign the download URL.", 500);
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/assets/[id]/download", method: "GET", status: 302, assetId: id }).catch(() => {});
     return NextResponse.redirect(url, { status: 302 });
   } catch (e) {
     console.error("[v1.assets.download]", e?.message || e);

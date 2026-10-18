@@ -152,7 +152,7 @@ function GeneratorTab({ assets, embeds, setEmbeds, projectId }) {
         </div>
       </SectionCard>
       <SectionCard title="Preview" description={draft.versionMode === "pinned" ? "Pinned to the current version." : "Follows the latest version."} action={<Code2 className="h-4 w-4 text-text-tertiary" />}>
-        <pre className="overflow-x-auto rounded-lg border border-border bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{snippet}</pre>
+        <pre className="overflow-x-auto rounded-lg border border-border bg-muted dark:bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{snippet}</pre>
         <Button
           variant="outline"
           size="sm"
@@ -418,7 +418,7 @@ function KeysTab({ keys, setKeys, projectId }) {
       key: "status",
       header: "Status",
       render: (k) => (
-        <Badge className={cn("border px-1.5 py-0 text-[10px]", k.revokedAt ? "border-red-500/30 bg-red-500/15 text-red-300" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-300")}>
+        <Badge className={cn("border px-1.5 py-0 text-[10px]", k.revokedAt ? "border-red-500/30 bg-red-500/15 text-red-700 dark:text-red-300" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300")}>
           {k.revokedAt ? "Revoked" : "Live"}
         </Badge>
       ),
@@ -483,7 +483,7 @@ function KeysTab({ keys, setKeys, projectId }) {
               <span className="font-medium text-foreground">{secret?.name}</span> — it won&apos;t be shown again.
             </DialogDescription>
           </DialogHeader>
-          <pre className="overflow-x-auto rounded-lg border border-border bg-black/40 p-3 font-mono text-xs text-foreground">{secret?.raw}</pre>
+          <pre className="overflow-x-auto rounded-lg border border-border bg-muted dark:bg-black/40 p-3 font-mono text-xs text-foreground">{secret?.raw}</pre>
           <DialogFooter>
             <Button
               className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -547,7 +547,7 @@ function PlaygroundTab({ assets, dynamicLinks, embeds, projectId }) {
         </div>
       </SectionCard>
       <SectionCard title="Result" description={result ? `${result.count} rows · showing ${result.sample.length}` : "No query yet."} action={<Braces className="h-4 w-4 text-text-tertiary" />}>
-        <pre className="max-h-96 overflow-auto rounded-lg border border-border bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">
+        <pre className="max-h-96 overflow-auto rounded-lg border border-border bg-muted dark:bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">
           {result ? JSON.stringify(result.sample, null, 2) : "// Pick a source and run a query."}
         </pre>
       </SectionCard>

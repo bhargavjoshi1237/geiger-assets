@@ -6,7 +6,6 @@ import {
   Check,
   Download,
   Eye,
-  File as FileIcon,
   Globe,
   Heart,
   Images,
@@ -38,7 +37,7 @@ import {
   StatusPill,
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
-import { TYPE_ICONS } from "@/components/internal/shared/asset_meta";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import {
   REQUEST_FILTER_OPTIONS,
   REQUEST_STATUS_META,
@@ -46,7 +45,6 @@ import {
   VISIBILITY_META,
   formatDate,
 } from "./constants";
-import { ThemeSwatch } from "./galleries_kit";
 import { listGalleries } from "@/lib/supabase/galleries";
 import {
   decideDownloadRequest,
@@ -96,20 +94,24 @@ function ProofingCard({ group, assetById, galleryName }) {
             {galleryName ? ` · ${galleryName}` : ""}
           </p>
         </div>
-        <Badge className="border border-red-500/30 bg-red-500/15 px-1.5 py-0 text-[10px] text-red-300">
+        <Badge className="border border-red-500/30 bg-red-500/15 px-1.5 py-0 text-[10px] text-red-700 dark:text-red-300">
           {group.assetIds.length} favorite{group.assetIds.length === 1 ? "" : "s"}
         </Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {group.assetIds.slice(0, 12).map((assetId) => {
           const asset = assetById.get(assetId);
-          const Icon = TYPE_ICONS[asset?.type] || FileIcon;
           return (
             <span
               key={assetId}
-              className="inline-flex max-w-[160px] items-center gap-1 rounded-md border border-border bg-surface-card px-1.5 py-0.5 text-[10px] text-text-secondary"
+              className="inline-flex max-w-[160px] items-center gap-1.5 rounded-md border border-border bg-surface-card py-0.5 pl-0.5 pr-1.5 text-[10px] text-text-secondary"
             >
-              <Icon className="h-3 w-3 shrink-0" style={{ color: asset?.color || "#737373" }} />
+              <AssetThumbnail
+                asset={asset}
+                assetId={assetId}
+                className="h-5 w-5 rounded"
+                iconClassName="h-3 w-3"
+              />
               <span className="truncate">{asset?.name || "Unknown asset"}</span>
             </span>
           );
@@ -278,7 +280,6 @@ export function ShowcaseGalleriesScreen({ projectId }) {
       header: "Gallery",
       render: (g) => (
         <div className="flex items-center gap-3">
-          <ThemeSwatch theme={g.theme} />
           <div className="min-w-0">
             <p className="max-w-[220px] truncate text-sm font-medium text-foreground">{g.name}</p>
             <p className="max-w-[240px] truncate text-[11px] text-text-tertiary">/g/{g.slug}</p>
@@ -395,7 +396,7 @@ export function ShowcaseGalleriesScreen({ projectId }) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
+              className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
               onClick={() => handleDecide(r, "approved")}
             >
               <Check className="mr-1 h-3 w-3" />
@@ -404,7 +405,7 @@ export function ShowcaseGalleriesScreen({ projectId }) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-red-400 hover:bg-red-500/10"
+              className="h-7 px-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10"
               onClick={() => handleDecide(r, "denied")}
             >
               <X className="mr-1 h-3 w-3" />
@@ -456,7 +457,7 @@ export function ShowcaseGalleriesScreen({ projectId }) {
         description="What visitors did with your published galleries."
         actions={
           pendingCount > 0 ? (
-            <Badge className="border border-amber-500/30 bg-amber-500/15 px-2 py-1 text-xs text-amber-300">
+            <Badge className="border border-amber-500/30 bg-amber-500/15 px-2 py-1 text-xs text-amber-700 dark:text-amber-300">
               <Inbox className="mr-1 h-3.5 w-3.5" />
               {pendingCount} pending request{pendingCount === 1 ? "" : "s"}
             </Badge>
@@ -496,10 +497,12 @@ export function ShowcaseGalleriesScreen({ projectId }) {
           <SectionCard
             title="Visits"
             description={`Gallery views over the last ${range} days.`}
+            className="h-full"
+            contentClassName="flex flex-1 flex-col"
           >
             <ChartContainer
               config={{ views: { label: "Visits", color: CHART_COLORS.ink } }}
-              className="h-[240px] w-full"
+              className="aspect-auto min-h-[240px] w-full flex-1"
             >
               <LineChart data={daily} margin={{ top: 16, right: 16, left: 12, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} strokeDasharray="3 3" />
@@ -526,41 +529,42 @@ export function ShowcaseGalleriesScreen({ projectId }) {
           </SectionCard>
         </div>
 
-        <SectionCard title="Most engaged" description="Weighted by views, favorites and downloads.">
+        <SectionCard
+          title="Most engaged"
+          description="Weighted by views, favorites and downloads."
+          className="h-full"
+          contentClassName="flex-1 px-5 py-0"
+        >
           {topAssets.length === 0 ? (
             <p className="py-8 text-center text-xs text-text-tertiary">
               No asset activity in this window yet.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y divide-border">
               {topAssets.map((row) => {
                 const asset = assetById.get(row.assetId);
-                const Icon = TYPE_ICONS[asset?.type] || FileIcon;
                 return (
-                  <div key={row.assetId} className="flex items-center gap-2.5">
-                    <div
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-                      style={{ background: `${asset?.color || "#737373"}20` }}
-                    >
-                      <Icon className="h-3.5 w-3.5" style={{ color: asset?.color || "#737373" }} />
+                  <div key={row.assetId} className="flex items-center gap-3 py-2.5">
+                    <AssetThumbnail asset={asset} assetId={row.assetId} className="h-10 w-10" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {asset?.name || "Unknown asset"}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-3 text-xs tabular-nums text-text-tertiary">
+                        <span className="inline-flex items-center gap-1">
+                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                          {row.views}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Heart className="h-3.5 w-3.5" aria-hidden="true" />
+                          {row.favorites}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                          {row.downloads}
+                        </span>
+                      </p>
                     </div>
-                    <span className="min-w-0 flex-1 truncate text-xs text-foreground">
-                      {asset?.name || "Unknown asset"}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2 text-[11px] tabular-nums text-text-tertiary">
-                      <span className="inline-flex items-center gap-0.5">
-                        <Eye className="h-3 w-3" aria-hidden="true" />
-                        {row.views}
-                      </span>
-                      <span className="inline-flex items-center gap-0.5">
-                        <Heart className="h-3 w-3" aria-hidden="true" />
-                        {row.favorites}
-                      </span>
-                      <span className="inline-flex items-center gap-0.5">
-                        <Download className="h-3 w-3" aria-hidden="true" />
-                        {row.downloads}
-                      </span>
-                    </span>
                   </div>
                 );
               })}
@@ -571,6 +575,7 @@ export function ShowcaseGalleriesScreen({ projectId }) {
 
       <SectionCard title="Published galleries" description="Per-gallery audience totals." bodyPadding={false}>
         <DataTable
+          className="rounded-none border-0"
           columns={galleryColumns}
           data={filteredGalleries}
           getRowKey={(g) => g.id}
@@ -624,6 +629,7 @@ export function ShowcaseGalleriesScreen({ projectId }) {
         bodyPadding={false}
       >
         <DataTable
+          className="rounded-none border-0"
           columns={requestColumns}
           data={filteredRequests}
           getRowKey={(r) => r.id}

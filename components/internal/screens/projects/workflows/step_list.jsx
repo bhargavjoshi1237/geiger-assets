@@ -31,13 +31,13 @@ import {
 } from "@geiger/ui/dropdown-menu";
 
 import {
-  TRIGGER_CATALOG,
   CONDITION_CATALOG,
   ACTION_CATALOG,
   catalogEntry,
   defaultConfig,
   groupByGroup,
 } from "./constants";
+import { TriggerOptions } from "./trigger_options";
 
 const newStepId = () =>
   `step_${
@@ -95,6 +95,7 @@ function Connector() {
 }
 
 function AddStepMenu({ onAdd }) {
+  const conditionGroups = groupByGroup(CONDITION_CATALOG);
   const actionGroups = groupByGroup(ACTION_CATALOG);
   return (
     <DropdownMenu>
@@ -110,21 +111,26 @@ function AddStepMenu({ onAdd }) {
         align="center"
         className="max-h-80 w-64 overflow-y-auto border-border bg-surface-card shadow-xl"
       >
-        <DropdownMenuLabel className="text-text-tertiary">
-          Conditions
-        </DropdownMenuLabel>
-        {CONDITION_CATALOG.map((c) => {
-          const Icon = c.icon;
-          return (
-            <DropdownMenuItem
-              key={c.key}
-              className="cursor-pointer gap-2 text-muted-foreground focus:bg-surface-hover focus:text-foreground"
-              onClick={() => onAdd("condition", c.key)}
-            >
-              <Icon className="h-4 w-4" /> {c.label}
-            </DropdownMenuItem>
-          );
-        })}
+        {conditionGroups.map((group, index) => (
+          <React.Fragment key={group.group}>
+            {index > 0 ? <DropdownMenuSeparator className="bg-surface-strong" /> : null}
+            <DropdownMenuLabel className="text-text-tertiary">
+              {group.group} conditions
+            </DropdownMenuLabel>
+            {group.items.map((c) => {
+              const Icon = c.icon;
+              return (
+                <DropdownMenuItem
+                  key={c.key}
+                  className="cursor-pointer gap-2 text-muted-foreground focus:bg-surface-hover focus:text-foreground"
+                  onClick={() => onAdd("condition", c.key)}
+                >
+                  <Icon className="h-4 w-4" /> {c.label}
+                </DropdownMenuItem>
+              );
+            })}
+          </React.Fragment>
+        ))}
         {actionGroups.map((group) => (
           <React.Fragment key={group.group}>
             <DropdownMenuSeparator className="bg-surface-strong" />
@@ -198,7 +204,7 @@ export function WorkflowStepList({ steps, onChange }) {
     <div className="mx-auto w-full max-w-2xl">
       <div className="rounded-xl border border-border bg-surface-subtle p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400">
             <TriggerIcon className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
@@ -210,11 +216,7 @@ export function WorkflowStepList({ steps, onChange }) {
                 <SelectValue placeholder="Choose a trigger" />
               </SelectTrigger>
               <SelectContent>
-                {TRIGGER_CATALOG.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
+                <TriggerOptions />
               </SelectContent>
             </Select>
           </div>
@@ -234,8 +236,8 @@ export function WorkflowStepList({ steps, onChange }) {
                 <div
                   className={
                     isCondition
-                      ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/10 text-violet-300"
-                      : "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-400"
+                      ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300"
+                      : "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400"
                   }
                 >
                   <Icon className="h-4 w-4" />
@@ -270,7 +272,7 @@ export function WorkflowStepList({ steps, onChange }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="text-red-300 hover:bg-red-500/10 hover:text-red-300"
+                    className="text-red-700 dark:text-red-300 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
                     aria-label="Remove step"
                     onClick={() => removeStep(index)}
                   >

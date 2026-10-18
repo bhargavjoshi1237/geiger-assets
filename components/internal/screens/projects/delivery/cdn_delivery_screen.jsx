@@ -223,7 +223,7 @@ function DnsInstructions({ domain }) {
             onClick={() => copy(row.field, row.value)}
           >
             {copied === row.field ? (
-              <Check className="h-3.5 w-3.5 text-emerald-400" />
+              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
@@ -244,7 +244,7 @@ function EdgeConfigPanel({ projectId, profiles, setProfiles }) {
   const [saving, setSaving] = useState(false);
   const [seedId, setSeedId] = useState(null);
 
-  if (profile?.id !== seedId) {
+  if ((profile?.id || null) !== seedId) {
     setSeedId(profile?.id || null);
     setTtl(String(profile?.cacheTtlSeconds ?? 3600));
     setProtection(profile?.originProtection || "open");
@@ -637,7 +637,7 @@ export function CdnDeliveryScreen({ projectId }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="max-w-[220px] truncate text-sm font-medium text-foreground">{d.hostname}</p>
-              {d.isPrimary ? <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" /> : null}
+              {d.isPrimary ? <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-700 dark:text-amber-400" /> : null}
             </div>
             <p className="text-[11px] text-text-tertiary">{d.kind === "subdomain" ? "Geiger subdomain" : "Custom domain"}</p>
           </div>

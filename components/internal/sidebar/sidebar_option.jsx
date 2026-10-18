@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   SidebarMenuItem,
   SidebarMenuButton,
@@ -15,6 +15,90 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@geiger/ui/tooltip";
+
+// True when `title` is this item or any of its nested sub-items.
+export function navContains(item, title) {
+  return (
+    item.title === title ||
+    (item.subItems || []).some((sub) => navContains(sub, title))
+  );
+}
+
+// The leaf destinations under a list of items (nested groups flattened).
+function navLeaves(items) {
+  return items.flatMap((item) => (item.subItems ? navLeaves(item.subItems) : [item]));
+}
+
+function SubItemButton({ item, isActive, onClick, trailing, ariaExpanded }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      aria-expanded={ariaExpanded}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      className={cn(
+        "relative flex h-8 w-full items-center justify-start gap-2 rounded-md px-2 text-left text-sm leading-none transition-colors",
+        isActive
+          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+          : "bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+      )}
+    >
+      {item.icon && (
+        <item.icon
+          className={cn(
+            "w-4 h-4 shrink-0 transition-colors",
+            isActive ? "text-foreground" : "text-sidebar-foreground/70",
+          )}
+        />
+      )}
+      <span className="min-w-0 flex-1 truncate text-left">{item.title}</span>
+      {trailing}
+    </Button>
+  );
+}
+
+// A sub-item that owns its own sub-items (e.g. Platform → API → Keys…):
+// toggles open in place and starts open when it holds the active tab.
+function SubItemGroup({ item, activeSubTab, onClick }) {
+  const [open, setOpen] = useState(null);
+  const containsActive = navContains(item, activeSubTab);
+  const isOpen = open ?? containsActive;
+
+  return (
+    <>
+      <SubItemButton
+        item={item}
+        isActive={!isOpen && containsActive}
+        ariaExpanded={isOpen}
+        onClick={() => setOpen(!isOpen)}
+        trailing={
+          <ChevronDown
+            className={cn(
+              "w-3.5 h-3.5 shrink-0 transition-transform duration-200",
+              isOpen && "rotate-180",
+            )}
+          />
+        }
+      />
+      {isOpen && (
+        <ul className="ml-3.5 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-1.5">
+          {item.subItems.map((sub) => (
+            <li key={sub.title}>
+              <SubItemButton
+                item={sub}
+                isActive={activeSubTab === sub.title}
+                onClick={() => onClick(sub.title)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
 
 export function SidebarOption({
   title,
@@ -79,34 +163,15 @@ export function SidebarOption({
         <ul className="ml-2 mt-1 flex flex-col gap-0.5">
           {subItems.map((sub) => (
             <li key={sub.title}>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onClick(sub.title);
-                }}
-                className={cn(
-                  "relative flex h-8 w-full items-center justify-start gap-2 rounded-md px-2 text-left text-sm leading-none transition-colors",
-                  activeSubTab === sub.title
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                    : "bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                {sub.icon && (
-                  <sub.icon
-                    className={cn(
-                      "w-4 h-4 shrink-0 transition-colors",
-                      activeSubTab === sub.title
-                        ? "text-foreground"
-                        : "text-sidebar-foreground/70",
-                    )}
-                  />
-                )}
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {sub.title}
-                </span>
-              </Button>
+              {sub.subItems ? (
+                <SubItemGroup item={sub} activeSubTab={activeSubTab} onClick={onClick} />
+              ) : (
+                <SubItemButton
+                  item={sub}
+                  isActive={activeSubTab === sub.title}
+                  onClick={() => onClick(sub.title)}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -114,7 +179,7 @@ export function SidebarOption({
 
       {subItems && isExpanded && isCollapsed && (
         <ul className="ml-0.5 flex w-[calc(100%_-_0.125rem)] flex-col gap-0.5 pt-1.5">
-          {subItems.map((sub) => (
+          {navLeaves(subItems).map((sub) => (
             <li key={sub.title}>
               <Tooltip>
                 <TooltipTrigger asChild>

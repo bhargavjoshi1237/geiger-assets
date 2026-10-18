@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { File } from "lucide-react";
 
-import { TYPE_ICONS, DEFAULT_ASSET_COLOR } from "@/components/internal/shared/asset_meta";
+import { TYPE_ICONS, DEFAULT_ASSET_COLOR, fileKind } from "@/components/internal/shared/asset_meta";
+import { AudioPlayer } from "@/components/internal/shared/audio_player";
 import { assetFileUrl } from "@/lib/storage/client";
 import { cn } from "@/lib/utils";
 
@@ -12,25 +13,10 @@ function TypeGlyph({ type, color, className }) {
   return <Icon className={className} style={{ color: color || DEFAULT_ASSET_COLOR }} />;
 }
 
-function isPdf(asset) {
-  const mime = (asset?.mimeType || "").toLowerCase();
-  const format = (asset?.format || "").toLowerCase();
-  return mime.includes("pdf") || format === "pdf" || asset?.type === "pdf";
-}
-
-function isImage(asset) {
-  const mime = (asset?.mimeType || "").toLowerCase();
-  return asset?.type === "image" || mime.startsWith("image/");
-}
-
-function isVideo(asset) {
-  const mime = (asset?.mimeType || "").toLowerCase();
-  return asset?.type === "video" || mime.startsWith("video/");
-}
-
-function isAudio(asset) {
-  const mime = (asset?.mimeType || "").toLowerCase();
-  return asset?.type === "audio" || mime.startsWith("audio/");
+// The file's own MIME/extension wins over the stored type, so an asset saved
+// with the wrong type (e.g. an MP3 uploaded as "image") still previews right.
+function previewKind(asset) {
+  return fileKind({ mimeType: asset?.mimeType, format: asset?.format, name: asset?.originalFilename }) || asset?.type;
 }
 
 export function AssetPreview({ asset, className, frameless = false }) {
@@ -43,6 +29,7 @@ export function AssetPreview({ asset, className, frameless = false }) {
   const hasFile = Boolean(asset?.storageKey && fileUrl && !failed);
   const thumb = asset?.thumbnailUrl || "";
   const assetColor = asset?.color || DEFAULT_ASSET_COLOR;
+  const kind = previewKind(asset);
 
   const frameClass = cn(
     "overflow-hidden",
@@ -95,7 +82,7 @@ export function AssetPreview({ asset, className, frameless = false }) {
     );
   }
 
-  if (isImage(asset) && hasFile) {
+  if (kind === "image" && hasFile) {
     return (
       <div className={frameClass} style={frameStyle}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -109,7 +96,7 @@ export function AssetPreview({ asset, className, frameless = false }) {
     );
   }
 
-  if (isVideo(asset) && hasFile) {
+  if (kind === "video" && hasFile) {
     return (
       <div className={frameClass} style={frameStyle}>
         <video
@@ -123,29 +110,25 @@ export function AssetPreview({ asset, className, frameless = false }) {
     );
   }
 
-  if (isAudio(asset) && hasFile) {
+  if (kind === "audio" && hasFile) {
     return (
       <div
         className={cn(
           frameClass,
-          "flex aspect-video flex-col items-center justify-center gap-4 p-6",
-          frameless && "bg-surface-card",
+          "flex aspect-video flex-col items-center justify-center gap-5 p-6",
+          frameless && "bg-surface-subtle",
         )}
         style={frameStyle}
       >
-        <TypeGlyph type={asset?.type} color={asset?.color} className="h-16 w-16" />
-        <audio
-          src={fileUrl}
-          controls
-          preload="metadata"
-          className="w-full max-w-md"
-          onError={() => setFailed(true)}
-        />
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-surface-card">
+          <TypeGlyph type="audio" color={asset?.color} className="h-7 w-7" />
+        </div>
+        <AudioPlayer src={fileUrl} onError={() => setFailed(true)} className="max-w-md" />
       </div>
     );
   }
 
-  if (isPdf(asset) && hasFile) {
+  if (kind === "pdf" && hasFile) {
     return (
       <div className={frameClass} style={frameStyle}>
         <iframe

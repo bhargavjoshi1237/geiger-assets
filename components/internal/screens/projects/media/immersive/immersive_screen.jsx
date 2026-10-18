@@ -100,12 +100,12 @@ function ImmersiveDetail({ asset, onBack }) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15">
-            <Boxes className="h-5 w-5 text-rose-300" />
+            <Boxes className="h-5 w-5 text-rose-700 dark:text-rose-300" />
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">{asset.name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge className="border border-rose-500/30 bg-rose-500/15 px-1.5 py-0 text-[10px] text-rose-300">{fmt}</Badge>
+              <Badge className="border border-rose-500/30 bg-rose-500/15 px-1.5 py-0 text-[10px] text-rose-700 dark:text-rose-300">{fmt}</Badge>
               <StatusPill status={asset.status} map={STATUS_META} className="text-[10px]" />
               <span className="text-xs text-text-secondary">{polys.toLocaleString()} tris · {formatBytes(asset.sizeBytes)}</span>
             </div>
@@ -130,7 +130,7 @@ function ImmersiveDetail({ asset, onBack }) {
             <div className="space-y-2">
               {checklist.map((c) => (
                 <div key={c.label} className="flex items-center gap-3 rounded-lg border border-border bg-surface-card px-3 py-2.5 text-sm">
-                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-full border", c.done ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300" : "border-amber-500/40 bg-amber-500/10 text-amber-300")}>
+                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-full border", c.done ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300")}>
                     {c.done ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                   </span>
                   <span className="text-foreground">{c.label}</span>
@@ -240,7 +240,7 @@ export function ImmersiveScreen({ projectId }) {
       render: (a) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15">
-            <Boxes className="h-4 w-4 text-rose-300" />
+            <Boxes className="h-4 w-4 text-rose-700 dark:text-rose-300" />
           </div>
           <div className="min-w-0">
             <p className="max-w-[240px] truncate text-sm font-medium text-foreground">{a.name}</p>
@@ -252,14 +252,14 @@ export function ImmersiveScreen({ projectId }) {
     {
       key: "format",
       header: "Format",
-      render: (a) => <Badge className="border border-rose-500/30 bg-rose-500/15 px-1.5 py-0 text-[10px] text-rose-300">{threeDFormatOf(a)}</Badge>,
+      render: (a) => <Badge className="border border-rose-500/30 bg-rose-500/15 px-1.5 py-0 text-[10px] text-rose-700 dark:text-rose-300">{threeDFormatOf(a)}</Badge>,
     },
     {
       key: "ar",
       header: "AR",
       render: (a) => (
         isArReady(a)
-          ? <Badge className="border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-300">AR-ready</Badge>
+          ? <Badge className="border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-700 dark:text-emerald-300">AR-ready</Badge>
           : <Badge className="border border-border bg-surface-card px-1.5 py-0 text-[10px] text-text-secondary">Convert</Badge>
       ),
     },

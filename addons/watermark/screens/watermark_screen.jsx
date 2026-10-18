@@ -341,7 +341,7 @@ export function WatermarkScreen({ projectId }) {
             {p.name}
           </span>
           {p.isDefault ? (
-            <Badge className="gap-1 border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+            <Badge className="gap-1 border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
               <Star className="h-2.5 w-2.5" />
               Default
             </Badge>

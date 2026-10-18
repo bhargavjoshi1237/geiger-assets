@@ -6,6 +6,8 @@ import {
   Check,
   CircleDot,
   Clock,
+  History,
+  ListOrdered,
   Loader2,
   MessageSquare,
   RotateCcw,
@@ -14,8 +16,8 @@ import {
   X,
 } from "lucide-react";
 
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
-import { EditorHeader } from "@/components/internal/shared/editor_shell";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
+import { useEditorGuard } from "@/components/internal/shared/unsaved_changes";
 import {
   EmptyState,
   LoadingArea,
@@ -25,7 +27,6 @@ import {
 import { Button } from "@geiger/ui/button";
 import { Badge } from "@geiger/ui/badge";
 import { Textarea } from "@geiger/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui";
 import { cn } from "@/lib/utils";
 
 import {
@@ -112,7 +113,7 @@ function ItemRow({ item, disabled, onDecide }) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-400"
+          className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400"
           aria-label={`Approve ${item.label || item.assetName}`}
           disabled={disabled}
           onClick={() => onDecide(item, "approved")}
@@ -122,7 +123,7 @@ function ItemRow({ item, disabled, onDecide }) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
+          className="h-7 w-7 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400"
           aria-label={`Request changes on ${item.label || item.assetName}`}
           disabled={disabled}
           onClick={() => onDecide(item, "changes")}
@@ -132,7 +133,7 @@ function ItemRow({ item, disabled, onDecide }) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+          className="h-7 w-7 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
           aria-label={`Reject ${item.label || item.assetName}`}
           disabled={disabled}
           onClick={() => onDecide(item, "rejected")}
@@ -171,9 +172,9 @@ function StageTimeline({ review, decisions, roles }) {
               className={cn(
                 "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                 isDone
-                  ? "bg-emerald-500/15 text-emerald-400"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                   : isCurrent
-                    ? "bg-sky-500/15 text-sky-400"
+                    ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
                     : "bg-surface-active text-text-tertiary",
               )}
               aria-hidden="true"
@@ -333,7 +334,6 @@ export function ReviewDetailScreen({
   const [submitting, setSubmitting] = useState(false);
   const [note, setNote] = useState("");
   const [newComment, setNewComment] = useState("");
-  const [activeTab, setActiveTab] = useState("items");
 
   // Reset during render rather than in the effect — setState inside an effect
   // body cascades a second render pass.
@@ -344,8 +344,9 @@ export function ReviewDetailScreen({
     setItems([]);
     setDecisions([]);
     setThreads([]);
-    setActiveTab("items");
   }
+
+  const guard = useEditorGuard({ onBack });
 
   useEffect(() => {
     if (!review?.id) return undefined;
@@ -502,59 +503,91 @@ export function ReviewDetailScreen({
   const stage = review.stages?.[review.currentStage];
   const subject = subjectEntry(review.subjectType);
 
+  const nav = [
+    {
+      group: null,
+      items: [
+        {
+          key: "items",
+          label: `Items (${items.length})`,
+          icon: CircleDot,
+          desc: "What's under review and each item's decision.",
+        },
+      ],
+    },
+    {
+      group: "Review",
+      items: [
+        {
+          key: "stages",
+          label: "Stages",
+          icon: ListOrdered,
+          desc: "The approval route this review follows.",
+        },
+        {
+          key: "history",
+          label: `History (${decisions.length})`,
+          icon: History,
+          desc: "Every sign-off, rejection, and change request.",
+        },
+        {
+          key: "comments",
+          label: `Comments (${threads.length})`,
+          icon: MessageSquare,
+          desc: "Feedback attached to this review.",
+        },
+      ],
+    },
+  ];
+
   return (
-    <MainScreenWrapper>
-      <EditorHeader
-        back={{ label: "All approvals", onClick: onBack }}
-        title={review.name}
-        status={review.status}
-        statusMap={REVIEW_STATUS_MAP}
-        badges={
-          <>
-            <Badge variant="neutral">{subject?.label || review.subjectType}</Badge>
-            <Badge variant={PRIORITY_MAP[review.priority]?.variant || "neutral"}>
-              {review.priority}
-            </Badge>
-            {review.dueAt ? (
-              <Badge variant={new Date(review.dueAt) < new Date() ? "danger" : "neutral"}>
-                <Clock className="h-3 w-3" /> Due {formatRelative(review.dueAt)}
-              </Badge>
-            ) : null}
-          </>
-        }
-        meta={
-          locked
-            ? `Closed ${formatRelative(review.completedAt)}`
-            : stage
-              ? `Waiting on “${stage.name || `Stage ${review.currentStage + 1}`}” · stage ${review.currentStage + 1} of ${review.stages.length}`
-              : "No pipeline stages"
-        }
-        actions={
-          locked ? (
-            <Button
-              variant="outline"
-              className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
-              onClick={handleReopen}
-            >
-              <Undo2 className="h-4 w-4" /> Reopen
-            </Button>
-          ) : null
-        }
-      />
-
-      {loading ? (
-        <LoadingArea panel size={48} label="Loading review…" />
-      ) : (
+    <EditorShell
+      back={{ label: "All approvals", onClick: guard.back }}
+      title={review.name}
+      status={review.status}
+      statusMap={REVIEW_STATUS_MAP}
+      badges={
         <>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="items">Items ({items.length})</TabsTrigger>
-              <TabsTrigger value="stages">Stages</TabsTrigger>
-              <TabsTrigger value="history">History ({decisions.length})</TabsTrigger>
-              <TabsTrigger value="comments">Comments ({threads.length})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="items" className="pt-4">
+          <Badge variant="neutral">{subject?.label || review.subjectType}</Badge>
+          <Badge variant={PRIORITY_MAP[review.priority]?.variant || "neutral"}>
+            {review.priority}
+          </Badge>
+          {review.dueAt ? (
+            <Badge variant={new Date(review.dueAt) < new Date() ? "danger" : "neutral"}>
+              <Clock className="h-3 w-3" /> Due {formatRelative(review.dueAt)}
+            </Badge>
+          ) : null}
+        </>
+      }
+      meta={
+        locked
+          ? `Closed ${formatRelative(review.completedAt)}`
+          : stage
+            ? `Waiting on “${stage.name || `Stage ${review.currentStage + 1}`}” · stage ${review.currentStage + 1} of ${review.stages.length}`
+            : "No pipeline stages"
+      }
+      actions={
+        locked ? (
+          <Button
+            variant="outline"
+            className="border-border bg-transparent text-muted-foreground hover:bg-surface-active hover:text-foreground"
+            onClick={handleReopen}
+          >
+            <Undo2 className="h-4 w-4" /> Reopen
+          </Button>
+        ) : null
+      }
+      nav={nav}
+      subject={review}
+      active={guard.active}
+      onActiveChange={guard.selectSection}
+    >
+      {({ active }) =>
+        loading ? (
+          <LoadingArea panel size={48} label="Loading review…" />
+        ) : (
+          <div className="space-y-6">
+            {active === "items" ? (
               <SectionCard
                 title="Under review"
                 description={`${itemSummary.approved} approved · ${itemSummary.changes} need changes · ${itemSummary.rejected} rejected · ${itemSummary.pending} undecided`}
@@ -577,9 +610,9 @@ export function ReviewDetailScreen({
                   />
                 )}
               </SectionCard>
-            </TabsContent>
+            ) : null}
 
-            <TabsContent value="stages" className="pt-4">
+            {active === "stages" ? (
               <SectionCard
                 title="Approval route"
                 description="The stages this review was created against — a later pipeline edit doesn't change them."
@@ -587,9 +620,9 @@ export function ReviewDetailScreen({
               >
                 <StageTimeline review={review} decisions={decisions} roles={roles} />
               </SectionCard>
-            </TabsContent>
+            ) : null}
 
-            <TabsContent value="history" className="pt-4">
+            {active === "history" ? (
               <SectionCard
                 title="Decision history"
                 description="Every sign-off, rejection, and change request on this review."
@@ -632,9 +665,9 @@ export function ReviewDetailScreen({
                   />
                 )}
               </SectionCard>
-            </TabsContent>
+            ) : null}
 
-            <TabsContent value="comments" className="pt-4">
+            {active === "comments" ? (
               <SectionCard
                 title="Discussion"
                 description="Feedback attached to this review."
@@ -678,59 +711,59 @@ export function ReviewDetailScreen({
                   />
                 )}
               </SectionCard>
-            </TabsContent>
-          </Tabs>
+            ) : null}
 
-          {!locked ? (
-            <SectionCard
-              title={`Your decision on “${stage?.name || "this review"}”`}
-              description="Approving counts toward this stage's required sign-offs. Rejecting closes the review."
-            >
-              <div className="grid gap-3">
-                <Textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add a note for the record (optional)…"
-                  className="h-[72px] min-h-0 resize-none"
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    disabled={submitting}
-                    onClick={() => handleStageDecision("approved")}
-                  >
-                    {submitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                    Approve stage
-                  </Button>
-                  {stage?.allowChangeRequests !== false ? (
+            {!locked ? (
+              <SectionCard
+                title={`Your decision on “${stage?.name || "this review"}”`}
+                description="Approving counts toward this stage's required sign-offs. Rejecting closes the review."
+              >
+                <div className="grid gap-3">
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Add a note for the record (optional)…"
+                    className="h-[72px] min-h-0 resize-none"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      disabled={submitting}
+                      onClick={() => handleStageDecision("approved")}
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      Approve stage
+                    </Button>
+                    {stage?.allowChangeRequests !== false ? (
+                      <Button
+                        variant="outline"
+                        className="border-border bg-transparent text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400"
+                        disabled={submitting}
+                        onClick={() => handleStageDecision("changes")}
+                      >
+                        <RotateCcw className="h-4 w-4" /> Request changes
+                      </Button>
+                    ) : null}
                     <Button
                       variant="outline"
-                      className="border-border bg-transparent text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
+                      className="border-border bg-transparent text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                       disabled={submitting}
-                      onClick={() => handleStageDecision("changes")}
+                      onClick={() => handleStageDecision("rejected")}
                     >
-                      <RotateCcw className="h-4 w-4" /> Request changes
+                      <X className="h-4 w-4" /> Reject
                     </Button>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    className="border-border bg-transparent text-red-400 hover:bg-red-500/10 hover:text-red-400"
-                    disabled={submitting}
-                    onClick={() => handleStageDecision("rejected")}
-                  >
-                    <X className="h-4 w-4" /> Reject
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            </SectionCard>
-          ) : null}
-        </>
-      )}
-    </MainScreenWrapper>
+              </SectionCard>
+            ) : null}
+          </div>
+        )
+      }
+    </EditorShell>
   );
 }
 

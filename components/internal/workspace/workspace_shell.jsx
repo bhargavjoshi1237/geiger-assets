@@ -15,12 +15,20 @@ import { useVisibleProjectNav } from "@/lib/hooks/use-visible-project-nav";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
+// The palette lists one level of destinations per section, so nested groups
+// (Platform → API → Keys…) contribute their leaves instead of themselves.
+function leafItems(items) {
+  return items.flatMap((item) => (item.subItems ? leafItems(item.subItems) : [item]));
+}
+
 function buildSearchNav(projectNav) {
-  return projectNav.map((item) =>
-    item.hasSubmenu && !item.subItems
-      ? { ...item, subItems: settingsNav }
-      : item,
-  );
+  return projectNav.map((item) => {
+    if (item.hasSubmenu && !item.subItems) return { ...item, subItems: settingsNav };
+    if (item.subItems?.some((sub) => sub.subItems)) {
+      return { ...item, subItems: leafItems(item.subItems) };
+    }
+    return item;
+  });
 }
 
 export function WorkspaceShell({ children }) {

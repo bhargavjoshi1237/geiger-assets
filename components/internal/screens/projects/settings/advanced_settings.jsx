@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Eye, EyeOff, KeyRound, Loader2, Plus } from "lucide-react";
 
-import { SecondaryScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   DataTable,
   EmptyState,
@@ -326,7 +326,7 @@ export function AdvancedSettingsScreen({ projectId }) {
             {v.key}
           </span>
           {v.secret !== false ? (
-            <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">
+            <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">
               SECRET
             </Badge>
           ) : null}
@@ -380,18 +380,18 @@ export function AdvancedSettingsScreen({ projectId }) {
 
   if (loading) {
     return (
-      <SecondaryScreenWrapper>
+      <MainScreenWrapper>
         <ScreenHeader
           title="Advanced"
           description="Operational controls, environment, and destructive actions."
         />
         <LoadingArea size={56} label="Loading advanced settings" />
-      </SecondaryScreenWrapper>
+      </MainScreenWrapper>
     );
   }
 
   return (
-    <SecondaryScreenWrapper>
+    <MainScreenWrapper>
       <ScreenHeader
         title="Advanced"
         description="Operational controls, environment, and destructive actions."
@@ -485,7 +485,7 @@ export function AdvancedSettingsScreen({ projectId }) {
               <Button
                 variant="outline"
                 onClick={() => setResetOpen(true)}
-                className="border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className="border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
               >
                 Reset settings
               </Button>
@@ -498,7 +498,7 @@ export function AdvancedSettingsScreen({ projectId }) {
               <Button
                 variant="outline"
                 onClick={() => setTransferOpen(true)}
-                className="border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className="border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
               >
                 Transfer project
               </Button>
@@ -511,7 +511,7 @@ export function AdvancedSettingsScreen({ projectId }) {
               <Button
                 variant="outline"
                 onClick={() => setDeleteOpen(true)}
-                className="border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className="border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
               >
                 Delete project
               </Button>
@@ -613,7 +613,7 @@ export function AdvancedSettingsScreen({ projectId }) {
         pending={deleting}
         onConfirm={handleDelete}
       />
-    </SecondaryScreenWrapper>
+    </MainScreenWrapper>
   );
 }
 

@@ -5,7 +5,7 @@ import {
   Settings2,
   ShieldCheck,
 } from "lucide-react";
-import { featureNav, overviewNavItem } from "./feature_registry";
+import { allMediaNavItem, featureNav, overviewNavItem } from "./feature_registry";
 
 export const settingsNav = [
   { title: "General", icon: Settings2 },
@@ -17,6 +17,7 @@ export const settingsNav = [
 
 export const projectNav = [
   overviewNavItem,
+  allMediaNavItem,
   ...featureNav,
   {
     title: "Settings",

@@ -68,7 +68,7 @@ function NoteList({ title, items, onAdd, onRemove }) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Remove note ${note}`}
-                className="h-7 w-7 shrink-0 text-text-secondary hover:bg-red-500/10 hover:text-red-400"
+                className="h-7 w-7 shrink-0 text-text-secondary hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                 onClick={() => onRemove(i)}
               >
                 <X className="h-3.5 w-3.5" />

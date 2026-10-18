@@ -30,6 +30,6 @@ export async function DELETE(request) {
   if (access.response) return access.response;
 
   const ok = purge ? await purgeAssetFile(String(assetId)) : await softDeleteAssetFile(String(assetId));
-  if (!ok) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!ok) return NextResponse.json({ error: purge ? "purge_blocked" : "delete_failed" }, { status: 409 });
   return NextResponse.json({ ok: true, purged: purge || undefined });
 }

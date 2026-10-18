@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok, paginate } from "@/lib/api/respond";
 
 export const runtime = "nodejs";
@@ -37,7 +37,6 @@ export async function GET(request) {
       console.error("[v1.folders.list]", error.message);
       return apiError("read_failed", "Could not list folders.", 500);
     }
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/folders", method: "GET", status: 200 }).catch(() => {});
     return ok(paginate((data || []).map(normalize), { limit: params.get("limit"), cursor: params.get("cursor") }));
   } catch (e) {
     console.error("[v1.folders.list]", e?.message || e);

@@ -17,7 +17,6 @@ import {
   FolderOpen,
   FolderPlus,
   FolderSymlink,
-  File,
   HardDrive,
   Link2,
   Pencil,
@@ -48,7 +47,8 @@ import {
 } from "@/lib/supabase/folders";
 import { copyAssetLink } from "@/lib/delivery/copy_link";
 import { listAssets, softDeleteAsset, updateAsset } from "@/lib/supabase/assets";
-import { TYPE_ICONS, DEFAULT_ASSET_COLOR } from "@/components/internal/shared/asset_meta";
+import { DEFAULT_ASSET_COLOR } from "@/components/internal/shared/asset_meta";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import { formatBytes } from "@/lib/format";
 
 const ROOT_LABEL = "Project root";
@@ -137,6 +137,18 @@ function FolderGlyph({ color, open, className }) {
       className={cn("h-4 w-4 shrink-0", className)}
       style={{ color: color || DEFAULT_ASSET_COLOR }}
     />
+  );
+}
+
+function FolderTile({ color }) {
+  const tint = color || DEFAULT_ASSET_COLOR;
+  return (
+    <span
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+      style={{ background: `${tint}15`, borderColor: `${tint}25` }}
+    >
+      <FolderGlyph color={color} />
+    </span>
   );
 }
 
@@ -915,7 +927,7 @@ export function FolderExplorer({
               {matches.map((folder) => (
                 <ContentRow
                   key={folder.id}
-                  icon={<FolderGlyph color={folder.color} />}
+                  icon={<FolderTile color={folder.color} />}
                   title={folder.name}
                   meta={folderPath(folder) || ROOT_LABEL}
                   selected={selectedId === folder.id}
@@ -1017,7 +1029,7 @@ export function FolderExplorer({
                 return (
                   <ContentRow
                     key={folder.id}
-                    icon={<FolderGlyph color={folder.color} />}
+                    icon={<FolderTile color={folder.color} />}
                     title={folder.name}
                     meta={[
                       subs ? `${subs} folder${subs !== 1 ? "s" : ""}` : null,
@@ -1045,32 +1057,24 @@ export function FolderExplorer({
                 );
               })}
 
-              {files.map((asset) => {
-                const Icon = TYPE_ICONS[asset.type] || File;
-                return (
-                  <ContentRow
-                    key={asset.id}
-                    icon={
-                      <Icon
-                        className="h-4 w-4 shrink-0"
-                        style={{ color: asset.color || DEFAULT_ASSET_COLOR }}
-                      />
-                    }
-                    title={asset.name}
-                    meta={[asset.format || asset.type, formatBytes(asset.sizeBytes)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    drag={dragHandles("file", asset)}
-                    action={
-                      <ActionMenu
-                        label={`Actions for ${asset.name}`}
-                        items={fileMenuItems(asset)}
-                        contentClassName="border-border bg-surface-subtle text-foreground"
-                      />
-                    }
-                  />
-                );
-              })}
+              {files.map((asset) => (
+                <ContentRow
+                  key={asset.id}
+                  icon={<AssetThumbnail asset={asset} />}
+                  title={asset.name}
+                  meta={[asset.format || asset.type, formatBytes(asset.sizeBytes)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  drag={dragHandles("file", asset)}
+                  action={
+                    <ActionMenu
+                      label={`Actions for ${asset.name}`}
+                      items={fileMenuItems(asset)}
+                      contentClassName="border-border bg-surface-subtle text-foreground"
+                    />
+                  }
+                />
+              ))}
 
               {!creating && !subfolders.length && !files.length ? (
                 <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">

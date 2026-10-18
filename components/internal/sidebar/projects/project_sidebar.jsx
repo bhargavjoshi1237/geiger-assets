@@ -14,7 +14,7 @@ import {
 } from "@geiger/ui/sidebar";
 import { PanelLeft } from "lucide-react";
 import { Button } from "@geiger/ui/button";
-import { SidebarOption } from "../sidebar_option";
+import { SidebarOption, navContains } from "../sidebar_option";
 import { settingsNav } from "./sidebar_data";
 import { useVisibleProjectNav } from "@/lib/hooks/use-visible-project-nav";
 
@@ -86,8 +86,8 @@ export function ProjectSidebar({ activeTab = "Overview", onTabChange = () => {} 
               <SidebarMenu>
                 {projectNav.map((item) => {
                   const itemSubItems = resolveSubItems(item);
-                  const containsActiveTab = itemSubItems?.some(
-                    (subItem) => subItem.title === activeTab,
+                  const containsActiveTab = itemSubItems?.some((subItem) =>
+                    navContains(subItem, activeTab),
                   );
 
                   return (

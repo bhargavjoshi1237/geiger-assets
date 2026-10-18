@@ -29,9 +29,9 @@ import { VIDEO_OUTPUT_PRESETS, mockDurationSeconds, formatDuration } from "../sh
 
 const JOB_STATUS_META = {
   queued: { label: "Queued", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
-  processing: { label: "Processing", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  ready: { label: "Ready", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  failed: { label: "Failed", className: "bg-red-500/15 text-red-300 border-red-500/30" },
+  processing: { label: "Processing", className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  ready: { label: "Ready", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  failed: { label: "Failed", className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" },
 };
 
 const STATUS_FILTER = [
@@ -154,7 +154,7 @@ export function VideoProcessingScreen({ projectId }) {
       render: (j) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/15">
-            <Clapperboard className="h-4 w-4 text-violet-300" />
+            <Clapperboard className="h-4 w-4 text-violet-700 dark:text-violet-300" />
           </div>
           <div className="min-w-0">
             <p className="max-w-[240px] truncate text-sm font-medium text-foreground">{j.sourceName}</p>
@@ -187,7 +187,7 @@ export function VideoProcessingScreen({ projectId }) {
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           ) : null}
-          <Button variant="ghost" size="icon-sm" aria-label="Remove job" className="h-7 w-7 text-text-secondary hover:text-red-400" onClick={() => setJobs((p) => p.filter((x) => x.id !== j.id))}>
+          <Button variant="ghost" size="icon-sm" aria-label="Remove job" className="h-7 w-7 text-text-secondary hover:text-red-600 dark:hover:text-red-400" onClick={() => setJobs((p) => p.filter((x) => x.id !== j.id))}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -240,7 +240,7 @@ export function VideoProcessingScreen({ projectId }) {
               <Field label={`Poster frame · ${formatDuration(posterAt)}`} hint="Drag or type the timestamp.">
                 <input type="range" min={0} max={Math.max(1, Math.floor(sourceDuration))} value={Math.min(posterAt, Math.floor(sourceDuration))} onChange={(e) => setPosterAt(Number(e.target.value))} className="w-full accent-primary" aria-label="Poster frame" />
               </Field>
-              <div className="mt-3 overflow-hidden rounded-xl border border-border bg-black/50">
+              <div className="mt-3 overflow-hidden rounded-xl border border-border bg-muted dark:bg-black/50">
                 <div className="flex aspect-video items-center justify-center">
                   {source?.thumbnailUrl ? <img src={source.thumbnailUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <ImagePlus className="h-6 w-6 text-text-tertiary" />}
                 </div>

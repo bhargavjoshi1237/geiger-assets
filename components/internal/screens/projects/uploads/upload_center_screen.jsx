@@ -15,17 +15,15 @@ import { Button } from "@geiger/ui/button";
 import { Badge } from "@geiger/ui/badge";
 import { ActionMenu } from "@geiger/ui/action-menu";
 import { Progress } from "@geiger/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@geiger/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   DataTable,
   EmptyState,
-  Field,
   LoadingArea,
   ScreenHeader,
   SearchInput,
-  SectionCard,
-  SegmentedTabs,
   StatusPill,
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
@@ -34,7 +32,6 @@ import {
   ListPagination,
   usePagination,
 } from "@/components/internal/shared/pagination";
-import { TagInput } from "@/components/internal/screens/projects/library/tag_input";
 import { FolderPicker, folderPath } from "@/components/internal/shared/folder_explorer";
 import {
   TYPE_ICONS,
@@ -75,23 +72,74 @@ function guessFileType(file) {
 function StagedFileCard({ file, onRemove }) {
   const Icon = TYPE_ICONS[file.fileType] || File;
   return (
-    <div className="group flex items-center gap-3 rounded-lg border border-border bg-surface-card px-3 py-2.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface-hover">
-        <Icon className="h-4 w-4 text-text-secondary" />
+    <div className="group flex items-center gap-3 rounded-lg border border-border bg-surface-card p-2 transition-colors hover:border-border-strong hover:bg-surface-hover">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-subtle">
+        {file.preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={file.preview} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Icon className="h-5 w-5 text-text-secondary" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
-        <p className="text-xs text-text-tertiary">{formatBytes(file.size)}</p>
+        <div className="mt-1 flex items-center gap-1.5">
+          <Badge
+            className={cn("border px-1.5 py-0 text-[10px]", FILE_TYPE_COLORS[file.fileType])}
+          >
+            {file.fileType}
+          </Badge>
+          <span className="text-xs tabular-nums text-text-tertiary">
+            {formatBytes(file.size)}
+          </span>
+        </div>
       </div>
       <Button
         variant="ghost"
         size="icon-sm"
         aria-label={`Remove ${file.name}`}
-        className="shrink-0 text-text-tertiary opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 focus-visible:opacity-100 group-hover:opacity-100"
+        className="shrink-0 text-text-tertiary opacity-60 transition-opacity hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 focus-visible:opacity-100 group-hover:opacity-100"
         onClick={() => onRemove(file.id)}
       >
         <X className="h-4 w-4" />
       </Button>
+    </div>
+  );
+}
+
+function QualityTabs({ value, onChange }) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-subtle p-1">
+      {QUALITY_PRESETS.map((preset) => {
+        const Icon = preset.icon;
+        const isActive = preset.value === value;
+        return (
+          <Tooltip key={preset.value}>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${preset.label} quality`}
+                aria-pressed={isActive}
+                onClick={() => onChange(preset.value)}
+                className={cn(
+                  "h-7 w-7 rounded-md transition-all",
+                  isActive
+                    ? "bg-surface-hover text-foreground shadow-sm"
+                    : "text-text-secondary hover:bg-surface-card hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px]">
+              <p className="font-medium">{preset.label}</p>
+              <p className="text-background/70">{preset.desc}</p>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }
@@ -130,7 +178,6 @@ export function UploadCenterScreen({ projectId }) {
   const fileRefs = useRef(new Map());
 
   const [folder, setFolder] = useState(null);
-  const [tags, setTags] = useState([]);
   const [quality, setQuality] = useState("original");
 
   const [search, setSearch] = useState("");
@@ -145,21 +192,44 @@ export function UploadCenterScreen({ projectId }) {
     });
   }, [projectId]);
 
+  // Object URLs for the staged image thumbnails — revoked as soon as a file
+  // leaves the staging area (removed, cleared, uploaded) or the screen unmounts.
+  const stagedRef = useRef(staged);
+  useEffect(() => {
+    stagedRef.current = staged;
+  }, [staged]);
+  useEffect(
+    () => () => stagedRef.current.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)),
+    [],
+  );
+
   const addFiles = useCallback((files) => {
     const next = Array.from(files || [])
       .filter((f) => f instanceof Blob)
-      .map((f) => ({
-        id: uniqueId(),
-        name: f.name || "file",
-        size: f.size,
-        fileType: guessFileType(f),
-        file: f,
-      }));
+      .map((f) => {
+        const fileType = guessFileType(f);
+        return {
+          id: uniqueId(),
+          name: f.name || "file",
+          size: f.size,
+          fileType,
+          preview: fileType === "image" ? URL.createObjectURL(f) : "",
+          file: f,
+        };
+      });
     if (next.length) setStaged((prev) => [...prev, ...next]);
   }, []);
 
-  const removeStaged = (id) => setStaged((prev) => prev.filter((f) => f.id !== id));
-  const clearStaged = () => setStaged([]);
+  const removeStaged = (id) => {
+    const target = staged.find((f) => f.id === id);
+    if (target?.preview) URL.revokeObjectURL(target.preview);
+    setStaged((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const clearStaged = () => {
+    staged.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
+    setStaged([]);
+  };
 
   const setJobProgress = useCallback(
     (id, progress) =>
@@ -176,7 +246,6 @@ export function UploadCenterScreen({ projectId }) {
       const asset = await uploadAsset(file, {
         projectId,
         folder: folder ? folderPath(folder) : "root",
-        tags,
         quality,
         onProgress: (progress) => setJobProgress(jobId, progress),
         onError: (code) => {
@@ -204,7 +273,7 @@ export function UploadCenterScreen({ projectId }) {
       await updateUploadJob(jobId, { status: "failed", error: message });
       return false;
     },
-    [folder, projectId, quality, setJobProgress, tags],
+    [folder, projectId, quality, setJobProgress],
   );
 
   const handleUploadAll = async () => {
@@ -212,6 +281,7 @@ export function UploadCenterScreen({ projectId }) {
     setUploading(true);
     const toUpload = [...staged];
     setStaged([]);
+    toUpload.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
     let done = 0;
     let failed = 0;
     const pool = 3;
@@ -326,6 +396,7 @@ export function UploadCenterScreen({ projectId }) {
   });
 
   const qualityHint = QUALITY_PRESETS.find((q) => q.value === quality)?.desc || "";
+  const destinationLabel = folder ? folderPath(folder) : "Project root";
   const filtersActive = statusFilter !== "all" || Boolean(search);
 
   const columns = [
@@ -411,91 +482,108 @@ export function UploadCenterScreen({ projectId }) {
       <ScreenHeader
         title="Upload Center"
         description="Bring files into the library from your device or connected sources."
+        actions={
+          <>
+            <FolderPicker
+              projectId={projectId}
+              value={folder}
+              onChange={setFolder}
+              className="h-9 w-auto max-w-[220px] rounded-lg text-xs"
+            />
+            <QualityTabs value={quality} onChange={setQuality} />
+          </>
+        }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-
-        <FileDropzone
-          onFiles={addFiles}
-          className={cn(
-            "flex min-h-[320px] flex-col rounded-xl border-2 border-dashed transition-colors",
-            "border-border bg-surface-subtle hover:border-border-strong",
-          )}
-        >
-          {({ browseId, dragging }) => (
-            <div
-              className={cn(
-                "flex flex-1 flex-col rounded-[10px] transition-colors",
-                dragging && "bg-primary/5",
-                staged.length === 0 && "items-center justify-center",
-              )}
-            >
-              {staged.length === 0 ? (
-                <label
-                  htmlFor={browseId}
-                  className="flex cursor-pointer flex-col items-center gap-3 px-6 py-12 text-center"
+      <FileDropzone
+        onFiles={addFiles}
+        className={cn(
+          "flex flex-col rounded-xl border-2 border-dashed transition-colors",
+          "border-border bg-surface-subtle hover:border-border-strong",
+          staged.length === 0 && "min-h-[260px]",
+        )}
+      >
+        {({ browseId, dragging }) => (
+          <div
+            className={cn(
+              "flex flex-1 flex-col rounded-[10px] transition-colors",
+              dragging && "bg-primary/5",
+              staged.length === 0 && "items-center justify-center",
+            )}
+          >
+            {staged.length === 0 ? (
+              <label
+                htmlFor={browseId}
+                className="flex w-full cursor-pointer flex-col items-center gap-3 px-6 py-12 text-center"
+              >
+                <span
+                  className={cn(
+                    "flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface-card transition-colors",
+                    dragging && "border-primary/40 bg-primary/10",
+                  )}
                 >
-                  <span
+                  <UploadCloud
                     className={cn(
-                      "flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface-card transition-colors",
-                      dragging && "border-primary/40 bg-primary/10",
+                      "h-7 w-7 transition-colors",
+                      dragging ? "text-primary" : "text-text-secondary",
                     )}
-                  >
-                    <UploadCloud
-                      className={cn(
-                        "h-7 w-7 transition-colors",
-                        dragging ? "text-primary" : "text-text-secondary",
-                      )}
-                    />
+                  />
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-foreground">
+                    {dragging ? "Drop files here" : "Drag & drop files here"}
                   </span>
-                  <span>
-                    <span className="block text-sm font-medium text-foreground">
-                      {dragging ? "Drop files here" : "Drag & drop files here"}
-                    </span>
-                    <span className="mt-1 block text-sm text-text-tertiary">
-                      or{" "}
-                      <span className="text-primary underline-offset-2 hover:underline">
-                        browse your device
-                      </span>
+                  <span className="mt-1 block text-sm text-text-tertiary">
+                    or{" "}
+                    <span className="text-primary underline-offset-2 hover:underline">
+                      browse your device
                     </span>
                   </span>
-                  <span className="text-xs text-text-tertiary">
-                    Images, video, audio, documents, 3D models and archives
-                  </span>
-                </label>
-              ) : (
-                <div className="flex flex-1 flex-col p-4">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {staged.length} file{staged.length !== 1 ? "s" : ""} staged
-                      <span className="ml-2 text-xs font-normal text-text-tertiary">
-                        {formatBytes(stagedBytes)}
-                      </span>
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="text-text-secondary hover:text-foreground" asChild>
-                        <label htmlFor={browseId} className="cursor-pointer">
-                          <Plus className="h-4 w-4" />
-                          Add more
-                        </label>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-text-secondary hover:text-foreground"
-                        onClick={clearStaged}
-                      >
-                        Clear all
-                      </Button>
-                    </div>
+                </span>
+                <span className="text-xs text-text-tertiary">
+                  Images, video, audio, documents, 3D models and archives
+                </span>
+              </label>
+            ) : (
+              <div className="flex flex-1 flex-col p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {staged.length} file{staged.length !== 1 ? "s" : ""} staged
+                    <span className="ml-2 text-xs font-normal text-text-tertiary">
+                      {formatBytes(stagedBytes)}
+                    </span>
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="text-text-secondary hover:text-foreground" asChild>
+                      <label htmlFor={browseId} className="cursor-pointer">
+                        <Plus className="h-4 w-4" />
+                        Add more
+                      </label>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-text-secondary hover:text-foreground"
+                      onClick={clearStaged}
+                    >
+                      Clear all
+                    </Button>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {staged.map((f) => (
-                      <StagedFileCard key={f.id} file={f} onRemove={removeStaged} />
-                    ))}
-                  </div>
+                </div>
+                <div className="-mr-1 grid max-h-[320px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                  {staged.map((f) => (
+                    <StagedFileCard key={f.id} file={f} onRemove={removeStaged} />
+                  ))}
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="min-w-0 flex-1 truncate text-xs text-text-tertiary">
+                    Landing in{" "}
+                    <span className="text-text-secondary">{destinationLabel}</span> ·{" "}
+                    {qualityHint}
+                  </p>
                   <Button
-                    className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 sm:min-w-[160px]"
                     onClick={handleUploadAll}
                     disabled={uploading}
                   >
@@ -512,42 +600,11 @@ export function UploadCenterScreen({ projectId }) {
                     )}
                   </Button>
                 </div>
-              )}
-            </div>
-          )}
-        </FileDropzone>
-
-        <SectionCard
-          title="Upload options"
-          description="Applied to every file in this batch."
-        >
-          <div className="grid gap-5">
-            <Field
-              label="Destination folder"
-              hint="Browse the project's folders to pick where these land."
-            >
-              <FolderPicker projectId={projectId} value={folder} onChange={setFolder} />
-            </Field>
-
-            <Field label="Tags" hint="Press Enter or comma to add a tag.">
-              <TagInput value={tags} onChange={setTags} placeholder="campaign, hero, 2025…" />
-            </Field>
-
-            <Field label="Quality preset" hint={qualityHint}>
-              <SegmentedTabs
-                fullWidth
-                tabs={QUALITY_PRESETS.map((q) => ({
-                  value: q.value,
-                  label: q.label,
-                  icon: q.icon,
-                }))}
-                value={quality}
-                onChange={setQuality}
-              />
-            </Field>
+              </div>
+            )}
           </div>
-        </SectionCard>
-      </div>
+        )}
+      </FileDropzone>
 
       <div className="space-y-4">
         <Toolbar>

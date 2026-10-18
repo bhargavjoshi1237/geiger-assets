@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok } from "@/lib/api/respond";
 import { commitUpload, isStorageConfigured } from "@/lib/storage/service";
 import { parseKey } from "@/lib/s3/keys";
@@ -36,6 +36,5 @@ export async function POST(request) {
   if (result.error === "not_found") return apiError("not_found", "Upload target not found.", 404);
   if (result.error === "too_large") return apiError("too_large", "File exceeds the size limit.", 413);
   if (result.error) return apiError("bad_request", "Could not commit the upload.", 400);
-  countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/upload/commit", method: "POST", status: 201, assetId: result.asset?.id }).catch(() => {});
   return ok(result, { status: 201 });
 }

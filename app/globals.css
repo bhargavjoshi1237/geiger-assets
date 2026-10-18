@@ -5,24 +5,6 @@
 @import "@geiger/ui/tokens.css";
 
 @layer base {
-  :root {
-    --chart-a1: #2563eb;
-    --chart-a2: #059669;
-    --chart-a3: #b45309;
-    --chart-a4: #7c3aed;
-    --chart-a5: #dc2626;
-    --chart-a6: #0891b2;
-  }
-
-  .dark {
-    --chart-a1: #3b82f6;
-    --chart-a2: #059669;
-    --chart-a3: #b45309;
-    --chart-a4: #8b5cf6;
-    --chart-a5: #ef4444;
-    --chart-a6: #0891b2;
-  }
-
   body {
     @apply font-sans;
   }
@@ -37,5 +19,105 @@
     padding-inline-end: calc(
       var(--input-box-padding-x, 0.75rem) + var(--input-box-icon-gap, 0.5rem) + 1rem
     ) !important;
+  }
+}
+
+/* Light theme: canonical geiger-notes palette. :not(.dark) so it beats tokens.css without touching dark. */
+:root:not(.dark) {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: #ffffff;
+  --destructive-text: #b91c1c;
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.21 0.006 285.885);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.001 286.375);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --surface-subtle: #f9fafb;
+  --surface-card: #ffffff;
+  --surface-active: #e5e7eb;
+  --surface-hover: #f3f4f6;
+  --surface-dialog: #ffffff;
+  --surface-strong: #e5e7eb;
+  --border-strong: #d4d4d4;
+  --text-secondary: #525252;
+  --text-tertiary: #737373;
+  --canvas-dots: #d1d5db;
+  --minimap-node: #d1d5db;
+  --minimap-stroke: #9ca3af;
+  --edge-stroke: #71717a;
+  --node-default: #f3f4f6;
+  --comment-bg: #dbeafe;
+  --comment-input: #bfdbfe;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+  --topbar-bg: rgba(255, 255, 255, 0.6);
+  --topbar-border: #e5e7eb;
+  --divider: #e5e7eb;
+  --zoom-bg: rgba(229, 231, 235, 0.6);
+  --notification-dot: #3b82f6;
+}
+
+
+/* Badges are neutral everywhere in this app. Unlayered on purpose so it beats
+   the colour utilities that Badge variants, StatusPill maps, and one-off
+   className props apply (all in @layer utilities). StatusPill's leading status
+   dot is hidden too — the label carries the status. */
+[data-slot="badge"] {
+  border-color: var(--border);
+  background-color: var(--surface-card);
+  color: var(--muted-foreground);
+}
+
+[data-slot="badge"] > svg {
+  color: inherit;
+}
+
+[data-slot="badge"] > span.rounded-full:empty {
+  display: none;
+}
+
+/* Public gallery slideshow: autoplay progress bar. */
+@keyframes gallery-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Public gallery poster: slow Ken Burns drift. */
+@keyframes gallery-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.08) translate3d(-1.5%, -1%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-drift {
+    animation: none !important;
   }
 }

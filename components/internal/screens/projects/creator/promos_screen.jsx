@@ -5,6 +5,7 @@ import { Power, PowerOff, SlidersHorizontal, TicketPercent } from "lucide-react"
 import { toast } from "sonner";
 import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import {
   DataTable,
   EmptyState,
@@ -16,7 +17,7 @@ import {
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { PROMO_KIND_META, statusFilterOptions, formatDate } from "./constants";
-import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
+import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, DateField, FieldRow, SelectField, TextField } from "./creator_kit";
 import { listPromos, createPromo, updatePromo, deletePromo } from "@/lib/supabase/creator";
 
 const KIND_FILTERS = [
@@ -24,28 +25,69 @@ const KIND_FILTERS = [
   ...Object.entries(PROMO_KIND_META).map(([value, m]) => ({ value, label: m.label })),
 ];
 
+const KIND_OPTIONS = Object.entries(PROMO_KIND_META).map(([value, m]) => ({ value, label: m.label }));
+const digits = (v) => v.replace(/[^0-9]/g, "");
+
 function PromoDialog({ open, onOpenChange, initial, onSubmit, title, submitLabel }) {
-  const [code, setCode] = useState(initial?.code ?? "");
-  const [kind, setKind] = useState(initial?.kind ?? "discount");
-  const [percentOff, setPercentOff] = useState(initial?.percentOff != null ? String(initial.percentOff) : "20");
-  const [duration, setDuration] = useState(initial ? String(initial.durationMonths) : "1");
+  const [code, setCode] = useState("");
+  const [kind, setKind] = useState("discount");
+  const [percentOff, setPercentOff] = useState("20");
+  const [duration, setDuration] = useState("1");
+  const [maxRedemptions, setMaxRedemptions] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   React.useEffect(() => {
+    if (!open) return;
     setCode(initial?.code ?? "");
     setKind(initial?.kind ?? "discount");
     setPercentOff(initial?.percentOff != null ? String(initial.percentOff) : "20");
     setDuration(initial ? String(initial.durationMonths) : "1");
+    setMaxRedemptions(initial?.maxRedemptions != null ? String(initial.maxRedemptions) : "");
+    setExpiresAt(initial?.expiresAt ? String(initial.expiresAt).slice(0, 10) : "");
   }, [initial, open]);
+  const discount = kind === "discount";
+  const durationField = (
+    <TextField
+      label={discount ? "Applies for (months)" : kind === "trial" ? "Trial length (months)" : "Free months"}
+      value={duration}
+      onChange={(v) => setDuration(digits(v).slice(0, 2))}
+      inputMode="numeric"
+      placeholder="1"
+    />
+  );
   return (
-    <CreateDialog open={open} onOpenChange={onOpenChange} title={title} description="Trials, discounts, and free months — gifting and autopilot growth levers." submitLabel={submitLabel} onSubmit={() => onSubmit({ code, kind, percentOff: Number(percentOff) || null, durationMonths: Number(duration) || 1 })}>
-      <TextField label="Code" value={code} onChange={(v) => setCode(v.toUpperCase().replace(/[^A-Z0-9-_]/g, ""))} placeholder="e.g. WELCOME20" />
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-muted-foreground">Kind</label>
-          <FilterDropdown value={kind} onValueChange={setKind} options={Object.entries(PROMO_KIND_META).map(([value, m]) => ({ value, label: m.label }))} placeholder="Kind" />
-        </div>
-        <TextField label="Percent off" value={percentOff} onChange={setPercentOff} placeholder="20" />
-      </div>
-      <TextField label="Duration (months)" value={duration} onChange={setDuration} placeholder="1" />
+    <CreateDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description="Trials, discounts and free months — gifting and acquisition levers."
+      submitLabel={submitLabel}
+      onSubmit={() =>
+        onSubmit({
+          code: code.trim(),
+          kind,
+          percentOff: discount ? Math.min(100, Math.max(1, Number(percentOff) || 0)) || null : null,
+          durationMonths: Math.max(1, Number(duration) || 1),
+          maxRedemptions: maxRedemptions ? Number(maxRedemptions) : null,
+          expiresAt: expiresAt || null,
+        })
+      }
+    >
+      <FieldRow>
+        <TextField label="Code" value={code} onChange={(v) => setCode(v.toUpperCase().replace(/[^A-Z0-9-_]/g, ""))} placeholder="e.g. WELCOME20" />
+        <SelectField label="Kind" value={kind} onChange={setKind} options={KIND_OPTIONS} />
+      </FieldRow>
+      {discount ? (
+        <FieldRow>
+          <TextField label="Percent off" value={percentOff} onChange={(v) => setPercentOff(digits(v).slice(0, 3))} inputMode="numeric" placeholder="20" />
+          {durationField}
+        </FieldRow>
+      ) : (
+        durationField
+      )}
+      <FieldRow>
+        <TextField label="Max redemptions" value={maxRedemptions} onChange={(v) => setMaxRedemptions(digits(v))} inputMode="numeric" placeholder="Unlimited" />
+        <DateField label="Expires" value={expiresAt} onChange={setExpiresAt} placeholder="Never" />
+      </FieldRow>
     </CreateDialog>
   );
 }
@@ -67,6 +109,8 @@ export function PromosScreen({ projectId }) {
     return r;
   }, [rows, search, kindFilter]);
 
+  const pager = usePagination(filtered, { resetKey: `${search}|${kindFilter}` });
+
   const stats = useMemo(() => {
     const redemptions = rows.reduce((s, p) => s + p.redeemedCount, 0);
     return [
@@ -77,13 +121,14 @@ export function PromosScreen({ projectId }) {
     ];
   }, [rows]);
 
-  const handleCreate = async ({ code, kind, percentOff, durationMonths }) => {
-    if (!code.trim()) return toast.error("Code is required");
+  const handleCreate = async (input) => {
+    if (!input.code) return toast.error("Code is required");
+    if (rows.some((p) => p.code === input.code)) return toast.error("That code already exists");
     const id = crypto.randomUUID();
-    const optimistic = { id, projectId, code: code.trim(), kind, percentOff, amountOffCents: null, durationMonths, maxRedemptions: null, redeemedCount: 0, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    setRows((prev) => [optimistic, ...prev]);
+    const now = new Date().toISOString();
+    setRows((prev) => [{ id, projectId, amountOffCents: null, redeemedCount: 0, isActive: true, createdAt: now, updatedAt: now, ...input }, ...prev]);
     setShowCreate(false);
-    const created = await createPromo({ id, projectId, code: code.trim(), kind, percentOff, durationMonths });
+    const created = await createPromo({ id, projectId, isActive: true, ...input });
     if (created) {
       setRows((prev) => prev.map((p) => (p.id === id ? created : p)));
       toast.success("Promo code created");
@@ -93,17 +138,19 @@ export function PromosScreen({ projectId }) {
     }
   };
 
-  const handleSave = async ({ code, kind, percentOff, durationMonths }) => {
+  const handleSave = async (input) => {
     if (!editing) return;
+    if (!input.code) return toast.error("Code is required");
+    const target = editing;
     const prev = rows;
-    setRows((list) => list.map((p) => (p.id === editing.id ? { ...p, code, kind, percentOff, durationMonths } : p)));
+    setRows((list) => list.map((p) => (p.id === target.id ? { ...p, ...input } : p)));
     setEditing(null);
-    const saved = await updatePromo(editing.id, { code, kind, percentOff, durationMonths });
+    const saved = await updatePromo(target.id, input);
     if (!saved) {
       setRows(prev);
       toast.error("Could not save promo");
     } else {
-      setRows((list) => list.map((p) => (p.id === editing.id ? saved : p)));
+      setRows((list) => list.map((p) => (p.id === target.id ? saved : p)));
       toast.success("Promo updated");
     }
   };
@@ -151,9 +198,9 @@ export function PromosScreen({ projectId }) {
       {loading ? (
         <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(p) => p.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={TicketPercent} title="No promo codes yet" description={hasFilters ? "Try adjusting your filters." : "Create a trial or discount to grow the funnel."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="h-4 w-4" />New promo</Button>} /></div>} />
+        <DataTable columns={columns} data={pager.pageItems} getRowKey={(p) => p.id} onRowClick={setEditing} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={TicketPercent} title="No promo codes yet" description={hasFilters ? "Try adjusting your filters." : "Create a trial or discount to grow the funnel."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><TicketPercent className="h-4 w-4" />New promo</Button>} /></div>} />
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} promos · click a row to pause/resume</div> : null}
+      {!loading ? <ListPagination {...pager} itemLabel="promos" /> : null}
       <PromoDialog open={showCreate} onOpenChange={setShowCreate} title="New promo code" submitLabel="Create promo" onSubmit={handleCreate} />
       {editing ? <PromoDialog open={Boolean(editing)} onOpenChange={(v) => !v && setEditing(null)} initial={editing} title={`Edit ${editing.code}`} submitLabel="Save changes" onSubmit={handleSave} /> : null}
     </MainScreenWrapper>

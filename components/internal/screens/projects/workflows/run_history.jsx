@@ -23,6 +23,7 @@ import {
   SheetTitle,
 } from "@geiger/ui/sheet";
 import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 
 import { listWorkflowRuns } from "@/lib/supabase/workflow_runs";
 import { listWorkflows } from "@/lib/supabase/workflows";
@@ -71,7 +72,7 @@ function RunDetailSheet({ run, workflowName, onClose }) {
             </div>
 
             {run.status === "Failed" && run.error ? (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-300">
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-700 dark:text-red-300">
                 {run.error}
               </div>
             ) : null}
@@ -132,10 +133,12 @@ function RunDetailSheet({ run, workflowName, onClose }) {
                             {s.label || entry?.label || s.type}
                           </p>
                           {s.error ? (
-                            <p className="mt-0.5 text-xs text-red-300">{s.error}</p>
+                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-300">{s.error}</p>
                           ) : (
                             <p className="mt-0.5 text-xs text-text-secondary">
-                              {formatDuration(s.durationMs)}
+                              {s.note
+                                ? `${s.note} · ${formatDuration(s.durationMs)}`
+                                : formatDuration(s.durationMs)}
                             </p>
                           )}
                         </div>
@@ -204,6 +207,10 @@ export function RunHistoryScreen({ projectId }) {
       return true;
     });
   }, [runs, status, workflowFilter, search, workflowName]);
+
+  const pager = usePagination(filtered, {
+    resetKey: `${search}|${status}|${workflowFilter}`,
+  });
 
   const stats = useMemo(() => {
     const total = runs.length;
@@ -304,25 +311,28 @@ export function RunHistoryScreen({ projectId }) {
           Loading runs…
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowKey={(r) => r.id}
-          onRowClick={(r) => setSelected(r)}
-          empty={
-            <div className="rounded-xl border border-border bg-surface-subtle">
-              <EmptyState
-                icon={History}
-                title={runs.length ? "No runs match your filters" : "No runs yet"}
-                description={
-                  runs.length
-                    ? "Try clearing the search or filters."
-                    : "Once your active workflows start firing, each execution will show up here with its full step-by-step outcome."
-                }
-              />
-            </div>
-          }
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={pager.pageItems}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => setSelected(r)}
+            empty={
+              <div className="rounded-xl border border-border bg-surface-subtle">
+                <EmptyState
+                  icon={History}
+                  title={runs.length ? "No runs match your filters" : "No runs yet"}
+                  description={
+                    runs.length
+                      ? "Try clearing the search or filters."
+                      : "Once your active workflows start firing, each execution will show up here with its full step-by-step outcome."
+                  }
+                />
+              </div>
+            }
+          />
+          <ListPagination {...pager} itemLabel="runs" />
+        </>
       )}
 
       <RunDetailSheet

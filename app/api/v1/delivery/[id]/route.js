@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok, normalizeAssetRow } from "@/lib/api/respond";
 import { mergeSteps, normalizePolicy, parseTransformPath, validatePlan } from "@/lib/image/transform";
 import { buildDeliveryUrl } from "@/lib/delivery/signing";
@@ -94,7 +94,6 @@ export async function PATCH(request, { params }) {
     return apiError("write_failed", "Could not update delivery.", 500);
   }
   if (!data) return apiError("not_found", "Asset not found.", 404);
-  countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/delivery/[id]", method: "PATCH", status: 200, assetId: id }).catch(() => {});
   return ok(normalizeAssetRow(data));
 }
 
@@ -150,6 +149,5 @@ export async function POST(request, { params }) {
   }
 
   const url = buildDeliveryUrl({ projectId: key.projectId, assetId: id, canonical, filename, secret });
-  countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/delivery/[id]", method: "POST", status: 201, assetId: id, transforms: 0, kind: "delivery" }).catch(() => {});
   return ok({ url, canonical, filename, signingRequired: policy.requireSignedUrls, expiresAt: null }, { status: 201 });
 }

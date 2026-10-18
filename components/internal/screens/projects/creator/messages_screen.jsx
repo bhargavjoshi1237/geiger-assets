@@ -5,6 +5,7 @@ import { LockOpen, MessagesSquare, Send, SlidersHorizontal } from "lucide-react"
 import { toast } from "sonner";
 import { Button } from "@geiger/ui/button";
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import {
   DataTable,
   EmptyState,
@@ -16,7 +17,7 @@ import {
   Toolbar,
 } from "@/components/internal/shared/screen_kit";
 import { MSG_STATUS_META, statusFilterOptions, formatMoney, formatDate, parseDollarsToCents } from "./constants";
-import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, TextField } from "./creator_kit";
+import { FilterDropdown, RowActions, ClearFiltersButton, useCreatorRows, CreateDialog, MoneyField, SelectField, TextAreaField } from "./creator_kit";
 import { listPaidMessages, createPaidMessage, updatePaidMessage, deletePaidMessage, listMembers } from "@/lib/supabase/creator";
 
 const STATUS_FILTERS = statusFilterOptions(MSG_STATUS_META, "All statuses");
@@ -25,21 +26,30 @@ function MessageDialog({ open, onOpenChange, members, onSubmit }) {
   const [memberId, setMemberId] = useState("broadcast");
   const [body, setBody] = useState("");
   const [price, setPrice] = useState("3.00");
-  React.useEffect(() => { setMemberId("broadcast"); setBody(""); setPrice("3.00"); }, [open]);
+  React.useEffect(() => {
+    if (!open) return;
+    setMemberId("broadcast");
+    setBody("");
+    setPrice("3.00");
+  }, [open]);
   return (
     <CreateDialog open={open} onOpenChange={onOpenChange} title="New paid message" description="Mass DM or 1:1 locked message — fans pay to unlock the attachment." submitLabel="Send PPV message" onSubmit={() => onSubmit({ memberId, body, priceCents: parseDollarsToCents(price) })}>
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium text-muted-foreground">Audience</label>
-        <FilterDropdown value={memberId} onValueChange={setMemberId} options={[{ value: "broadcast", label: "Mass DM — all members" }, ...members.map((m) => ({ value: m.id, label: m.fanName || m.fanEmail || m.id.slice(0, 8) }))]} placeholder="Audience" />
-      </div>
-      <TextField label="Message" value={body} onChange={setBody} placeholder="Teaser copy fans see before unlocking..." />
-      <TextField label="Unlock price (USD)" value={price} onChange={setPrice} placeholder="3.00" />
+      <SelectField
+        label="Audience"
+        value={memberId}
+        onChange={setMemberId}
+        options={[{ value: "broadcast", label: "Mass DM — all members" }, ...members.map((m) => ({ value: m.id, label: m.fanName || m.fanEmail || m.id.slice(0, 8) }))]}
+      />
+      <TextAreaField label="Message" value={body} onChange={setBody} placeholder="Teaser copy fans see before unlocking..." rows={3} />
+      <MoneyField label="Unlock price (USD)" value={price} onChange={setPrice} placeholder="3.00" hint="Use 0 for a free message." />
     </CreateDialog>
   );
 }
 
 export function MessagesScreen({ projectId }) {
-  const [rows, setRows, loading] = useCreatorRows(listPaidMessages, projectId);
+  const [allRows, setRows, loading] = useCreatorRows(listPaidMessages, projectId);
+  // Fan replies belong to the Inbox chat, not the paid-message ledger.
+  const rows = useMemo(() => allRows.filter((m) => m.direction !== "inbound"), [allRows]);
   const [members] = useCreatorRows(listMembers, projectId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -56,6 +66,8 @@ export function MessagesScreen({ projectId }) {
     if (statusFilter !== "all") r = r.filter((m) => m.status === statusFilter);
     return r;
   }, [rows, search, statusFilter, memberById]);
+
+  const pager = usePagination(filtered, { resetKey: `${search}|${statusFilter}` });
 
   const stats = useMemo(() => {
     const locked = rows.filter((m) => m.status === "locked").length;
@@ -87,7 +99,7 @@ export function MessagesScreen({ projectId }) {
   };
 
   const handleMarkUnlocked = async (msg) => {
-    const prev = rows;
+    const prev = allRows;
     setRows((list) => list.map((m) => (m.id === msg.id ? { ...m, status: "unlocked", unlockedAt: new Date().toISOString() } : m)));
     const saved = await updatePaidMessage(msg.id, { status: "unlocked", unlockedAt: new Date().toISOString() });
     if (!saved) {
@@ -97,7 +109,7 @@ export function MessagesScreen({ projectId }) {
   };
 
   const handleDelete = async (msg) => {
-    const prev = rows;
+    const prev = allRows;
     setRows((list) => list.filter((m) => m.id !== msg.id));
     const ok = await deletePaidMessage(msg.id);
     if (!ok) {
@@ -130,9 +142,9 @@ export function MessagesScreen({ projectId }) {
       {loading ? (
         <LoadingArea panel className="h-64 py-0" />
       ) : (
-        <DataTable columns={columns} data={filtered} getRowKey={(m) => m.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={MessagesSquare} title="No paid messages yet" description={hasFilters ? "Try adjusting your filters." : "Send a mass PPV drop to turn your inbox into revenue."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Send className="h-4 w-4" />New message</Button>} /></div>} />
+        <DataTable columns={columns} data={pager.pageItems} getRowKey={(m) => m.id} empty={<div className="rounded-xl border border-border bg-surface-subtle"><EmptyState icon={MessagesSquare} title="No paid messages yet" description={hasFilters ? "Try adjusting your filters." : "Send a mass PPV drop to turn your inbox into revenue."} action={<Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowCreate(true)}><Send className="h-4 w-4" />New message</Button>} /></div>} />
       )}
-      {!loading && filtered.length > 0 ? <div className="text-xs text-text-secondary">Showing {filtered.length} of {rows.length} messages · click a row to mark unlocked</div> : null}
+      {!loading ? <ListPagination {...pager} itemLabel="messages" /> : null}
       <MessageDialog open={showCreate} onOpenChange={setShowCreate} members={members} onSubmit={handleCreate} />
     </MainScreenWrapper>
   );

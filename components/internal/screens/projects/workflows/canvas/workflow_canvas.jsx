@@ -46,7 +46,7 @@ function Palette() {
   };
 
   const groups = [
-    { group: "Conditions", items: CONDITION_CATALOG, kind: "condition" },
+    ...groupByGroup(CONDITION_CATALOG).map((g) => ({ ...g, group: `${g.group} conditions`, kind: "condition" })),
     ...groupByGroup(ACTION_CATALOG).map((g) => ({ ...g, kind: "action" })),
   ];
 

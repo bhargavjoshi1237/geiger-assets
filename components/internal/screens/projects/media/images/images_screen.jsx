@@ -20,8 +20,8 @@ import {
 } from "@/components/internal/shared/screen_kit";
 import { ListPagination, usePagination } from "@/components/internal/shared/pagination";
 import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
 import {
-  TYPE_ICONS,
   FILE_TYPE_COLORS,
   STATUS_META,
   STATUS_FILTER_OPTIONS,
@@ -56,21 +56,6 @@ const SOURCE_OPTIONS = [
 function isRawAsset(a) {
   const ext = assetExtension(a);
   return ["dng", "cr2", "cr3", "nef", "arw", "orf", "rw2", "raw"].includes(ext) || a?.type === "raw";
-}
-
-function ImageThumb({ asset }) {
-  const Icon = TYPE_ICONS[asset.type] || ImageIcon;
-  if (asset.thumbnailUrl) {
-    return <img src={asset.thumbnailUrl} alt="" className="h-9 w-9 shrink-0 rounded-lg border border-border object-cover" />;
-  }
-  return (
-    <div
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-      style={{ background: `${asset.color}15`, borderColor: `${asset.color}25` }}
-    >
-      <Icon className="h-4 w-4" style={{ color: asset.color || "#737373" }} />
-    </div>
-  );
 }
 
 function FocalPointPicker({ value, onChange }) {
@@ -126,12 +111,12 @@ function ImageDetail({ asset, onBack, focalPoints, onFocalChange }) {
           <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back to images" className="h-8 w-8 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <ImageThumb asset={asset} />
+          <AssetThumbnail asset={asset} />
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">{asset.name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <StatusPill status={asset.status} map={STATUS_META} className="text-[10px]" />
-              {raw ? <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">RAW</Badge> : null}
+              {raw ? <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">RAW</Badge> : null}
               <span className="text-xs text-text-secondary">{orientationLabel(orientation)}{parsed ? ` · ${parsed.width}×${parsed.height}` : ""}</span>
             </div>
           </div>
@@ -154,7 +139,7 @@ function ImageDetail({ asset, onBack, focalPoints, onFocalChange }) {
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.8fr)]">
         <SectionCard title="Preview" description="High-resolution zoom and focal point for smart crops." action={<Badge className="border border-border bg-surface-card px-2 py-0.5 text-[11px] text-text-secondary"><Maximize2 className="mr-1 h-3 w-3" />{parsed ? `${parsed.width}×${parsed.height}` : "Preview"}</Badge>}>
-          <div className="overflow-hidden rounded-xl border border-border bg-black/40">
+          <div className="overflow-hidden rounded-xl border border-border bg-muted dark:bg-black/40">
             {fileUrl ? (
               <img src={fileUrl} alt={asset.name} className="max-h-[420px] w-full cursor-zoom-in object-contain transition-transform hover:scale-[1.02]" />
             ) : (
@@ -265,7 +250,7 @@ export function ImagesScreen({ projectId }) {
       header: "Image",
       render: (a) => (
         <div className="flex items-center gap-3">
-          <ImageThumb asset={a} />
+          <AssetThumbnail asset={a} />
           <div className="min-w-0">
             <p className="max-w-[260px] truncate text-sm font-medium text-foreground">{a.name}</p>
             <p className="text-xs text-text-secondary">{(a.format || a.type || "").toUpperCase()} · {formatBytes(a.sizeBytes)} · {a.folder}</p>
@@ -292,7 +277,7 @@ export function ImagesScreen({ projectId }) {
       header: "Source",
       render: (a) => (
         isRawAsset(a)
-          ? <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-300">RAW</Badge>
+          ? <Badge className="border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300">RAW</Badge>
           : <Badge className={FILE_TYPE_COLORS[a.type] ? `border px-1.5 py-0 text-[10px] ${FILE_TYPE_COLORS[a.type]}` : "border border-border bg-surface-card px-1.5 py-0 text-[10px] text-text-secondary"}>{a.format || a.type}</Badge>
       ),
     },

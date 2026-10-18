@@ -9,7 +9,7 @@ export const STATUS_META = {
   approved: {
     variant: "success",
     label: "Approved",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   draft: {
@@ -21,7 +21,7 @@ export const STATUS_META = {
   review: {
     variant: "warning",
     label: "In Review",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   archived: {
@@ -33,19 +33,19 @@ export const STATUS_META = {
   processing: {
     variant: "info",
     label: "Processing",
-    className: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
     dotClass: "bg-blue-400",
   },
 };
 
 export const RELATION_META = {
-  parent: { label: "Parent", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  child: { label: "Child", className: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
-  derived: { label: "Derived", className: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
-  variant: { label: "Variant", className: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
-  source: { label: "Source", className: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-  campaign: { label: "Campaign", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  product: { label: "Product", className: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+  parent: { label: "Parent", className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  child: { label: "Child", className: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" },
+  derived: { label: "Derived", className: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30" },
+  variant: { label: "Variant", className: "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30" },
+  source: { label: "Source", className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  campaign: { label: "Campaign", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  product: { label: "Product", className: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30" },
 };
 
 export const TYPE_OPTIONS = [
@@ -92,9 +92,9 @@ export const SORT_OPTIONS = [
 
 export const STORAGE_STATUS_META = {
   none: { label: "No file", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
-  pending: { label: "Pending", className: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-  stored: { label: "Stored", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  failed: { label: "Failed", className: "bg-red-500/15 text-red-300 border-red-500/30" },
+  pending: { label: "Pending", className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  stored: { label: "Stored", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  failed: { label: "Failed", className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" },
 };
 
 export function normalizeTag(value) {

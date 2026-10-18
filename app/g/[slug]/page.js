@@ -7,8 +7,10 @@ import {
   accessProblem,
   loadGalleryAssets,
   loadGalleryBySlug,
+  loadGalleryCover,
   unlockCookieName,
 } from "@/lib/supabase/gallery_server";
+import { loadGalleryStore } from "@/lib/commerce/server";
 
 /**
  * Public page for a published gallery.
@@ -35,8 +37,9 @@ export default async function GalleryPage({ params }) {
   // missing one, so a guessed slug reveals nothing about what exists.
   if (problem) notFound();
 
-  const items = await loadGalleryAssets(gallery);
-  return <GalleryView gallery={gallery} items={items} />;
+  const [items, store] = await Promise.all([loadGalleryAssets(gallery), loadGalleryStore(gallery)]);
+  const cover = await loadGalleryCover(gallery, items);
+  return <GalleryView gallery={gallery} items={items} cover={cover} store={store} />;
 }
 
 export async function generateMetadata({ params }) {
@@ -46,6 +49,13 @@ export async function generateMetadata({ params }) {
   if (!gallery) return { title: "Gallery not found" };
 
   const indexable = gallery.visibility === "public" && gallery.status === "published";
+  // Share previews fall back to the cover, but only for a gallery a visitor
+  // could actually open — a gated one mustn't leak its contents in the card.
+  const cover =
+    !gallery.seo?.ogImage && !accessProblem(gallery, { unlocked: false })
+      ? await loadGalleryCover(gallery)
+      : null;
+  const ogImage = gallery.seo?.ogImage || cover?.thumbnailUrl || null;
   return {
     title: gallery.seo?.title || gallery.name || "Gallery",
     description: gallery.seo?.description || gallery.headline || undefined,
@@ -55,7 +65,8 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: gallery.seo?.title || gallery.name,
       description: gallery.seo?.description || gallery.headline || undefined,
-      images: gallery.seo?.ogImage ? [gallery.seo.ogImage] : undefined,
+      images: ogImage ? [ogImage] : undefined,
     },
+    twitter: { card: ogImage ? "summary_large_image" : "summary" },
   };
 }

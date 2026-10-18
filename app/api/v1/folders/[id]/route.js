@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok } from "@/lib/api/respond";
 
 export const runtime = "nodejs";
@@ -72,7 +72,6 @@ export async function PATCH(request, { params }) {
     return apiError("write_failed", "Could not update the folder.", 500);
   }
   if (!data) return apiError("not_found", "Folder not found.", 404);
-  countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/folders/[id]", method: "PATCH", status: 200 }).catch(() => {});
   return ok(normalize(data));
 }
 

@@ -2,16 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  Upload,
-  Copy,
-  Link2,
-  Pencil,
-  Trash2,
-  Loader2,
-  Image as ImageIcon,
-  File,
-} from "lucide-react";
+import { Upload, Loader2, Image as ImageIcon, File } from "lucide-react";
 
 import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
@@ -25,6 +16,8 @@ import {
   LoadingArea,
   ScreenHeader,
   SearchInput,
+  SettingRow,
+  SettingsList,
   StatsBar,
   StatusPill,
   Toolbar,
@@ -47,11 +40,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@geiger/ui/select";
-import { ActionMenu } from "@geiger/ui/action-menu";
 import { FilterDropdown } from "@/components/internal/shared/filter_dropdown";
 import { cn } from "@/lib/utils";
 import {
-  TYPE_ICONS,
   FILE_TYPE_COLORS,
   STATUS_META,
   TYPE_FILTER_OPTIONS,
@@ -60,19 +51,28 @@ import {
   formatDate,
 } from "./constants";
 import { copyAssetLink } from "@/lib/delivery/copy_link";
-import { listAssets, createAsset } from "@/lib/supabase/assets";
-import { getUser } from "@/lib/supabase/user";
+import { listAssets } from "@/lib/supabase/assets";
 import {
   uploadAsset,
-  deleteAssetFile,
   UPLOAD_PHASE_LABELS,
   UPLOAD_ERROR_MESSAGES,
 } from "@/lib/storage/client";
 import { FileDropzone } from "@/components/internal/shared/file_dropzone";
+import { AssetThumbnail } from "@/components/internal/shared/asset_thumbnail";
+import { fileKind } from "@/components/internal/shared/asset_meta";
 import { FolderPicker, folderPath } from "@/components/internal/shared/folder_explorer";
 import { useWorkspaceUrl } from "@/lib/hooks/use-workspace-url";
 import { AssetEditScreen } from "./asset_detail";
 import { AssetQuickViewSheet } from "./asset_quick_view";
+import { AssetActionMenu } from "./asset_action_menu";
+import { useSearchTracking } from "../analytics/use_search_tracking";
+import {
+  AddToCollectionDialog,
+  DeleteAssetDialog,
+  DuplicateAssetDialog,
+  RenameAssetDialog,
+  useAssetActions,
+} from "./use_asset_actions";
 
 const EMPTY_DRAFT = {
   name: "",
@@ -82,12 +82,15 @@ const EMPTY_DRAFT = {
   status: "draft",
 };
 
-function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
+export function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [phaseLabel, setPhaseLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  // Off by default: images are re-encoded to the "web" preset unless the
+  // uploader opts into keeping the original bytes.
+  const [lossless, setLossless] = useState(false);
 
   const set = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -97,7 +100,12 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     setFile(next);
 
     const suggestion = (next.name || "").replace(/\.[^.]+$/, "").trim();
-    setDraft((d) => (d.name.trim() ? d : { ...d, name: suggestion }));
+    const kind = fileKind({ mimeType: next.type, name: next.name });
+    setDraft((d) => ({
+      ...d,
+      name: d.name.trim() ? d.name : suggestion,
+      type: kind || d.type,
+    }));
   };
 
   const close = () => {
@@ -106,6 +114,7 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     setFile(null);
     setProgress(0);
     setPhaseLabel("");
+    setLossless(false);
     onOpenChange(false);
   };
 
@@ -125,6 +134,7 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
       type: draft.type,
       status: draft.status,
       folder: draft.folder ? folderPath(draft.folder) : "root",
+      quality: lossless ? "original" : "web",
       onProgress: setProgress,
       onPhase: (p) => setPhaseLabel(UPLOAD_PHASE_LABELS[p] || ""),
       onError: (code) => {
@@ -141,6 +151,7 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
     setFile(null);
     setProgress(0);
     setPhaseLabel("");
+    setLossless(false);
     onOpenChange(false);
     if (typeof onUploaded === "function") onUploaded(asset);
   };
@@ -181,7 +192,7 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Type">
               <Select value={draft.type} onValueChange={set("type")}>
                 <SelectTrigger>
@@ -252,6 +263,16 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
               </label>
             )}
           </FileDropzone>
+
+          <SettingsList>
+            <SettingRow
+              title="Upload lossless"
+              description="Store the file exactly as it is. Off re-encodes images to WebP at up to 2048px to save storage and bandwidth. Formats the browser can't decode (PSD, TIFF, RAW) always upload untouched."
+              checked={lossless}
+              onCheckedChange={setLossless}
+            />
+          </SettingsList>
+
           {busy && (
             <div className="flex items-center gap-2">
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-card">
@@ -296,18 +317,6 @@ function UploadDialog({ open, onOpenChange, projectId, onUploaded }) {
   );
 }
 
-function AssetThumb({ asset }) {
-  const Icon = TYPE_ICONS[asset.type] || File;
-  return (
-    <div
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-      style={{ background: `${asset.color}15`, borderColor: `${asset.color}25` }}
-    >
-      <Icon className="h-4 w-4" style={{ color: asset.color || "#737373" }} />
-    </div>
-  );
-}
-
 export function LibraryScreen({ projectId }) {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -315,10 +324,14 @@ export function LibraryScreen({ projectId }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showUpload, setShowUpload] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-
   const [previewId, setPreviewId] = useState(null);
-  const { assetId: openAssetId, openAsset, closeAsset } = useWorkspaceUrl();
+  const {
+    assetId: openAssetId,
+    openAsset,
+    closeAsset,
+    openFolder,
+    setTab,
+  } = useWorkspaceUrl();
 
   useEffect(() => {
     let alive = true;
@@ -355,6 +368,11 @@ export function LibraryScreen({ projectId }) {
     });
   }, [assets, search, typeFilter, statusFilter]);
 
+  const trackSearchClick = useSearchTracking({
+    projectId, query: search, resultCount: filtered.length,
+    filters: { type: typeFilter, status: statusFilter }, loading,
+  });
+
   const pager = usePagination(filtered, {
     resetKey: `${search}|${typeFilter}|${statusFilter}`,
   });
@@ -371,52 +389,37 @@ export function LibraryScreen({ projectId }) {
     ];
   }, [assets]);
 
-  const handleDelete = async (asset) => {
-    setDeleteTarget(null);
-    if (previewId === asset.id) setPreviewId(null);
-    const previous = assets;
-    setAssets((rows) => rows.filter((a) => a.id !== asset.id));
-    const ok = await deleteAssetFile(asset.id);
-    if (ok) {
-      toast.success(`Deleted "${asset.name}".`);
-    } else {
-      setAssets(previous);
-      toast.error("Couldn't delete the asset on the server.");
-    }
-  };
+  const assetActions = useAssetActions({
+    projectId,
+    assets,
+    setAssets,
+    onDeleted: (asset) => {
+      if (previewId === asset.id) setPreviewId(null);
+    },
+  });
+  const {
+    deleteTarget,
+    setDeleteTarget,
+    handleDelete,
+    duplicateTarget,
+    setDuplicateTarget,
+    handleDuplicate,
+  } = assetActions;
 
-  const handleDuplicate = async (asset) => {
-    const id = crypto.randomUUID();
-    const copy = {
-      ...asset,
-      id,
-      name: asset.name.replace(/(\.[^.]+)?$/, " (copy)$1"),
-      status: "draft",
-      downloads: 0,
-    };
-    setAssets((prev) => [copy, ...prev]);
-    const user = await getUser();
-    const created = await createAsset({
-      id,
-      projectId,
-      createdBy: user?.id || null,
-      name: copy.name,
-      type: copy.type,
-      format: copy.format,
-      sizeBytes: copy.sizeBytes,
-      dimensions: copy.dimensions,
-      folder: copy.folder,
-      status: "draft",
-      tags: copy.tags,
-      color: copy.color,
-    });
-    if (created) {
-      setAssets((prev) => prev.map((a) => (a.id === id ? created : a)));
-      toast.success(`Duplicated "${asset.name}".`);
-    } else {
-      setAssets((prev) => prev.filter((a) => a.id !== id));
-      toast.error("Couldn't save the copy to the server.");
-    }
+  const rowActions = {
+    open: (asset) => { trackSearchClick(asset.id); setPreviewId(asset.id); },
+    edit: (asset) => { trackSearchClick(asset.id); openAsset(asset.id); },
+    openFolder: openFolder && ((asset) => openFolder(asset.folder)),
+    download: assetActions.handleDownload,
+    downloadAs: assetActions.handleDownloadAs,
+    copyLink: copyAssetLink,
+    createShareLink: assetActions.handleCreateShareLink,
+    manageShares: () => setTab("Shared Links"),
+    rename: assetActions.setRenameTarget,
+    replace: assetActions.handleReplace,
+    duplicate: setDuplicateTarget,
+    addToCollection: assetActions.setCollectionTarget,
+    remove: setDeleteTarget,
   };
 
   const syncAsset = (updated) =>
@@ -426,8 +429,6 @@ export function LibraryScreen({ projectId }) {
     () => (previewId ? assets.find((a) => a.id === previewId) ?? null : null),
     [assets, previewId],
   );
-
-  const handleCopyLink = (asset) => copyAssetLink(asset);
 
   const editFromSheet = (asset) => {
     setPreviewId(null);
@@ -440,7 +441,7 @@ export function LibraryScreen({ projectId }) {
       header: "Asset",
       render: (a) => (
         <div className="flex items-center gap-3">
-          <AssetThumb asset={a} />
+          <AssetThumbnail asset={a} />
           <div className="flex min-w-0 flex-col gap-1">
             <span className="max-w-[260px] truncate font-medium text-foreground">
               {a.name}
@@ -486,23 +487,7 @@ export function LibraryScreen({ projectId }) {
       header: "",
       align: "right",
       className: "text-right",
-      render: (a) => (
-        <ActionMenu
-          label={`Actions for ${a.name}`}
-          items={[
-            { icon: Pencil, label: "Edit", onSelect: () => openAsset(a.id) },
-            { icon: Copy, label: "Duplicate", onSelect: () => handleDuplicate(a) },
-            { icon: Link2, label: "Copy link", onSelect: () => handleCopyLink(a) },
-            { separator: true },
-            {
-              icon: Trash2,
-              label: "Delete",
-              variant: "destructive",
-              onSelect: () => setDeleteTarget(a),
-            },
-          ]}
-        />
-      ),
+      render: (a) => <AssetActionMenu asset={a} actions={rowActions} />,
     },
   ];
 
@@ -564,7 +549,7 @@ export function LibraryScreen({ projectId }) {
             columns={columns}
             data={pager.pageItems}
             getRowKey={(a) => a.id}
-            onRowClick={(a) => setPreviewId(a.id)}
+            onRowClick={(a) => { trackSearchClick(a.id); setPreviewId(a.id); }}
             empty={
               <div className="rounded-xl border border-border bg-surface-subtle">
                 <EmptyState
@@ -600,7 +585,7 @@ export function LibraryScreen({ projectId }) {
         open={!!previewAsset}
         onOpenChange={(open) => !open && setPreviewId(null)}
         onEdit={editFromSheet}
-        onDuplicate={handleDuplicate}
+        onDuplicate={setDuplicateTarget}
         onDelete={setDeleteTarget}
         onUpdate={syncAsset}
       />
@@ -612,34 +597,30 @@ export function LibraryScreen({ projectId }) {
         onUploaded={reload}
       />
 
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete asset</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{" "}
-              <span className="font-medium text-foreground">
-                {deleteTarget?.name}
-              </span>
-              ? This action can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-500/90 text-white hover:bg-red-500"
-              onClick={() => handleDelete(deleteTarget)}
-            >
-              <Trash2 className="h-4 w-4" /> Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteAssetDialog
+        asset={deleteTarget}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
+
+      <DuplicateAssetDialog
+        asset={duplicateTarget}
+        onCancel={() => setDuplicateTarget(null)}
+        onConfirm={handleDuplicate}
+      />
+
+      <RenameAssetDialog
+        asset={assetActions.renameTarget}
+        onCancel={() => assetActions.setRenameTarget(null)}
+        onConfirm={assetActions.handleRename}
+      />
+
+      <AddToCollectionDialog
+        projectId={projectId}
+        asset={assetActions.collectionTarget}
+        onCancel={() => assetActions.setCollectionTarget(null)}
+        onConfirm={assetActions.handleAddToCollection}
+      />
     </MainScreenWrapper>
   );
 }

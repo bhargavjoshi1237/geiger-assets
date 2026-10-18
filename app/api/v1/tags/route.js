@@ -1,4 +1,4 @@
-import { requireApiKey, countUsage } from "@/lib/api/auth";
+import { requireApiKey } from "@/lib/api/auth";
 import { apiError, ok, paginate } from "@/lib/api/respond";
 
 export const runtime = "nodejs";
@@ -34,7 +34,6 @@ export async function GET(request) {
     const rows = [...counts.entries()]
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-    countUsage({ supabase, projectId: key.projectId, keyId: key.id, route: "/api/v1/tags", method: "GET", status: 200 }).catch(() => {});
     return ok(paginate(rows, { limit: params.get("limit"), cursor: params.get("cursor") }));
   } catch (e) {
     console.error("[v1.tags.list]", e?.message || e);

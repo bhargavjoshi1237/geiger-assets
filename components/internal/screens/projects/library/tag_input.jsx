@@ -50,7 +50,7 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags…", cl
             type="button"
             aria-label={`Remove ${tag}`}
             onClick={() => remove(tag)}
-            className="text-text-tertiary hover:text-red-400"
+            className="text-text-tertiary hover:text-red-600 dark:hover:text-red-400"
           >
             <X className="h-3 w-3" />
           </button>

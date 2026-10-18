@@ -170,15 +170,15 @@ export function ocrStatusOf(asset) {
 }
 
 export const TRANSCRIPT_META = {
-  ready: { label: "Transcribed", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  processing: { label: "Transcribing", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  draft: { label: "Draft", className: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  ready: { label: "Transcribed", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  processing: { label: "Transcribing", className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  draft: { label: "Draft", className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
   none: { label: "No transcript", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
 };
 
 export const OCR_META = {
-  ready: { label: "OCR complete", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  processing: { label: "OCR running", className: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
+  ready: { label: "OCR complete", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  processing: { label: "OCR running", className: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
   none: { label: "No OCR", className: "bg-zinc-500/15 text-muted-foreground border-zinc-500/30" },
 };
 

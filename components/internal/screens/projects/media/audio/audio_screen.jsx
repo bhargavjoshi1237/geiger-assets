@@ -72,7 +72,7 @@ function AudioDetail({ asset, onBack }) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/15">
-            <Music className="h-5 w-5 text-amber-300" />
+            <Music className="h-5 w-5 text-amber-700 dark:text-amber-300" />
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">{asset.name}</h1>
@@ -213,7 +213,7 @@ export function AudioScreen({ projectId }) {
       render: (a) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/15">
-            <Music className="h-4 w-4 text-amber-300" />
+            <Music className="h-4 w-4 text-amber-700 dark:text-amber-300" />
           </div>
           <div className="min-w-0">
             <p className="max-w-[240px] truncate text-sm font-medium text-foreground">{a.name}</p>

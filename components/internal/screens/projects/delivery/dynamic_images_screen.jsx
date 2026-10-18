@@ -160,7 +160,7 @@ function TransformPanel({ link, assets, onSave, saving }) {
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-black/40">
+      <div className="overflow-hidden rounded-xl border border-border bg-muted dark:bg-black/40">
         {asset?.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -232,7 +232,7 @@ function TransformPanel({ link, assets, onSave, saving }) {
 
       <div>
         <p className="mb-1.5 text-xs font-medium text-foreground">Live URL</p>
-        <pre className="overflow-x-auto rounded-lg border border-border bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{url}</pre>
+        <pre className="overflow-x-auto rounded-lg border border-border bg-muted dark:bg-black/40 p-3 font-mono text-[11px] leading-5 text-text-secondary">{url}</pre>
         <div className="mt-2 flex gap-2">
           <Button
             variant="outline"
@@ -592,7 +592,7 @@ export function DynamicImagesScreen({ projectId }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="mt-2 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  className="mt-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
                   onClick={() => handleDelete(selected)}
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Delete link

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Check, Copy, FlaskConical } from "lucide-react";
+import { Check, Copy, FlaskConical, Lock } from "lucide-react";
 
 import { Button } from "@geiger/ui/button";
 import { Input } from "@geiger/ui/input";
@@ -57,7 +57,7 @@ const EFFECT_OPTIONS = [
 // The toggle follows the form, but /d/ only serves once delivery_enabled has
 // actually been persisted, so the preview has to follow `saved` or it renders
 // against a 404 the moment the switch is flipped.
-export function DeliverySection({ asset, saved, onPatch }) {
+export function DeliverySection({ asset, saved, transformsEnabled = false, onPatch }) {
   const [width, setWidth] = useState("800");
   const [height, setHeight] = useState("");
   const [crop, setCrop] = useState("fill");
@@ -136,6 +136,13 @@ export function DeliverySection({ asset, saved, onPatch }) {
             icon={FlaskConical}
             title="No file yet"
             description="Upload a file for this asset before previewing transforms."
+            className="py-8"
+          />
+        ) : !transformsEnabled ? (
+          <EmptyState
+            icon={Lock}
+            title="URL transforms are off"
+            description="This project serves originals only. Turn on URL transforms in Settings → General to resize, crop, and apply effects."
             className="py-8"
           />
         ) : (
@@ -236,7 +243,7 @@ export function DeliverySection({ asset, saved, onPatch }) {
                   className="h-7 w-7 shrink-0 text-text-secondary hover:bg-surface-active hover:text-foreground"
                   onClick={copyUrl}
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                 </Button>
               </div>
             </div>

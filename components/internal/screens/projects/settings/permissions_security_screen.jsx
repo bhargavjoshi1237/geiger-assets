@@ -10,7 +10,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CopyPlus, Lock, Plus, ShieldCheck, X } from "lucide-react";
 
-import { SecondaryScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   DataTable,
   EmptyState,
@@ -270,7 +270,7 @@ function IpAllowlistEditor({ value, onSave }) {
   );
 }
 
-export function PermissionsSecurityScreen({ projectId }) {
+export function PermissionsSecurityScreen({ projectId, title = "Permissions & Security", description = "Roles, access policy, and the security rules this project enforces." }) {
   const { setTab } = useWorkspaceUrl();
   const { settings, loading: settingsLoading, patchSection } =
     useProjectSettings(projectId);
@@ -514,23 +514,23 @@ export function PermissionsSecurityScreen({ projectId }) {
 
   if (loading) {
     return (
-      <SecondaryScreenWrapper>
+      <MainScreenWrapper>
         <ScreenHeader
-          title="Permissions & Security"
-          description="Roles, access policy, and the security rules this project enforces."
+          title={title}
+          description={description}
         />
         <LoadingArea size={56} label="Loading permissions" />
-      </SecondaryScreenWrapper>
+      </MainScreenWrapper>
     );
   }
 
   const security = settings.security ?? {};
 
   return (
-    <SecondaryScreenWrapper>
+    <MainScreenWrapper>
       <ScreenHeader
-        title="Permissions & Security"
-        description="Roles, access policy, and the security rules this project enforces."
+        title={title}
+        description={description}
         actions={
           tab === "roles" ? (
             <Button
@@ -711,7 +711,7 @@ export function PermissionsSecurityScreen({ projectId }) {
         onSave={handleSave}
         saving={saving}
       />
-    </SecondaryScreenWrapper>
+    </MainScreenWrapper>
   );
 }
 

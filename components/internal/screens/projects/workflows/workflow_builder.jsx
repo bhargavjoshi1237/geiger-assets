@@ -13,17 +13,12 @@ import {
   Zap,
 } from "lucide-react";
 
-import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
-import { EditorHeader } from "@/components/internal/shared/editor_shell";
-import {
-  EditorSectionHeader,
-  Field,
-  SegmentedTabs,
-} from "@/components/internal/shared/screen_kit";
+import { EditorShell } from "@/components/internal/shared/editor_shell";
+import { useEditorGuard } from "@/components/internal/shared/unsaved_changes";
+import { Field, SegmentedTabs } from "@/components/internal/shared/screen_kit";
 import { Button } from "@geiger/ui/button";
 import { Input } from "@geiger/ui/input";
 import { Textarea } from "@geiger/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@geiger/ui";
 import {
   Select,
   SelectContent,
@@ -39,15 +34,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@geiger/ui/dialog";
-import { cn } from "@/lib/utils";
 
-import { WORKFLOW_STATUS_MAP, TRIGGER_CATALOG, catalogEntry } from "./constants";
+import { WORKFLOW_STATUS_MAP, catalogEntry } from "./constants";
+import { TriggerOptions } from "./trigger_options";
 import { WorkflowStepList } from "./step_list";
 import { WorkflowCanvas } from "./canvas/workflow_canvas";
 
-const SETTINGS_NAV = [
+const NAV_GROUPS = [
   {
     group: null,
+    items: [
+      {
+        key: "builder",
+        label: "Builder",
+        icon: Network,
+        desc: "The steps this workflow runs, as a list or on a canvas.",
+      },
+    ],
+  },
+  {
+    group: "Settings",
     items: [
       {
         key: "general",
@@ -94,8 +100,6 @@ export function WorkflowBuilderScreen({
 }) {
   const [form, setForm] = useState(workflow);
   const [view, setView] = useState("canvas");
-  const [activeTab, setActiveTab] = useState("builder");
-  const [activeSetting, setActiveSetting] = useState("general");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -103,9 +107,9 @@ export function WorkflowBuilderScreen({
     setSeedId(workflow.id);
     setForm(workflow);
     setView("canvas");
-    setActiveTab("builder");
-    setActiveSetting("general");
   }
+
+  const guard = useEditorGuard({ onBack });
 
   if (!workflow) return null;
 
@@ -149,10 +153,13 @@ export function WorkflowBuilderScreen({
 
   const isActive = form.status === "Active";
 
+  // Anything that isn't a settings key falls back to the builder.
+  const onBuilder = !["general", "trigger", "danger"].includes(guard.active);
+
   return (
-    <MainScreenWrapper>
-      <EditorHeader
-        back={{ label: "All workflows", onClick: onBack }}
+    <>
+      <EditorShell
+        back={{ label: "All workflows", onClick: guard.back }}
         title={form.name}
         status={form.status}
         statusMap={WORKFLOW_STATUS_MAP}
@@ -187,181 +194,119 @@ export function WorkflowBuilderScreen({
             </Button>
           </>
         }
-      />
+        nav={NAV_GROUPS}
+        subject={form}
+        active={guard.active}
+        onActiveChange={guard.selectSection}
+        sectionAction={onBuilder ? <ViewToggle view={view} onChange={setView} /> : null}
+      >
+        {({ active }) => (
+          <>
+            {active === "builder" ? (
+              view === "list" ? (
+                <WorkflowStepList steps={form.steps} onChange={handleStepsChange} />
+              ) : (
+                <WorkflowCanvas
+                  key={form.id}
+                  steps={form.steps}
+                  graph={form.graph}
+                  active={isActive}
+                  onChange={handleCanvasChange}
+                />
+              )
+            ) : null}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-        <div className="flex items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="builder">Builder</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-          {activeTab === "builder" ? (
-            <ViewToggle view={view} onChange={setView} />
-          ) : null}
-        </div>
+            {active === "general" ? (
+              <div className="grid gap-4">
+                <Field label="Workflow name" htmlFor="wf-name">
+                  <Input
+                    id="wf-name"
+                    value={form.name}
+                    onChange={(e) => patch({ name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Description" htmlFor="wf-desc">
+                  <Textarea
+                    id="wf-desc"
+                    value={form.description || ""}
+                    onChange={(e) => patch({ description: e.target.value })}
+                    placeholder="What does this workflow do?"
+                    rows={3}
+                  />
+                </Field>
+              </div>
+            ) : null}
 
-        <TabsContent value="builder" className="mt-2">
-          {view === "list" ? (
-            <WorkflowStepList steps={form.steps} onChange={handleStepsChange} />
-          ) : (
-            <WorkflowCanvas
-              key={form.id}
-              steps={form.steps}
-              graph={form.graph}
-              active={isActive}
-              onChange={handleCanvasChange}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="settings" className="mt-6">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_220px]">
-            <div className="order-2 min-w-0 lg:order-1">
-              <EditorSectionHeader
-                className="mb-5"
-                title={SETTINGS_NAV.flatMap((g) => g.items).find((i) => i.key === activeSetting)?.label}
-                description={
-                  SETTINGS_NAV.flatMap((g) => g.items).find((i) => i.key === activeSetting)?.desc
-                }
-              />
-
-              {activeSetting === "general" && (
-                <div className="grid gap-4">
-                  <Field label="Workflow name" htmlFor="wf-name">
-                    <Input
-                      id="wf-name"
-                      value={form.name}
-                      onChange={(e) => patch({ name: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="Description" htmlFor="wf-desc">
-                    <Textarea
-                      id="wf-desc"
-                      value={form.description || ""}
-                      onChange={(e) => patch({ description: e.target.value })}
-                      placeholder="What does this workflow do?"
-                      rows={3}
-                    />
-                  </Field>
-                </div>
-              )}
-
-              {activeSetting === "trigger" && (
-                <div className="grid gap-4">
-                  <Field label="Trigger">
-                    <Select value={form.trigger || ""} onValueChange={setTriggerType}>
+            {active === "trigger" ? (
+              <div className="grid gap-4">
+                <Field label="Trigger">
+                  <Select value={form.trigger || ""} onValueChange={setTriggerType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a trigger" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <TriggerOptions />
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Scope">
+                  <Select
+                    value={form.scope}
+                    onValueChange={(scope) =>
+                      patch({ scope, collectionId: scope === "collection" ? form.collectionId : null })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="workspace">All collections (workspace)</SelectItem>
+                      <SelectItem value="collection">A specific collection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {form.scope === "collection" && (
+                  <Field label="Collection">
+                    <Select
+                      value={form.collectionId || ""}
+                      onValueChange={(collectionId) => patch({ collectionId })}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Choose a trigger" />
+                        <SelectValue placeholder="Select collection" />
                       </SelectTrigger>
                       <SelectContent>
-                        {TRIGGER_CATALOG.map((t) => (
-                          <SelectItem key={t.key} value={t.key}>
-                            {t.label}
+                        {(collections || []).map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Scope">
-                    <Select
-                      value={form.scope}
-                      onValueChange={(scope) =>
-                        patch({ scope, collectionId: scope === "collection" ? form.collectionId : null })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="workspace">All collections (workspace)</SelectItem>
-                        <SelectItem value="collection">A specific collection</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  {form.scope === "collection" && (
-                    <Field label="Collection">
-                      <Select
-                        value={form.collectionId || ""}
-                        onValueChange={(collectionId) => patch({ collectionId })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select collection" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(collections || []).map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+            ) : null}
 
-              {activeSetting === "danger" && (
-                <div className="flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/5 p-5">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Delete this workflow</p>
-                    <p className="mt-0.5 text-xs text-text-secondary">
-                      This action is permanent and cannot be undone.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 border-red-500/30 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-300"
-                    onClick={() => setDeleteOpen(true)}
-                  >
-                    <Trash2 className="h-4 w-4" /> Delete
-                  </Button>
+            {active === "danger" ? (
+              <div className="flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Delete this workflow</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    This action is permanent and cannot be undone.
+                  </p>
                 </div>
-              )}
-            </div>
-
-            <aside className="order-1 lg:order-2">
-              <nav className="space-y-5 lg:sticky lg:top-0 lg:h-[calc(100dvh-7.5rem)] lg:overflow-y-auto lg:pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {SETTINGS_NAV.map((group, gi) => (
-                  <div key={group.group || `g${gi}`}>
-                    {group.group ? (
-                      <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                        {group.group}
-                      </p>
-                    ) : null}
-                    <div className="space-y-0.5">
-                      {group.items.map((item) => {
-                        const Icon = item.icon;
-                        const isItemActive = activeSetting === item.key;
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setActiveSetting(item.key)}
-                            className={cn(
-                              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                              isItemActive
-                                ? "bg-surface-card font-medium text-foreground"
-                                : "text-muted-foreground hover:bg-surface-subtle hover:text-foreground",
-                            )}
-                          >
-                            <Icon
-                              className={cn(
-                                "h-4 w-4 shrink-0",
-                                isItemActive ? "text-foreground" : "text-text-secondary",
-                              )}
-                            />
-                            <span className="truncate capitalize">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </nav>
-            </aside>
-          </div>
-        </TabsContent>
-      </Tabs>
+                <Button
+                  variant="outline"
+                  className="shrink-0 border-red-500/30 bg-transparent text-red-700 dark:text-red-300 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
+      </EditorShell>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">
@@ -389,7 +334,7 @@ export function WorkflowBuilderScreen({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </MainScreenWrapper>
+    </>
   );
 }
 

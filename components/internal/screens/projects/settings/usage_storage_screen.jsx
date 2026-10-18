@@ -7,10 +7,9 @@
 // patchSection). Charts are read-only decoration; everything else persists.
 
 import React, { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { HardDrive } from "lucide-react";
 
-import { SecondaryScreenWrapper } from "@/components/internal/shared/screen_wrappers";
+import { MainScreenWrapper } from "@/components/internal/shared/screen_wrappers";
 import {
   EmptyState,
   LoadingArea,
@@ -18,12 +17,7 @@ import {
   SectionCard,
   StatsBar,
 } from "@/components/internal/shared/screen_kit";
-import {
-  areaOption,
-  donutOption,
-  horizontalBarOption,
-  useChartTheme,
-} from "@/components/internal/shared/chart_kit";
+import { AnalyticsChart } from "@/components/internal/screens/projects/analytics/analytics_chart";
 import {
   useModuleRows,
 } from "@/components/internal/shared/module_kit";
@@ -35,18 +29,6 @@ import {
   NumberSettingRow,
   useProjectSettings,
 } from "./settings_kit";
-
-const ChartCard = dynamic(
-  () =>
-    import("@/components/internal/shared/chart_kit").then((m) => m.ChartCard),
-  { ssr: false, loading: () => <LoadingArea size={40} /> },
-);
-
-const EChart = dynamic(
-  () =>
-    import("@/components/internal/shared/chart_kit").then((m) => m.EChart),
-  { ssr: false, loading: () => <LoadingArea size={40} /> },
-);
 
 const GB = 1024 ** 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -79,7 +61,6 @@ export function UsageStorageScreen({ projectId }) {
     listDeliveryEvents,
     projectId,
   );
-  const theme = useChartTheme();
   // Frozen at mount so derived windows don't shift mid-render.
   const [now] = useState(() => Date.now());
 
@@ -191,16 +172,6 @@ export function UsageStorageScreen({ projectId }) {
     },
   ];
 
-  const growthOption = useMemo(
-    () =>
-      areaOption(theme, {
-        name: "Stored GB",
-        categories: usage.growth.map((g) => g.day),
-        data: usage.growth.map((g) => g.gb),
-      }),
-    [theme, usage.growth],
-  );
-
   const typeSlices = useMemo(() => {
     const top = usage.byType.slice(0, 5);
     const rest = usage.byType.slice(5);
@@ -214,21 +185,6 @@ export function UsageStorageScreen({ projectId }) {
     return slices;
   }, [usage.byType]);
 
-  const typeOption = useMemo(
-    () => donutOption(theme, { data: typeSlices }),
-    [theme, typeSlices],
-  );
-
-  const folderOption = useMemo(
-    () =>
-      horizontalBarOption(theme, {
-        name: "Bytes",
-        categories: usage.folders.map((f) => f.folder),
-        data: usage.folders.map((f) => f.bytes),
-      }),
-    [theme, usage.folders],
-  );
-
   const toggleFileType = (type) => {
     const current = settings.usage?.allowedFileTypes ?? [];
     const next = current.includes(type)
@@ -239,13 +195,13 @@ export function UsageStorageScreen({ projectId }) {
 
   if (loading) {
     return (
-      <SecondaryScreenWrapper>
+      <MainScreenWrapper>
         <ScreenHeader
           title="Usage & Storage"
           description="Resource consumption, limits, and retention for this project."
         />
         <LoadingArea size={56} label="Loading usage" />
-      </SecondaryScreenWrapper>
+      </MainScreenWrapper>
     );
   }
 
@@ -253,7 +209,7 @@ export function UsageStorageScreen({ projectId }) {
     (assets ?? []).length > 0 || (daily ?? []).length > 0;
 
   return (
-    <SecondaryScreenWrapper>
+    <MainScreenWrapper>
       <ScreenHeader
         title="Usage & Storage"
         description="Resource consumption, limits, and retention for this project."
@@ -263,9 +219,8 @@ export function UsageStorageScreen({ projectId }) {
 
       {hasContent ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard
-            title="Storage growth"
-            description="Cumulative stored GB · last 30 days"
+          <AnalyticsChart
+            chart={{ type: "area", title: "Storage growth", description: "Cumulative stored GB · last 30 days", categories: usage.growth.map((g) => g.day), name: "Stored GB", values: usage.growth.map((g) => g.gb) }}
             table={{
               columns: [
                 { key: "day", header: "Day" },
@@ -274,12 +229,9 @@ export function UsageStorageScreen({ projectId }) {
               rows: usage.growth,
               getRowKey: (g) => g.key,
             }}
-          >
-            <EChart option={growthOption} height={260} />
-          </ChartCard>
-          <ChartCard
-            title="By file type"
-            description="Stored bytes by asset type"
+          />
+          <AnalyticsChart
+            chart={{ type: "donut", title: "By file type", description: "Stored bytes by asset type", rows: typeSlices.map((slice) => ({ label: slice.name, value: slice.value })), format: "bytes" }}
             table={{
               columns: [
                 { key: "type", header: "Type" },
@@ -294,16 +246,13 @@ export function UsageStorageScreen({ projectId }) {
               rows: usage.byType,
               getRowKey: (t) => t.type,
             }}
-          >
-            <EChart option={typeOption} height={260} />
-          </ChartCard>
+          />
         </div>
       ) : null}
 
       {hasContent ? (
-        <ChartCard
-          title="Largest folders"
-          description="Top folders by stored bytes"
+        <AnalyticsChart
+          chart={{ type: "bar", title: "Largest folders", description: "Top folders by stored bytes", rows: usage.folders.map((folder) => ({ label: folder.folder, value: folder.bytes })), format: "bytes" }}
           table={{
             columns: [
               { key: "folder", header: "Folder" },
@@ -318,9 +267,7 @@ export function UsageStorageScreen({ projectId }) {
             rows: usage.folders,
             getRowKey: (f) => f.folder,
           }}
-        >
-          <EChart option={folderOption} height={260} />
-        </ChartCard>
+        />
       ) : (
         <div className="rounded-xl border border-border bg-surface-subtle">
           <EmptyState
@@ -438,7 +385,7 @@ export function UsageStorageScreen({ projectId }) {
           </div>
         </div>
       </SectionCard>
-    </SecondaryScreenWrapper>
+    </MainScreenWrapper>
   );
 }
 

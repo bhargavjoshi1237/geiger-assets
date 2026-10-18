@@ -29,7 +29,7 @@ export default defineNavConfig({
       reason: "Collections curate assets without moving them.",
     },
     {
-      screen: "Folders & Storage",
+      screen: "Folders",
       requires: ["Asset Library"],
       reason: "Folders structure where library source files live.",
     },

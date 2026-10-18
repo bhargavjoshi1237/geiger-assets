@@ -62,12 +62,12 @@ function DesignDetail({ asset, siblings, onBack }) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15">
-            <File className="h-5 w-5 text-orange-300" />
+            <File className="h-5 w-5 text-orange-700 dark:text-orange-300" />
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">{asset.name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge className="border border-orange-500/30 bg-orange-500/15 px-1.5 py-0 text-[10px] text-orange-300">{tool}</Badge>
+              <Badge className="border border-orange-500/30 bg-orange-500/15 px-1.5 py-0 text-[10px] text-orange-700 dark:text-orange-300">{tool}</Badge>
               <StatusPill status={asset.status} map={STATUS_META} className="text-[10px]" />
               <span className="text-xs text-text-secondary">{formatBytes(asset.sizeBytes)}</span>
             </div>
@@ -87,7 +87,7 @@ function DesignDetail({ asset, siblings, onBack }) {
           <SectionCard title="Source ↔ exports" description="Editable source and every delivery file derived from it.">
             <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-card px-3 py-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15">
-                <File className="h-5 w-5 text-orange-300" />
+                <File className="h-5 w-5 text-orange-700 dark:text-orange-300" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{asset.name}</p>
@@ -139,7 +139,7 @@ function DesignDetail({ asset, siblings, onBack }) {
                 <div key={f} className="flex items-center gap-3 rounded-lg border border-border bg-surface-card px-3 py-2.5">
                   <Type className="h-4 w-4 shrink-0 text-text-secondary" />
                   <span className="min-w-0 flex-1 truncate text-sm text-foreground">{f}</span>
-                  <Badge className="border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-300">licensed</Badge>
+                  <Badge className="border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0 text-[10px] text-emerald-700 dark:text-emerald-300">licensed</Badge>
                 </div>
               ))}
             </div>
@@ -216,7 +216,7 @@ export function DesignRawScreen({ projectId }) {
       render: (a) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/15">
-            <File className="h-4 w-4 text-orange-300" />
+            <File className="h-4 w-4 text-orange-700 dark:text-orange-300" />
           </div>
           <div className="min-w-0">
             <p className="max-w-[260px] truncate text-sm font-medium text-foreground">{a.name}</p>

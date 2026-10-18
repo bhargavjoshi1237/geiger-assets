@@ -49,8 +49,8 @@ export function DeltaBadge({ current, previous }) {
     <span
       className={
         up
-          ? "text-xs font-medium text-emerald-400"
-          : "text-xs font-medium text-red-400"
+          ? "text-xs font-medium text-emerald-600 dark:text-emerald-400"
+          : "text-xs font-medium text-red-600 dark:text-red-400"
       }
     >
       {up ? "+" : ""}
@@ -74,11 +74,7 @@ function toCsv(rows) {
   return lines.join("\n");
 }
 
-/**
- * Export menu: CSV serialises rows client-side (Blob + object URL); PNG reads
- * the live chart instance via chartRef. Toasts on success; the screen owns
- * every other toast.
- */
+
 export function ExportButton({ rows, filename = "export", chartRef }) {
   const exportCsv = () => {
     const csv = toCsv(rows);
@@ -98,18 +94,50 @@ export function ExportButton({ rows, filename = "export", chartRef }) {
     toast.success("CSV exported.");
   };
 
-  const exportPng = () => {
-    const chart = chartRef?.current;
-    if (!chart || typeof chart.getDataURL !== "function") {
+  const exportPng = async () => {
+    const host = chartRef?.current;
+    const svg = host?.querySelector?.("svg.recharts-surface");
+    if (!svg) {
       toast.error("Chart isn't ready yet — try again in a moment.");
       return;
     }
     try {
+      const bounds = svg.getBoundingClientRect();
+      const width = Math.ceil(bounds.width);
+      const height = Math.ceil(bounds.height);
+      if (!width || !height) throw new Error("Chart has no visible size");
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("width", String(width));
+      clone.setAttribute("height", String(height));
+      const originalNodes = [svg, ...svg.querySelectorAll("*")];
+      const clonedNodes = [clone, ...clone.querySelectorAll("*")];
+      originalNodes.forEach((node, index) => {
+        const computed = getComputedStyle(node);
+        const target = clonedNodes[index];
+        for (const property of ["fill", "stroke", "color", "fontFamily", "fontSize", "fontWeight", "opacity", "stopColor"]) {
+          const value = computed[property];
+          if (value && !value.startsWith("url(")) target.style[property] = value;
+        }
+      });
+      const svgUrl = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }));
+      const image = new Image();
+      image.src = svgUrl;
+      await image.decode();
+      URL.revokeObjectURL(svgUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = width * 2;
+      canvas.height = height * 2;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas unavailable");
       const surface =
         getComputedStyle(document.documentElement)
           .getPropertyValue("--surface-subtle")
           .trim() || "#1a1a1a";
-      const url = chart.getDataURL({ pixelRatio: 2, backgroundColor: surface });
+      context.fillStyle = surface;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = url;
       link.download = `${filename}.png`;

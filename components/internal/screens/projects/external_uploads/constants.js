@@ -2,13 +2,13 @@ export const PORTAL_STATUS_META = {
   active: {
     variant: "success",
     label: "Active",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   paused: {
     variant: "warning",
     label: "Paused",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   expired: {
@@ -23,19 +23,19 @@ export const SUBMISSION_STATUS_META = {
   pending: {
     variant: "warning",
     label: "Pending",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
   approved: {
     variant: "success",
     label: "Approved",
-    className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-400",
   },
   rejected: {
     variant: "danger",
     label: "Rejected",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
     dotClass: "bg-red-400",
   },
 };
@@ -45,9 +45,10 @@ export const TYPE_LABELS = {
   form: "Upload Form",
 };
 
+// Neutral on purpose: badges carry no per-type colour (see globals.css).
 export const TYPE_BADGE_COLORS = {
-  link: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-  form: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  link: "border-border bg-surface-card text-muted-foreground",
+  form: "border-border bg-surface-card text-muted-foreground",
 };
 
 export const STATUS_OPTIONS = [

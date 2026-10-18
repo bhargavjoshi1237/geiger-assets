@@ -42,7 +42,7 @@ const OCR_FILTER = [
 function DocThumb({ asset }) {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/15">
-      <FileText className="h-4 w-4 text-emerald-300" />
+      <FileText className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
     </div>
   );
 }

@@ -216,7 +216,7 @@ function CreateRequestDialog({ open, onOpenChange, onCreate }) {
               className="border-border bg-surface-card text-foreground"
             />
           </Field>
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
+          {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
         </div>
         <DialogFooter>
           <Button
@@ -396,7 +396,7 @@ export function AssetRequestsScreen({ projectId }) {
       className: "text-xs text-text-secondary hidden lg:table-cell",
       headClassName: "hidden lg:table-cell",
       render: (r) => (
-        <span className={cn(isOverdue(r.dueDate, r.status) && "text-red-400")}>
+        <span className={cn(isOverdue(r.dueDate, r.status) && "text-red-600 dark:text-red-400")}>
           {formatDate(r.dueDate)}
         </span>
       ),
