@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SuiteHeader } from "@geiger/ui/suite-header";
+import { useProductBadges } from "@/lib/product-badges";
 
 import { getUser } from "@/lib/supabase/user";
 import { ProfileDropdown } from "@/components/internal/topbar/dialogue/profile_dropdown";
@@ -9,6 +10,7 @@ import { ProfileDropdown } from "@/components/internal/topbar/dialogue/profile_d
 export function Header({ signInHref, homeHref, dashboardHref = "/org" }) {
   const [user, setUser] = useState(null);
   const [resolved, setResolved] = useState(false);
+  const badges = useProductBadges();
 
   useEffect(() => {
     let active = true;
@@ -30,6 +32,7 @@ export function Header({ signInHref, homeHref, dashboardHref = "/org" }) {
     <SuiteHeader
       userId={user?.id}
       profile={profile}
+      badges={badges}
       signInHref={signInHref}
       homeHref={homeHref}
       dashboardHref={dashboardHref}
