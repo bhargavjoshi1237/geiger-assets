@@ -16,9 +16,10 @@ import { suiteLoginHref } from "@/lib/workspace/suite_session";
 import Footer from "@geiger/ui/footer";
 
 export const metadata = {
-  title: "Assets - Geiger Studio",
+  title: "Geiger Assets: organize, review and share creative files",
   description:
     "Organize, review, and distribute creative assets with Geiger Assets.",
+  alternates: { canonical: "https://geiger.studio/assets" },
 };
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
