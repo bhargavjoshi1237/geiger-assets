@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
+import { throttle } from "@/lib/storage/throttle";
 import { getAssetRow } from "@/lib/storage/service";
 import {
   THUMBNAIL_BUCKET,
@@ -43,6 +44,9 @@ export async function POST(request) {
 
   const access = await requireProjectAccess({ projectId: row.project_id, action: "write" });
   if (access.response) return access.response;
+
+  const limited = throttle("thumbnail", access.userId);
+  if (limited) return limited;
 
   let admin;
   try {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
+import { throttle } from "@/lib/storage/throttle";
 import { proxyStore, PROXY_MAX_BYTES, isStorageConfigured } from "@/lib/storage/service";
 
 export const runtime = "nodejs";
@@ -19,6 +20,9 @@ export async function POST(request) {
 
   const access = await requireProjectAccess({ projectId: String(projectId), action: "write" });
   if (access.response) return access.response;
+
+  const limited = throttle("upload", access.userId);
+  if (limited) return limited;
 
   let form;
   try {
@@ -64,6 +68,7 @@ export async function POST(request) {
 
   if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });
   if (result.error === "unsupported_type") return NextResponse.json({ error: "unsupported_type" }, { status: 415 });
+  if (result.error === "type_mismatch") return NextResponse.json({ error: "type_mismatch" }, { status: 422 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result);
 }

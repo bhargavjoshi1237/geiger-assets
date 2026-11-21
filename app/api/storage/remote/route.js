@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
+import { throttle } from "@/lib/storage/throttle";
 import { proxyStore, isStorageConfigured } from "@/lib/storage/service";
 import { fetchRemoteFile } from "@/lib/storage/remote";
 
@@ -14,6 +15,7 @@ const STATUS_FOR_ERROR = {
   not_found: 404,
   too_large: 413,
   unsupported_type: 415,
+  type_mismatch: 422,
   timeout: 504,
   fetch_failed: 502,
   storage_unconfigured: 503,
@@ -38,6 +40,9 @@ export async function POST(request) {
 
   const access = await requireProjectAccess({ projectId: String(projectId), action: "write" });
   if (access.response) return access.response;
+
+  const limited = throttle("remote", access.userId);
+  if (limited) return limited;
 
   const fetched = await fetchRemoteFile(String(url));
   if (fetched.error) {

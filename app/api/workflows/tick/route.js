@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { storageAuth } from "@/lib/storage/auth";
 import { resumeDueRuns, scanExpiringLicenses } from "@/lib/workflows/engine";
+import { retryDueWebhooks } from "@/lib/webhooks/deliver";
 
 export const runtime = "nodejs";
 
-// Time-based workflow work: resumes runs parked on "Wait / delay" and fires
-// `license.expiring`. Meant for a scheduler (e.g. a Vercel cron) calling with
+// Time-based work: resumes workflow runs parked on "Wait / delay", fires
+// `license.expiring`, and retries webhook deliveries that are due. Meant for a scheduler (e.g. a Vercel cron) calling with
 // `Authorization: Bearer $CRON_SECRET`; without CRON_SECRET set, any signed-in
 // user may trigger it.
 async function authorize(request) {
@@ -28,7 +29,8 @@ async function tick(request) {
 
   const resumed = await resumeDueRuns(db, { limit: 50 });
   const licenses = await scanExpiringLicenses(db);
-  return NextResponse.json({ resumed: resumed.length, licenseRuns: licenses.length });
+  const webhooks = await retryDueWebhooks(db, { limit: 50 });
+  return NextResponse.json({ resumed: resumed.length, licenseRuns: licenses.length, webhookRetries: webhooks.length });
 }
 
 export const GET = tick;

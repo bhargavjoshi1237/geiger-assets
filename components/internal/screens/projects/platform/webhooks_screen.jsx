@@ -69,7 +69,7 @@ import {
   softDeleteWebhookEndpoint,
   rotateWebhookSecret,
   listWebhookDeliveries,
-  createWebhookDelivery,
+  sendWebhookTest,
 } from "@/lib/supabase/platform";
 import { getUser } from "@/lib/supabase/user";
 import { cn, uniqueId } from "@/lib/utils";
@@ -104,8 +104,11 @@ const VIEW_TABS = [
   { value: "deliveries", label: "Delivery log", icon: Send },
 ];
 
-const NO_WORKER_NOTE =
-  "Deliveries are recorded, not sent — no delivery worker is running yet, so rows stay queued.";
+const RETRY_NOTE =
+  "A failed send stays queued and is retried with backoff, up to 6 attempts, each time the scheduled worker runs.";
+
+const SIGNATURE_NOTE =
+  "Each request carries webhook-signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\" keyed by this secret>. Recompute it with a constant-time compare and reject old timestamps.";
 
 function isValidUrl(value) {
   try {
@@ -276,10 +279,10 @@ function EndpointDialog({ open, onOpenChange, initial, onSubmit }) {
 }
 
 // ---------------------------------------------------------------------------
-// Test-send dialog — writes a delivery row, does not deliver
+// Test-send dialog — a real signed POST of a sample payload
 // ---------------------------------------------------------------------------
 
-function TestSendDialog({ open, onOpenChange, endpoint, onSend }) {
+function TestSendDialog({ open, onOpenChange, endpoint, projectId, onSend }) {
   const eventOptions = endpoint?.events?.length ? endpoint.events : WEBHOOK_EVENTS.map((e) => e.key);
   const [event, setEvent] = useState(eventOptions[0] || "asset.created");
   const [seed, setSeed] = useState(endpoint?.id);
@@ -287,7 +290,7 @@ function TestSendDialog({ open, onOpenChange, endpoint, onSend }) {
     setSeed(endpoint?.id);
     setEvent((endpoint?.events || [])[0] || "asset.created");
   }
-  const payload = useMemo(() => samplePayload(event, endpoint?.url), [event, endpoint?.url]);
+  const payload = useMemo(() => samplePayload(event, projectId), [event, projectId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -295,7 +298,8 @@ function TestSendDialog({ open, onOpenChange, endpoint, onSend }) {
         <DialogHeader>
           <DialogTitle>Send a test event</DialogTitle>
           <DialogDescription>
-            Records a test delivery for <span className="font-medium text-foreground">{endpoint?.name}</span>.
+            Sends a signed sample payload to <span className="font-medium text-foreground">{endpoint?.name}</span> and
+            records the response in the delivery log.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
@@ -316,7 +320,7 @@ function TestSendDialog({ open, onOpenChange, endpoint, onSend }) {
           <Field label="Payload">
             <CodeBlock multiline value={JSON.stringify(payload, null, 2)} label="Copy payload" className="max-h-56 overflow-auto" />
           </Field>
-          <Notice>{NO_WORKER_NOTE}</Notice>
+          <Notice>{SIGNATURE_NOTE}</Notice>
         </div>
         <DialogFooter>
           <Button variant="ghost" className="text-muted-foreground hover:bg-surface-active" onClick={() => onOpenChange(false)}>
@@ -329,7 +333,7 @@ function TestSendDialog({ open, onOpenChange, endpoint, onSend }) {
               onOpenChange(false);
             }}
           >
-            <Send className="h-4 w-4" /> Record test delivery
+            <Send className="h-4 w-4" /> Send test
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -437,6 +441,7 @@ function EndpointSheet({ endpoint, deliveries, onClose, onEdit, onTest, onToggle
 
           <SheetSection title="Signing secret">
             <SigningSecret endpoint={endpoint} onRotate={onRotate} />
+            <Notice>{SIGNATURE_NOTE}</Notice>
           </SheetSection>
 
           <SheetSection title={`Events · ${subscribed.size} of ${WEBHOOK_EVENTS.length}`}>
@@ -537,7 +542,7 @@ function DeliverySheet({ delivery, endpointName, onClose }) {
           <SheetSection title="Payload">
             <CodeBlock multiline value={JSON.stringify(delivery.payload, null, 2)} label="Copy payload" />
           </SheetSection>
-          {delivery.status === "queued" ? <Notice>{NO_WORKER_NOTE}</Notice> : null}
+          {delivery.status === "queued" ? <Notice>{RETRY_NOTE}</Notice> : null}
         </>
       ) : null}
     </DetailSheet>
@@ -742,30 +747,22 @@ export function WebhooksScreen({ projectId }) {
     toast.success(`Deleted "${endpoint.name}".`);
   };
 
-  // -- test send: writes a queued delivery row, nothing is delivered ----------
+  // -- test send: a real signed POST, recorded by the server ---------------
 
-  const handleTestSend = async (event, payload) => {
+  const handleTestSend = async (event) => {
     const endpoint = testTarget;
     if (!endpoint) return;
-    const row = {
-      id: uniqueId(),
-      projectId,
-      endpointId: endpoint.id,
-      event,
-      payload,
-      status: "queued",
-      attemptCount: 0,
-      responseCode: null,
-      createdAt: new Date().toISOString(),
-    };
-    setDeliveries((prev) => [row, ...prev]);
-    const saved = await createWebhookDelivery(row);
-    if (saved) {
-      setDeliveries((prev) => prev.map((d) => (d.id === saved.id ? saved : d)));
-      toast.success("Test delivery recorded.");
+    const result = await sendWebhookTest(endpoint.id, event);
+    if (!result) {
+      toast.error("Couldn't send the test delivery.");
+      return;
+    }
+    const rows = await listWebhookDeliveries(projectId);
+    if (rows) setDeliveries(rows);
+    if (result.status === "delivered") {
+      toast.success(`Test delivered — "${endpoint.name}" answered ${result.responseCode}.`);
     } else {
-      setDeliveries((prev) => prev.filter((d) => d.id !== row.id));
-      toast.error("Couldn't record the test delivery.");
+      toast.error(result.error || `"${endpoint.name}" didn't accept the test delivery.`);
     }
   };
 
@@ -969,7 +966,7 @@ export function WebhooksScreen({ projectId }) {
                   </div>
                   <SearchInput value={deliverySearch} onChange={setDeliverySearch} placeholder="Search events…" />
                 </Toolbar>
-                <Notice>{NO_WORKER_NOTE}</Notice>
+                <Notice>{RETRY_NOTE}</Notice>
                 <DataTable
                   columns={deliveryColumns}
                   data={filteredDeliveries}
@@ -1016,6 +1013,7 @@ export function WebhooksScreen({ projectId }) {
         open={!!testTarget}
         onOpenChange={(open) => !open && setTestTarget(null)}
         endpoint={testTarget}
+        projectId={projectId}
         onSend={handleTestSend}
       />
 

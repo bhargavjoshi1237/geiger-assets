@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
+import { throttle } from "@/lib/storage/throttle";
 import { commitUpload, isStorageConfigured } from "@/lib/storage/service";
 import { parseKey } from "@/lib/s3/keys";
 
@@ -27,11 +28,15 @@ export async function POST(request) {
   const access = await requireProjectAccess({ projectId: parsed.projectId, action: "write" });
   if (access.response) return access.response;
 
+  const limited = throttle("commit", access.userId);
+  if (limited) return limited;
+
   const result = await commitUpload({ uploadJobId, key, assetId, checksum, name, type, status, folder, tags, parts, response, providerKey });
   if (result.error === "not_committed") return NextResponse.json({ error: "not_committed" }, { status: 409 });
   if (result.error === "forbidden") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (result.error === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });
+  if (result.error === "type_mismatch") return NextResponse.json({ error: "type_mismatch" }, { status: 422 });
   if (result.error === "storage_full") return NextResponse.json({ error: "storage_full" }, { status: 507 });
   if (result.error === "storage_unconfigured") return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
