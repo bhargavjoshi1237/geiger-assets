@@ -35,6 +35,7 @@ export async function POST(request) {
   if (result.error === "forbidden") return apiError("forbidden", "Key does not belong to this asset.", 403);
   if (result.error === "not_found") return apiError("not_found", "Upload target not found.", 404);
   if (result.error === "too_large") return apiError("too_large", "File exceeds the size limit.", 413);
+  if (result.error === "type_mismatch") return apiError("type_mismatch", "File contents do not match its declared type.", 422);
   if (result.error) return apiError("bad_request", "Could not commit the upload.", 400);
   return ok(result, { status: 201 });
 }

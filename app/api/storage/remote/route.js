@@ -14,6 +14,7 @@ const STATUS_FOR_ERROR = {
   not_found: 404,
   too_large: 413,
   unsupported_type: 415,
+  type_mismatch: 422,
   timeout: 504,
   fetch_failed: 502,
   storage_unconfigured: 503,

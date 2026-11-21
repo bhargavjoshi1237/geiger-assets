@@ -32,6 +32,7 @@ export async function POST(request) {
   if (result.error === "forbidden") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (result.error === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (result.error === "too_large") return NextResponse.json({ error: "too_large" }, { status: 413 });
+  if (result.error === "type_mismatch") return NextResponse.json({ error: "type_mismatch" }, { status: 422 });
   if (result.error === "storage_full") return NextResponse.json({ error: "storage_full" }, { status: 507 });
   if (result.error === "storage_unconfigured") return NextResponse.json({ error: "storage_unconfigured" }, { status: 503 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
