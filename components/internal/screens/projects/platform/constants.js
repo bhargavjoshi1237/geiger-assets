@@ -46,12 +46,15 @@ export function webhookEventLabel(key) {
   return WEBHOOK_EVENTS.find((e) => e.key === key)?.label || key;
 }
 
-export function samplePayload(event, url) {
+// The envelope a test send posts — the same shape real events use, with a
+// placeholder record id and `test: true` in data.
+export function samplePayload(event, projectId) {
   return {
+    id: "<delivery id>",
     event,
-    targetUrl: url || "",
-    triggeredAt: new Date().toISOString(),
-    data: { id: "00000000-0000-4000-8000-000000000000", projectId: null },
+    projectId: projectId || null,
+    createdAt: new Date().toISOString(),
+    data: { id: "00000000-0000-4000-8000-000000000000", projectId: projectId || null, test: true },
   };
 }
 
