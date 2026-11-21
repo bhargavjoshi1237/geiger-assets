@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/storage/auth";
+import { throttle } from "@/lib/storage/throttle";
 import { proxyStore, PROXY_MAX_BYTES, isStorageConfigured } from "@/lib/storage/service";
 
 export const runtime = "nodejs";
@@ -19,6 +20,9 @@ export async function POST(request) {
 
   const access = await requireProjectAccess({ projectId: String(projectId), action: "write" });
   if (access.response) return access.response;
+
+  const limited = throttle("upload", access.userId);
+  if (limited) return limited;
 
   let form;
   try {
